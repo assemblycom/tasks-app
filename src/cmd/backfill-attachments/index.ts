@@ -140,8 +140,10 @@ async function run() {
 
   const { taskAttachmentRequests, commentAttachmentRequests } = await createAttachmentRequests(tasks, comments)
 
-  await createAttachmentsInDatabase(db, taskAttachmentRequests)
-  await createAttachmentsInDatabase(db, commentAttachmentRequests)
+  await Promise.all([
+    createAttachmentsInDatabase(db, taskAttachmentRequests),
+    createAttachmentsInDatabase(db, commentAttachmentRequests),
+  ])
 
   console.info('✅ Backfill complete')
 }
