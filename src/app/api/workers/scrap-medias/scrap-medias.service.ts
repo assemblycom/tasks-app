@@ -29,6 +29,10 @@ export class ScrapMediaService {
       .map((image) => image.templateId)
       .filter((templateId): templateId is string => templateId !== null)
 
+    const commentIds = scrapMedias
+      .map((medias) => medias.commentId)
+      .filter((commentId): commentId is string => commentId !== null)
+
     const tasks = taskIds.length
       ? await db.task.findMany({
           where: {
@@ -46,35 +50,46 @@ export class ScrapMediaService {
           })
         : []
 
+    const comments =
+      commentIds.length > 0
+        ? await db.comment.findMany({
+            where: {
+              id: { in: commentIds },
+            },
+          })
+        : []
+
     const scrapMediasToDelete = []
     const scrapMediasToDeleteFromBucket = []
 
-    for (const image of scrapMedias) {
+    for (const media of scrapMedias) {
       try {
         // For each scrap image, check if the task or taskTemplate still has the img url in its body
-        const task = tasks.find((_task) => _task.id === image.taskId)
-        const taskTemplate = taskTemplates.find((_template) => _template.id === image.templateId)
+        const task = tasks.find((_task) => _task.id === media.taskId)
+        const taskTemplate = taskTemplates.find((_template) => _template.id === media.templateId)
+        const comment = comments.find((_comment) => _comment.id === media.commentId)
 
-        const isInTaskBody = task && (task.body || '').includes(image.filePath)
-        const isInTemplateBody = taskTemplate && (taskTemplate.body || '').includes(image.filePath)
+        const isInTaskBody = task && (task.body || '').includes(media.filePath)
+        const isInTemplateBody = taskTemplate && (taskTemplate.body || '').includes(media.filePath)
+        const isInCommentBody = comment && (comment.content || '').includes(media.filePath)
 
-        if (!task && !taskTemplate) {
-          console.error('Could not find task for scrap image', image)
-          scrapMediasToDelete.push(image.id)
-          scrapMediasToDeleteFromBucket.push(image.filePath)
+        if (!task && !taskTemplate && !comment) {
+          console.error('Could not find location of scrap media', media)
+          scrapMediasToDelete.push(media.id)
+          scrapMediasToDeleteFromBucket.push(media.filePath)
           continue
         }
-        // If image is in task body
-        if (isInTaskBody || isInTemplateBody) {
-          scrapMediasToDelete.push(image.id)
+        // If media is valid
+        if (isInTaskBody || isInTemplateBody || isInCommentBody) {
+          scrapMediasToDelete.push(media.id)
           continue
         }
-        // If image is not in task body
+        // If media is not valid
 
-        scrapMediasToDeleteFromBucket.push(image.filePath)
-        scrapMediasToDelete.push(image.id)
+        scrapMediasToDeleteFromBucket.push(media.filePath)
+        scrapMediasToDelete.push(media.id)
       } catch (e: unknown) {
-        console.error('Error processing scrap image', e)
+        console.error('Error processing scrap media', e)
       }
     }
 

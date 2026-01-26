@@ -55,15 +55,18 @@ export const uploadAttachmentHandler = async (
 export const deleteEditorAttachmentsHandler = async (
   url: string,
   token: string,
-  task_id: string | null,
-  template_id: string | null,
+  entityType: AttachmentTypes,
+  entityId?: string,
 ) => {
   const filePath = getFilePathFromUrl(url)
   if (filePath) {
     const payload: ScrapMediaRequest = {
-      filePath: filePath,
-      taskId: task_id,
-      templateId: template_id,
+      filePath,
+      ...(entityType === AttachmentTypes.TASK
+        ? { taskId: entityId }
+        : entityType === AttachmentTypes.TEMPLATE
+          ? { templateId: entityId }
+          : { commentId: entityId }),
     }
     postScrapMedia(token, payload)
   }

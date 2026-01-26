@@ -34,6 +34,7 @@ import store from '@/redux/store'
 import { HomeParamActions } from '@/types/constants'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import {
+  AttachmentTypes,
   CreateTaskErrors,
   FilterByOptions,
   FilterOptions,
@@ -668,7 +669,7 @@ const NewTaskFormInputs = ({ isEditorReadonly }: NewTaskFormInputsProps) => {
             editorClass="tapwrite-description-h-full"
             uploadFn={uploadFn}
             readonly={isEditorReadonly}
-            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', null, null)}
+            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TASK)}
             attachmentLayout={(props) => <AttachmentLayout {...props} />}
             maxUploadLimit={MAX_UPLOAD_LIMIT}
             parentContainerStyle={{ gap: '0px', minHeight: '60px' }}

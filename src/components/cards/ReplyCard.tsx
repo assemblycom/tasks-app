@@ -245,7 +245,14 @@ export const ReplyCard = ({
               editorClass={isReadOnly ? 'tapwrite-comment' : 'tapwrite-comment-editable'}
               addAttachmentButton={!isReadOnly}
               uploadFn={uploadFn}
-              deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', task_id, null)}
+              deleteEditorAttachments={(url) =>
+                deleteEditorAttachmentsHandler(
+                  url,
+                  token ?? '',
+                  AttachmentTypes.COMMENT,
+                  z.string().parse(commentIdRef.current),
+                )
+              }
               maxUploadLimit={MAX_UPLOAD_LIMIT}
               attachmentLayout={(props) => <AttachmentLayout {...props} isComment={true} />}
               hardbreak
