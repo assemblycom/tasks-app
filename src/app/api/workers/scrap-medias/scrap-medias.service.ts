@@ -85,7 +85,6 @@ export class ScrapMediaService {
           continue
         }
         // If media is not valid
-
         scrapMediasToDeleteFromBucket.push(media.filePath)
         scrapMediasToDelete.push(media.id)
       } catch (e: unknown) {
@@ -95,7 +94,7 @@ export class ScrapMediaService {
 
     if (!!scrapMediasToDeleteFromBucket.length)
       await db.attachment.deleteMany({ where: { filePath: { in: scrapMediasToDeleteFromBucket } } })
-
+    console.info('ScrapMediaWorker#deleteFromBucket | Deleting these medias', scrapMediasToDeleteFromBucket)
     // remove attachments from bucket
     await supabase.removeAttachmentsFromBucket(scrapMediasToDeleteFromBucket)
 
