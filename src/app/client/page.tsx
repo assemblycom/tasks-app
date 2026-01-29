@@ -27,6 +27,8 @@ import { UserRole } from '@api/core/types/user'
 import { Suspense } from 'react'
 import { z } from 'zod'
 
+export const maxDuration = 60 //just to be safe. the validate count job might take longer that 15 seconds(default max duration of server components) which will make the app crash. Increasing the duration to 60.
+
 async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
   const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
     next: { tags: ['getAllWorkflowStates'] },
