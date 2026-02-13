@@ -608,7 +608,7 @@ export const Sidebar = ({
                   hideIusList
                   name="Set related to"
                   onChange={handleTaskAssociationChange}
-                  disabled={(disabled && !previewMode) || fromNotificationCenter} // allow visibility change in preview mode
+                  disabled={(disabled && !previewMode) || fromNotificationCenter} // allow association change in preview mode
                   initialValue={taskAssociationValue || undefined}
                   buttonContent={
                     <SelectorButton
@@ -644,7 +644,13 @@ export const Sidebar = ({
         {showShareToggle && (
           <>
             <Divider sx={{ borderColor: (theme) => theme.color.borders.border, height: '1px' }} />
-            <CopilotToggle label="Share with client" onChange={handleTaskShared} checked={isTaskShared} className="pt-4" />
+            <CopilotToggle
+              label="Share with client"
+              disabled={(disabled && !previewMode) || fromNotificationCenter} // allow task share in preview mode
+              onChange={handleTaskShared}
+              checked={isTaskShared}
+              className="pt-4"
+            />
           </>
         )}
       </AppMargin>
