@@ -313,7 +313,7 @@ export class TasksService extends TasksSharedService {
     }
   }
 
-  private validateTaskShare(prevTask: Task, data: UpdateTaskRequest) {
+  private validateTaskShare(prevTask: Task, data: UpdateTaskRequest): boolean | undefined {
     const isTaskShared = data.isShared
 
     if (isTaskShared === undefined) return undefined

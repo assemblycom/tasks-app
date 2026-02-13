@@ -148,23 +148,22 @@ export const Sidebar = ({
 
   const checkForAssociationAndShared = (userIds: UserIdsType): UserIdsWithAssociationSharedType => {
     const { internalUserId, clientId, companyId } = userIds
+
+    if (internalUserId) return userIds
+
     const noAssignee = !internalUserId && !clientId && !companyId
+    const temp: Partial<UserIdsWithAssociationSharedType> = {}
 
-    if (!internalUserId) {
-      const temp: Partial<UserIdsWithAssociationSharedType> = {}
-
-      if (isTaskShared) {
-        temp.isShared = false
-        setIsTaskShared(false)
-      }
-
-      if (!noAssignee) {
-        temp.associations = [] // remove association only if assignee is non empty and not IU
-        setTaskAssociationValue(null)
-      }
-      return { ...userIds, ...temp } // remove task shared if assignee is cleared or changed to client or company
+    if (isTaskShared) {
+      temp.isShared = false
+      setIsTaskShared(false)
     }
-    return userIds
+
+    if (!noAssignee) {
+      temp.associations = [] // remove association only if assignee is non empty and not IU
+      setTaskAssociationValue(null)
+    }
+    return { ...userIds, ...temp } // remove task shared if assignee is cleared or changed to client or company
   }
 
   const handleConfirmAssigneeChange = (userIds: UserIdsType) => {
@@ -176,7 +175,7 @@ export const Sidebar = ({
 
   const handleConfirmAssociationChange = () => {
     updateAssignee({
-      internalUserId: assigneeValue ? assigneeValue.id : null,
+      internalUserId: assigneeValue?.id || null,
       clientId: null,
       companyId: null,
       isShared: false,
