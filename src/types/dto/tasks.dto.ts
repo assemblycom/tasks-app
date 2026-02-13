@@ -141,7 +141,7 @@ export const SubTaskStatusSchema = z.object({
 
 export type SubTaskStatusResponse = z.infer<typeof SubTaskStatusSchema>
 
-export type AncestorTaskResponse = Pick<Task, 'id' | 'title' | 'label' | 'associations'> & {
+export type AncestorTaskResponse = Pick<Task, 'id' | 'title' | 'label' | 'associations' | 'isShared'> & {
   internalUserId: string | null
   clientId: string | null
   companyId: string | null
