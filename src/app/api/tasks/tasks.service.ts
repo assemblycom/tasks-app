@@ -166,7 +166,7 @@ export class TasksService extends TasksSharedService {
           `Task cannot be created and shared with associations if its not assigned to an IU.`,
         )
       }
-      associations = await this.validateViewers(data.associations)
+      associations = await this.validateAssociations(data.associations)
       console.info('TasksService#createTask | Associations validated for task:', associations)
     }
 
@@ -368,13 +368,15 @@ export class TasksService extends TasksSharedService {
     let associations: Associations = AssociationsSchema.parse(prevTask.associations)
 
     // check if current or previous assignee is a client or company
-    const viewersResetCondition = shouldUpdateUserIds ? !!clientId || !!companyId : prevTask.clientId || prevTask.companyId
+    const associationsResetCondition = shouldUpdateUserIds
+      ? !!clientId || !!companyId
+      : prevTask.clientId || prevTask.companyId
     if (data.associations) {
       // only update of associations attribute is available. No associations in payload attribute means the data remains as it is in DB.
-      if (viewersResetCondition || !data.associations?.length) {
+      if (associationsResetCondition || !data.associations?.length) {
         associations = [] // reset associations to [] if task is not reassigned to IU.
       } else if (data.associations?.length) {
-        associations = await this.validateViewers(data.associations)
+        associations = await this.validateAssociations(data.associations)
       }
     }
 
@@ -679,6 +681,7 @@ export class TasksService extends TasksSharedService {
             companyId: true,
             internalUserId: true,
             associations: true,
+            isShared: true,
           },
         }),
       ) as Promise<AncestorTaskResponse>[],

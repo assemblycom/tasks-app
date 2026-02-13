@@ -1,6 +1,6 @@
 import { maxSubTaskDepth } from '@/constants/tasks'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
-import { InternalUsers, Uuid } from '@/types/common'
+import { InternalUsers, TempClientFilter, Uuid } from '@/types/common'
 import { CreateAttachmentRequestSchema } from '@/types/dto/attachments.dto'
 import { CreateTaskRequest, CreateTaskRequestSchema, Associations } from '@/types/dto/tasks.dto'
 import { getFileNameFromPath } from '@/utils/attachmentUtils'
@@ -29,7 +29,7 @@ export abstract class TasksSharedService extends BaseService {
    * If user is a client, return filter for just the tasks assigned to this clientId.
    * If user is a client and has a companyId, return filter for just the tasks assigned to this clientId `OR` to this companyId
    */
-  protected buildTaskPermissions(id?: string, includeViewer: boolean = true) {
+  protected buildTaskPermissions(id?: string, includeAssociatedTask: boolean = true) {
     const user = this.user
 
     // Default filters
@@ -39,15 +39,16 @@ export abstract class TasksSharedService extends BaseService {
     }
 
     if (user.clientId || user.companyId) {
-      filters = { ...filters, ...this.getClientOrCompanyAssigneeFilter(includeViewer) }
+      filters = { ...filters, ...this.getClientOrCompanyAssigneeFilter(includeAssociatedTask) }
     }
 
     return filters
   }
 
-  protected getClientOrCompanyAssigneeFilter(includeViewer: boolean = true): Prisma.TaskWhereInput {
+  protected getClientOrCompanyAssigneeFilter(includeAssociatedTask: boolean = true): Prisma.TaskWhereInput {
     const clientId = z.string().uuid().safeParse(this.user.clientId).data
     const companyId = z.string().uuid().parse(this.user.companyId)
+    const isCuPortal = !this.user.internalUserId && (clientId || companyId)
 
     const filters = []
 
@@ -58,29 +59,32 @@ export abstract class TasksSharedService extends BaseService {
         // Get company tasks for the client's companyId
         { companyId, clientId: null },
       )
-      if (includeViewer)
-        filters.push(
-          // Get tasks that includes the client as a viewer
-          {
-            associations: {
-              hasSome: [{ clientId, companyId }, { companyId }],
-            },
+
+      // Get tasks that includes the client as a association
+      if (includeAssociatedTask) {
+        const tempClientFilter: TempClientFilter = {
+          associations: {
+            hasSome: [{ clientId, companyId }, { companyId }],
           },
-        )
+        }
+        if (isCuPortal) tempClientFilter.isShared = true
+        filters.push(tempClientFilter)
+      }
     } else if (companyId) {
       filters.push(
         // Get only company tasks for the client's companyId
         { clientId: null, companyId },
       )
-      if (includeViewer)
-        filters.push(
-          // Get tasks that includes the company as a viewer
-          {
-            associations: {
-              hasSome: [{ companyId }],
-            },
+      if (includeAssociatedTask) {
+        const tempCompanyFilter: TempClientFilter = {
+          associations: {
+            hasSome: [{ companyId }],
           },
-        )
+        }
+        if (isCuPortal) tempCompanyFilter.isShared = true
+        // Get tasks that includes the company as a viewer
+        filters.push(tempCompanyFilter)
+      }
     }
     return filters.length > 0 ? { OR: filters } : {}
   }
@@ -357,7 +361,7 @@ export abstract class TasksSharedService extends BaseService {
     return { completedBy: null, completedByUserType: null, workflowStateStatus: workflowState.type }
   }
 
-  protected async validateViewers(associations: Associations) {
+  protected async validateAssociations(associations: Associations) {
     if (!associations?.length) return []
     const association = associations[0]
     try {

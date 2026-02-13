@@ -334,3 +334,11 @@ export enum SelectorFieldType {
   ASSIGNEE = 'assignee',
   ASSOCIATION = 'association',
 }
+
+export const TempClientFilterSchema = z.object({
+  associations: z.object({
+    hasSome: z.array(z.object({ clientId: z.string().uuid().optional(), companyId: z.string().uuid() })),
+  }),
+  isShared: z.boolean().optional(),
+})
+export type TempClientFilter = z.infer<typeof TempClientFilterSchema>

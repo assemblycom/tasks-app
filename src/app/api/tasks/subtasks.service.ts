@@ -14,6 +14,7 @@ interface Assignable {
   clientId: string | null
   companyId: string | null
   associations: JsonValue[]
+  isShared: boolean
 }
 
 export class SubtaskService extends BaseService {
@@ -136,7 +137,8 @@ export class SubtaskService extends BaseService {
           (task.clientId === null && task.companyId === this.user.companyId) ||
           (viewer &&
             (!viewer?.clientId || viewer?.clientId === this.user.clientId) &&
-            viewer.companyId === this.user.companyId)
+            viewer.companyId === this.user.companyId &&
+            task.isShared)
         )
       })
     } else {

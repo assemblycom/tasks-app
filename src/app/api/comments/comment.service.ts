@@ -2,7 +2,7 @@ import { AttachmentsService } from '@/app/api/attachments/attachments.service'
 import { PublicCommentSerializer } from '@/app/api/comments/public/public.serializer'
 import { sendCommentCreateNotifications } from '@/jobs/notifications'
 import { sendReplyCreateNotifications } from '@/jobs/notifications/send-reply-create-notifications'
-import { InitiatedEntity } from '@/types/common'
+import { InitiatedEntity, TempClientFilter } from '@/types/common'
 import { CreateAttachmentRequestSchema } from '@/types/dto/attachments.dto'
 import { CommentsPublicFilterType, CommentWithAttachments, CreateComment, UpdateComment } from '@/types/dto/comment.dto'
 import { DISPATCHABLE_EVENT } from '@/types/webhook'
@@ -463,9 +463,10 @@ export class CommentService extends BaseService {
     }
   }
 
-  protected getClientOrCompanyAssigneeFilter(includeViewer: boolean = true): Prisma.TaskWhereInput {
+  protected getClientOrCompanyAssigneeFilter(includeAssociatedTask: boolean = true): Prisma.TaskWhereInput {
     const clientId = z.string().uuid().parse(this.user.clientId)
     const companyId = z.string().uuid().parse(this.user.companyId)
+    const isCuPortal = !this.user.internalUserId && (clientId || companyId)
 
     const filters = []
 
@@ -476,29 +477,32 @@ export class CommentService extends BaseService {
         // Get company tasks for the client's companyId
         { companyId, clientId: null },
       )
-      if (includeViewer)
-        filters.push(
-          // Get tasks that includes the client as a viewer
-          {
-            associations: {
-              hasSome: [{ clientId, companyId }, { companyId }],
-            },
+      if (includeAssociatedTask) {
+        const tempClientFilter: TempClientFilter = {
+          associations: {
+            hasSome: [{ clientId, companyId }, { companyId }],
           },
-        )
+        }
+        if (isCuPortal) tempClientFilter.isShared = true
+        // Get tasks that includes the client as a association
+        filters.push(tempClientFilter)
+      }
     } else if (companyId) {
       filters.push(
         // Get only company tasks for the client's companyId
         { clientId: null, companyId },
       )
-      if (includeViewer)
-        filters.push(
-          // Get tasks that includes the company as a viewer
-          {
-            associations: {
-              hasSome: [{ companyId }],
-            },
+
+      // Get tasks that includes the company as a association
+      if (includeAssociatedTask) {
+        const tempCompanyFilter: TempClientFilter = {
+          associations: {
+            hasSome: [{ companyId }],
           },
-        )
+        }
+        if (isCuPortal) tempCompanyFilter.isShared = true
+        filters.push(tempCompanyFilter)
+      }
     }
     return filters.length > 0 ? { OR: filters } : {}
   } //Repeated twice because taskSharedService is an abstract class.

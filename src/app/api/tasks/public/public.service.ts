@@ -174,7 +174,7 @@ export class PublicTasksService extends TasksSharedService {
       if (!validatedIds.internalUserId) {
         throw new APIError(httpStatus.BAD_REQUEST, `Task cannot be created with viewers if its not assigned to an IU.`)
       }
-      viewers = await this.validateViewers(data.associations)
+      viewers = await this.validateAssociations(data.associations)
       console.info('PublicTasksService#createTask | Associations validated for task:', viewers)
     }
 
@@ -291,7 +291,7 @@ export class PublicTasksService extends TasksSharedService {
       if (associationsResetCondition || !associations?.length) {
         associations = [] // reset associations to [] if task is not reassigned to IU.
       } else if (associations?.length) {
-        associations = await this.validateViewers(associations)
+        associations = await this.validateAssociations(associations)
       }
     }
     return associations
