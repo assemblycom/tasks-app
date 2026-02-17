@@ -57,22 +57,27 @@ export const useFilterBar = () => {
 
   const iuFilterButtons = [
     {
-      name: 'My tasks',
+      name: 'Me',
       onClick: () => handleFilterTypeClick({ filterTypeValue: IUTokenSchema.parse(tokenPayload).internalUserId }),
       id: 'MyTasks',
     },
     {
-      name: 'Team tasks',
+      name: 'Team',
       onClick: () => handleFilterTypeClick({ filterTypeValue: FilterOptionsKeywords.TEAM }),
       id: 'TeamTasks',
     },
     {
-      name: `${getWorkspaceLabels(workspace, true).individualTerm} tasks`,
+      name: `${getWorkspaceLabels(workspace, true).individualTerm}`,
       onClick: () => handleFilterTypeClick({ filterTypeValue: FilterOptionsKeywords.CLIENTS }),
       id: 'ClientTasks',
     },
     {
-      name: 'All tasks',
+      name: 'Unassigned',
+      onClick: () => handleFilterTypeClick({ filterTypeValue: FilterOptionsKeywords.UNASSIGNED }),
+      id: 'UnassignedTasks',
+    },
+    {
+      name: 'All',
       onClick: () => handleFilterTypeClick({ filterTypeValue: '' }),
       id: 'AllTasks',
     },
@@ -80,12 +85,12 @@ export const useFilterBar = () => {
 
   const clientFilterButtons = [
     {
-      name: 'All tasks',
+      name: 'All',
       onClick: () => handleFilterTypeClick({ filterTypeValue: FilterOptionsKeywords.CLIENT_WITH_VIEWERS }),
       id: 'AllTasks',
     },
     {
-      name: 'My tasks',
+      name: 'Me',
       onClick: () => handleFilterTypeClick({ filterTypeValue: FilterOptionsKeywords.CLIENTS }),
       id: 'MyTasks',
     },
@@ -93,19 +98,24 @@ export const useFilterBar = () => {
 
   const previewFilterButtons = [
     {
-      name: 'My tasks',
+      name: 'Me',
       onClick: () => {
         handleFilterTypeClick({ filterTypeValue: IUTokenSchema.parse(tokenPayload).internalUserId })
       },
       id: 'MyTasks',
     },
     {
-      name: 'Team tasks',
+      name: 'Team',
       onClick: () => handleFilterTypeClick({ filterTypeValue: FilterOptionsKeywords.TEAM }),
       id: 'TeamTasks',
     },
     {
-      name: `${getWorkspaceLabels(workspace, true).individualTerm} tasks`,
+      name: 'Unassigned',
+      onClick: () => handleFilterTypeClick({ filterTypeValue: FilterOptionsKeywords.UNASSIGNED }),
+      id: 'UnassignedTasks',
+    },
+    {
+      name: `${getWorkspaceLabels(workspace, true).individualTerm}`,
       onClick: () => handleFilterTypeClick({ filterTypeValue: FilterOptionsKeywords.CLIENTS }),
       id: 'ClientTasks',
     },

@@ -70,6 +70,7 @@ export enum FilterByOptions {
 export enum FilterOptionsKeywords {
   CLIENTS = 'clients_companies',
   TEAM = 'ius',
+  UNASSIGNED = 'unassigned',
   CLIENT_WITH_VIEWERS = 'client_with_viewers',
 }
 
