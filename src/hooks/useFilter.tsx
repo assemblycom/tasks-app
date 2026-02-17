@@ -148,6 +148,9 @@ function filterByType(filteredTasks: TaskResponse[], filterValue: string): TaskR
     case FilterOptionsKeywords.TEAM:
       return filteredTasks.filter((task) => task?.assigneeType?.includes('internalUser'))
 
+    case FilterOptionsKeywords.UNASSIGNED:
+      return filteredTasks.filter((task) => !task.assigneeId)
+
     default:
       return filteredTasks.filter((task) => task.assigneeId == assigneeType)
   }
