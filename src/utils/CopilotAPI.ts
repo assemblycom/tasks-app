@@ -42,7 +42,7 @@ import { assemblyApi } from '@assembly-js/node-sdk'
 import { z } from 'zod'
 
 export class CopilotAPI {
-  private assemblyPromise: Promise<SDK>
+  private assemblyPromise: ReturnType<typeof assemblyApi>
 
   constructor(
     private token: string,
