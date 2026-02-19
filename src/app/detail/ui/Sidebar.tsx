@@ -17,7 +17,7 @@ import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { selectTaskDetails, setShowSidebar, toggleShowConfirmAssignModal } from '@/redux/features/taskDetailsSlice'
 import store from '@/redux/store'
 import { DateStringSchema } from '@/types/date'
-import { UpdateTaskRequest } from '@/types/dto/tasks.dto'
+import { Associations, UpdateTaskRequest } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { FilterByOptions, IAssigneeCombined, InputValue, Sizes, UserType } from '@/types/interfaces'
 import {
@@ -105,6 +105,8 @@ export const Sidebar = ({
   const [selectedAssignee, setSelectedAssignee] = useState<UserIdsType | undefined>(undefined)
 
   const [taskAssociationValue, setTaskAssociationValue] = useState<IAssigneeCombined | null>(null)
+  const [selectedAssociationUser, setSelectedAssociationUser] = useState<Associations | undefined>()
+
   const [isTaskShared, setIsTaskShared] = useState(false)
 
   const baseAssociationCondition = assigneeValue && assigneeValue.type === FilterByOptions.IUS
@@ -173,16 +175,16 @@ export const Sidebar = ({
     setSelectorFieldType(null)
   }
 
-  const handleConfirmAssociationChange = () => {
+  const handleConfirmAssociationChange = (userIds: UserIdsType) => {
     updateAssignee({
       internalUserId: assigneeValue?.id || null,
       clientId: null,
       companyId: null,
       isShared: false,
-      associations: [],
+      associations: selectedAssociationUser,
     })
+    setTaskAssociationValue(getAssigneeValue(userIds) as IAssigneeCombined)
     setIsTaskShared(false)
-    setTaskAssociationValue(null)
     setSelectorFieldType(null)
     setAssociationConfirmationModal(false)
   }
@@ -238,9 +240,9 @@ export const Sidebar = ({
   const handleTaskAssociationChange = (inputValue: InputValue[]) => {
     setSelectorFieldType(SelectorFieldType.ASSOCIATION)
     const newTaskAssociationIds = getSelectedViewerIds(inputValue)
-
     const showModal = shouldConfirmTaskSharedBeforeReassignment(taskAssociationValue, isTaskShared)
     if (showModal) {
+      setSelectedAssociationUser(newTaskAssociationIds)
       setAssociationConfirmationModal(true)
     } else if (newTaskAssociationIds) {
       setTaskAssociationValue(getSelectorAssignee(assignee, inputValue) || null)
@@ -409,6 +411,7 @@ export const Sidebar = ({
           <ConfirmUI
             handleCancel={() => {
               setSelectedAssignee(undefined)
+              setSelectedAssociationUser(undefined)
               setSelectorFieldType(null)
               showConfirmAssignModal
                 ? store.dispatch(toggleShowConfirmAssignModal())
@@ -418,7 +421,12 @@ export const Sidebar = ({
               if (selectorFieldType === SelectorFieldType.ASSIGNEE && selectedAssignee) {
                 handleConfirmAssigneeChange(selectedAssignee)
               } else if (selectorFieldType === SelectorFieldType.ASSOCIATION) {
-                handleConfirmAssociationChange()
+                selectedAssociationUser &&
+                  handleConfirmAssociationChange({
+                    internalUserId: null,
+                    clientId: selectedAssociationUser[0]?.clientId ?? null,
+                    companyId: selectedAssociationUser[0]?.companyId ?? null,
+                  })
               }
             }}
             buttonText={showAssociationConfirmationModal ? 'Remove' : 'Reassign'}
@@ -665,12 +673,18 @@ export const Sidebar = ({
         <ConfirmUI
           handleCancel={() => {
             setSelectedAssignee(undefined)
+            setSelectedAssociationUser(undefined)
             setSelectorFieldType(null)
             showConfirmAssignModal ? store.dispatch(toggleShowConfirmAssignModal()) : setAssociationConfirmationModal(false)
           }}
           handleConfirm={() => {
             if (selectorFieldType === SelectorFieldType.ASSOCIATION) {
-              handleConfirmAssociationChange()
+              selectedAssociationUser &&
+                handleConfirmAssociationChange({
+                  internalUserId: null,
+                  clientId: selectedAssociationUser[0]?.clientId ?? null,
+                  companyId: selectedAssociationUser[0]?.companyId ?? null,
+                })
             } else if (selectorFieldType === SelectorFieldType.ASSIGNEE && selectedAssignee) {
               handleConfirmAssigneeChange(selectedAssignee)
             }
