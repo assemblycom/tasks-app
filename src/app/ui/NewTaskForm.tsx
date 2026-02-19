@@ -435,7 +435,6 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
             >
               <CopilotToggle
                 label="Share with client"
-                disabled={!previewMode}
                 onChange={() => {
                   const localSharedState = store.getState().createTask.isShared
                   store.dispatch(setCreateTaskFields({ targetField: 'isShared', value: !localSharedState }))
