@@ -63,12 +63,13 @@ export class PublicTaskSerializer {
       internalUserId: task.internalUserId,
       clientId: task.clientId,
       companyId: task.companyId,
-      viewers: AssociationsSchema.parse(task.associations),
+      association: AssociationsSchema.parse(task.associations),
       attachments: await PublicAttachmentSerializer.serializeAttachments({
         attachments: task.attachments,
         uploadedByUserType: 'internalUser', // task creator is always IU
         content: task.body,
       }),
+      isShared: task.isShared,
     }
   }
 
@@ -153,7 +154,8 @@ export class PublicTaskSerializer {
       internalUserId: payload.internalUserId ?? null,
       clientId: payload.clientId ?? null,
       companyId: payload.companyId ?? null,
-      viewers: payload.viewers ?? [],
+      associations: payload.association ?? [],
+      isShared: payload.isShared,
     })
   }
 
@@ -168,7 +170,8 @@ export class PublicTaskSerializer {
       internalUserId: payload.internalUserId,
       clientId: payload.clientId,
       companyId: payload.companyId,
-      viewers: payload.viewers,
+      associations: payload.association,
+      isShared: payload.isShared,
     })
   }
 }
