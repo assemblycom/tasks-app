@@ -122,7 +122,8 @@ export class TaskNotificationsService extends BaseService {
     if (await this.checkParentAccessible(task)) return
 
     const viewers = AssociationsSchema.parse(task.associations)
-    if (viewers?.length && !isReassigned) {
+    const isShared = task.isShared
+    if (viewers?.length && !isReassigned && isShared) {
       const clientId = viewers[0].clientId
       const sendViewersNotifications = clientId
         ? this.sendUserTaskSharedNotification
@@ -158,7 +159,7 @@ export class TaskNotificationsService extends BaseService {
     }
     const updatedViewers = getTaskViewers(updatedTask)
     const prevViewers = getTaskViewers(prevTask)
-
+    const becameShared = !prevTask.isShared && updatedTask.isShared
     const isViewersUpdated =
       !!updatedViewers &&
       ((!!updatedViewers.clientId && prevViewers?.clientId !== updatedViewers?.clientId) ||
@@ -166,11 +167,13 @@ export class TaskNotificationsService extends BaseService {
     // Return if not workflowState / assignee updated
 
     const isReassigned = prevTask.assigneeId !== updatedTask.assigneeId
-    if (prevTask.workflowStateId === updatedTask.workflowStateId && !isReassigned && !isViewersUpdated) return
+    if (prevTask.workflowStateId === updatedTask.workflowStateId && !isReassigned && !isViewersUpdated && !becameShared)
+      return
 
     // Case 2
     // -Handle viewers changed, or viewers updated in a task.
-    if (isViewersUpdated) {
+    // if the task became shared, or task the viewer changed in a shared task condition:
+    if (updatedViewers && (becameShared || (updatedTask.isShared && isViewersUpdated))) {
       const clientId = updatedViewers.clientId
       const sendViewersNotifications = clientId
         ? this.sendUserTaskSharedNotification
