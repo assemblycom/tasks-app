@@ -119,8 +119,8 @@ export const getAssigneeValueFromAssociations = (viewer: IAssigneeCombined | nul
   return match ?? undefined
 }
 
-export const getTaskViewers = (task: TaskResponse | Task | Pick<TaskResponse, 'associations'>) => {
-  const taskViewers = AssociationsSchema.parse(task.associations)
-  const viewer = !!taskViewers?.length ? taskViewers[0] : undefined
-  return viewer
+export const getTaskAssociations = (task: TaskResponse | Task | Pick<TaskResponse, 'associations'>) => {
+  const taskAssociations = AssociationsSchema.parse(task.associations)
+  const association = !!taskAssociations?.length ? taskAssociations[0] : undefined
+  return association
 }
