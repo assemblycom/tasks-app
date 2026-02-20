@@ -2,7 +2,7 @@ import { maxSubTaskDepth } from '@/constants/tasks'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
 import { InternalUsers, TempClientFilter, Uuid } from '@/types/common'
 import { CreateAttachmentRequestSchema } from '@/types/dto/attachments.dto'
-import { CreateTaskRequest, CreateTaskRequestSchema, Associations } from '@/types/dto/tasks.dto'
+import { CreateTaskRequest, CreateTaskRequestSchema, Associations, UpdateTaskRequest } from '@/types/dto/tasks.dto'
 import { getFileNameFromPath } from '@/utils/attachmentUtils'
 import { buildLtree, buildLtreeNodeString } from '@/utils/ltree'
 import { getFilePathFromUrl } from '@/utils/signedUrlReplacer'
@@ -535,5 +535,27 @@ export abstract class TasksSharedService extends BaseService {
         'Failed to create subtask from template, new task was not created.',
       )
     }
+  }
+
+  protected validateTaskShare(prevTask: Task, data: UpdateTaskRequest): boolean | undefined {
+    const finalIsShared = data.isShared !== undefined ? data.isShared : prevTask.isShared
+
+    const finalInternalUser = data.internalUserId !== undefined ? data.internalUserId : prevTask.internalUserId
+
+    const finalAssociations = data.associations !== undefined ? data.associations : prevTask.associations
+
+    if (!finalIsShared) return false
+
+    const hasInternalUser = !!finalInternalUser
+    const hasAssociations = !!finalAssociations?.length
+
+    if (!hasInternalUser || !hasAssociations) {
+      throw new APIError(
+        httpStatus.BAD_REQUEST,
+        'Cannot share task. A task must have an internal user and at least one association to be shared.',
+      )
+    }
+
+    return true
   }
 }
