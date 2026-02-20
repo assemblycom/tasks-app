@@ -118,14 +118,6 @@ export const publicTaskCreateDtoSchemaFactory = (token: string) => {
         }
       }
 
-      if (!internalUserId && !clientId && !companyId) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'At least one of internalUserId, clientId, or companyId is required',
-          path: ['internalUserId'],
-        })
-      }
-
       if (internalUserId && (clientId || companyId)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
