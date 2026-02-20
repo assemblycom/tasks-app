@@ -169,13 +169,13 @@ export class PublicTasksService extends TasksSharedService {
       console.info('TasksService#createTask | createdById overridden for public API:', createdById)
     }
 
-    let viewers: Associations = []
+    let associations: Associations = []
     if (data.associations?.length) {
-      if (!validatedIds.internalUserId) {
+      if (!!data.isShared && !validatedIds.internalUserId) {
         throw new APIError(httpStatus.BAD_REQUEST, `Task cannot be created with viewers if its not assigned to an IU.`)
       }
-      viewers = await this.validateAssociations(data.associations)
-      console.info('PublicTasksService#createTask | Associations validated for task:', viewers)
+      associations = await this.validateAssociations(data.associations)
+      console.info('PublicTasksService#createTask | Associations validated for task:', associations)
     }
 
     // Create a new task associated with current workspaceId. Also inject current request user as the creator.
@@ -190,7 +190,7 @@ export class PublicTasksService extends TasksSharedService {
         source: Source.api,
         assigneeId,
         assigneeType,
-        associations: viewers,
+        associations,
         ...validatedIds,
         ...(opts?.manualTimestamp && { createdAt: opts.manualTimestamp }),
         ...(await getTaskTimestamps('create', this.user, data, undefined, workflowStateStatus)),
