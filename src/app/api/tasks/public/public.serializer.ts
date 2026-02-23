@@ -64,6 +64,7 @@ export class PublicTaskSerializer {
       clientId: task.clientId,
       companyId: task.companyId,
       association: AssociationsSchema.parse(task.associations),
+      viewers: task.isShared ? AssociationsSchema.parse(task.associations) : [],
       attachments: await PublicAttachmentSerializer.serializeAttachments({
         attachments: task.attachments,
         uploadedByUserType: 'internalUser', // task creator is always IU
