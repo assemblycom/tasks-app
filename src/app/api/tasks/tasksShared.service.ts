@@ -2,7 +2,13 @@ import { maxSubTaskDepth } from '@/constants/tasks'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
 import { InternalUsers, TempClientFilter, Uuid } from '@/types/common'
 import { CreateAttachmentRequestSchema } from '@/types/dto/attachments.dto'
-import { CreateTaskRequest, CreateTaskRequestSchema, Associations, UpdateTaskRequest } from '@/types/dto/tasks.dto'
+import {
+  CreateTaskRequest,
+  CreateTaskRequestSchema,
+  Associations,
+  UpdateTaskRequest,
+  AssociationsSchema,
+} from '@/types/dto/tasks.dto'
 import { getFileNameFromPath } from '@/utils/attachmentUtils'
 import { buildLtree, buildLtreeNodeString } from '@/utils/ltree'
 import { getFilePathFromUrl } from '@/utils/signedUrlReplacer'
@@ -557,5 +563,48 @@ export abstract class TasksSharedService extends BaseService {
     }
 
     return true
+  }
+
+  protected async resolveAssociations(params: {
+    prevTask: Task
+    data: UpdateTaskRequest
+    shouldUpdateUserIds: boolean
+    clientId?: string | null
+    companyId?: string | null
+  }): Promise<Associations> {
+    const { prevTask, data, shouldUpdateUserIds, clientId, companyId } = params
+    if (!data.associations) {
+      return AssociationsSchema.parse(prevTask.associations)
+    }
+
+    const shouldReset = this.shouldResetAssociations({
+      shouldUpdateUserIds,
+      prevTask,
+      clientId,
+      companyId,
+    })
+
+    if (shouldReset) return []
+
+    const parsed = AssociationsSchema.parse(data.associations)
+
+    if (!parsed?.length) return []
+
+    return this.validateAssociations(parsed)
+  }
+
+  private shouldResetAssociations(params: {
+    shouldUpdateUserIds: boolean
+    prevTask: Task
+    clientId?: string | null
+    companyId?: string | null
+  }): boolean {
+    const { shouldUpdateUserIds, prevTask, clientId, companyId } = params
+
+    if (shouldUpdateUserIds) {
+      return !!clientId || !!companyId
+    }
+
+    return !!prevTask.clientId || !!prevTask.companyId
   }
 }
