@@ -42,6 +42,7 @@ export const PublicTaskDtoSchema = z.object({
   clientId: z.string().uuid().nullable(),
   companyId: z.string().uuid().nullable(),
   association: AssociationsSchema,
+  viewers: AssociationsSchema,
   attachments: z.array(PublicAttachmentDtoSchema),
   isShared: z.boolean().optional(),
 })

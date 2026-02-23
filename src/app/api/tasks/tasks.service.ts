@@ -347,20 +347,13 @@ export class TasksService extends TasksSharedService {
       companyId: validatedIds?.companyId ?? null,
     })
 
-    let associations: Associations = AssociationsSchema.parse(prevTask.associations)
-
-    // check if current or previous assignee is a client or company
-    const associationsResetCondition = shouldUpdateUserIds
-      ? !!clientId || !!companyId
-      : prevTask.clientId || prevTask.companyId
-    if (data.associations) {
-      // only update of associations attribute is available. No associations in payload attribute means the data remains as it is in DB.
-      if (associationsResetCondition || !data.associations?.length) {
-        associations = [] // reset associations to [] if task is not reassigned to IU.
-      } else if (data.associations?.length) {
-        associations = await this.validateAssociations(data.associations)
-      }
-    }
+    const associations = await this.resolveAssociations({
+      prevTask,
+      data,
+      shouldUpdateUserIds,
+      clientId,
+      companyId,
+    })
 
     const userAssignmentFields = shouldUpdateUserIds
       ? {
