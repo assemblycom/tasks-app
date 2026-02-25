@@ -173,8 +173,6 @@ export const PublicTaskUpdateDtoSchema = z
     internalUserId: z.string().uuid().nullish(),
     clientId: z.string().uuid().nullish(),
     companyId: z.string().uuid().nullish(),
-    association: AssociationsSchema,
-    isShared: z.boolean().optional(),
   })
   .and(viewersAssociationExclusivitySchema)
   .superRefine(validateUserIds)
