@@ -48,6 +48,32 @@ export const PublicTaskDtoSchema = z.object({
 })
 export type PublicTaskDto = z.infer<typeof PublicTaskDtoSchema>
 
+const viewersAssociationExclusivitySchema = z
+  .object({
+    viewers: AssociationsSchema.optional(),
+    association: AssociationsSchema.optional(),
+    isShared: z.boolean().optional(),
+  })
+  .superRefine((val, ctx) => {
+    const hasViewers = val.viewers !== undefined
+    const hasAssociation = val.association !== undefined
+    const hasIsShared = val.isShared !== undefined
+
+    if (hasViewers && (hasAssociation || hasIsShared)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'viewers cannot be used together with association or isShared. Use either viewers alone, or association/isShared together.',
+        path: ['viewers'],
+      })
+    }
+  })
+  .transform(({ viewers, association, isShared, ...rest }) => ({
+    ...rest,
+    association: viewers ?? association,
+    isShared: viewers ? true : isShared,
+  }))
+
 export const publicTaskCreateDtoSchemaFactory = (token: string) => {
   return z
     .object({
@@ -61,9 +87,8 @@ export const publicTaskCreateDtoSchemaFactory = (token: string) => {
       internalUserId: z.string().uuid().optional(),
       clientId: z.string().uuid().optional(),
       companyId: z.string().uuid().optional(),
-      association: AssociationsSchema, //right now, we only need the feature to have max of 1 viewer per task
-      isShared: z.boolean().optional(),
     })
+    .and(viewersAssociationExclusivitySchema)
     .superRefine(async (data, ctx) => {
       const { name, templateId, internalUserId, clientId, status } = data
       let { companyId } = data
@@ -151,6 +176,7 @@ export const PublicTaskUpdateDtoSchema = z
     association: AssociationsSchema,
     isShared: z.boolean().optional(),
   })
+  .and(viewersAssociationExclusivitySchema)
   .superRefine(validateUserIds)
 
 export type PublicTaskUpdateDto = z.infer<typeof PublicTaskUpdateDtoSchema>
