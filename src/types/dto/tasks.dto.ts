@@ -6,7 +6,11 @@ import { ClientResponseSchema, CompanyResponseSchema, InternalUsersSchema } from
 
 export const AssociationSchema = z.object({
   clientId: z.string().uuid().optional(),
-  companyId: z.string().uuid(),
+  companyId: z
+    .string({
+      required_error: 'companyId is required on association or viewers',
+    })
+    .uuid(),
 })
 export type ViewerType = z.infer<typeof AssociationSchema>
 
