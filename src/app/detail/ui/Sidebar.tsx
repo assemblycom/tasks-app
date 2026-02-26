@@ -110,7 +110,7 @@ export const Sidebar = ({
   const [isTaskShared, setIsTaskShared] = useState(false)
 
   const baseAssociationCondition = assigneeValue && assigneeValue.type === FilterByOptions.IUS
-  const showShareToggle = baseAssociationCondition && taskAssociationValue && !disabled
+  const showShareToggle = baseAssociationCondition && taskAssociationValue && (!disabled || !!previewMode)
   const showAssociation = !assigneeValue || baseAssociationCondition
 
   const { renderingItem: _statusValue, updateRenderingItem: updateStatusValue } = useHandleSelectorComponent({
