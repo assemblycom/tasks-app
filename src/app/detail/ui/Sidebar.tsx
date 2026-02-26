@@ -110,7 +110,7 @@ export const Sidebar = ({
   const [isTaskShared, setIsTaskShared] = useState(false)
 
   const baseAssociationCondition = assigneeValue && assigneeValue.type === FilterByOptions.IUS
-  const showShareToggle = baseAssociationCondition && taskAssociationValue
+  const showShareToggle = baseAssociationCondition && taskAssociationValue && !disabled
   const showAssociation = !assigneeValue || baseAssociationCondition
 
   const { renderingItem: _statusValue, updateRenderingItem: updateStatusValue } = useHandleSelectorComponent({
@@ -333,11 +333,11 @@ export const Sidebar = ({
           <CopilotPopSelector
             name="Set assignee"
             onChange={handleAssigneeChange}
-            disabled={disabled || fromNotificationCenter}
+            disabled={(disabled && !previewMode) || fromNotificationCenter}
             initialValue={assigneeValue}
             buttonContent={
               <SelectorButton
-                disabled={disabled || fromNotificationCenter}
+                disabled={(disabled && !previewMode) || fromNotificationCenter}
                 height={'30px'}
                 startIcon={<CopilotAvatar size="xs" currentAssignee={assigneeValue} />}
                 buttonContent={
@@ -359,7 +359,7 @@ export const Sidebar = ({
             }
           />
         </Box>
-        {assigneeValue && assigneeValue.type === FilterByOptions.IUS && (
+        {showAssociation && (
           <Box
             sx={{
               width: 'fit-content',
@@ -397,6 +397,24 @@ export const Sidebar = ({
                   }
                 />
               }
+            />
+          </Box>
+        )}
+        {showShareToggle && (
+          <Box
+            sx={{
+              width: 'fit-content',
+              height: '30px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <CopilotToggle
+              label="Share with client"
+              disabled={(disabled && !previewMode) || fromNotificationCenter} // allow task share in preview mode
+              onChange={handleTaskShared}
+              checked={isTaskShared}
             />
           </Box>
         )}
@@ -561,11 +579,11 @@ export const Sidebar = ({
               <CopilotPopSelector
                 name="Set assignee"
                 onChange={handleAssigneeChange}
-                disabled={disabled || fromNotificationCenter}
+                disabled={(disabled && !previewMode) || fromNotificationCenter}
                 initialValue={assigneeValue}
                 buttonContent={
                   <SelectorButton
-                    disabled={disabled || fromNotificationCenter}
+                    disabled={(disabled && !previewMode) || fromNotificationCenter}
                     padding="0px"
                     startIcon={<CopilotAvatar size="xs" currentAssignee={assigneeValue} />}
                     outlined={true}
