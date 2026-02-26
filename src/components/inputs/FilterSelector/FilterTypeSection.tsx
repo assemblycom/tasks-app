@@ -16,8 +16,8 @@ export const FilterTypeSection = ({ setFilterMode, filterModes }: FilterTypeSect
     filterOptions: { type },
   } = useSelector(selectTaskBoard)
 
-  const disabled = type === FilterOptionsKeywords.CLIENTS ? [FilterType.Association] : []
-  const removed = type.length > 20 ? [FilterType.Assignee] : []
+  const disabled = type === FilterOptionsKeywords.CLIENTS && new Set([FilterType.Association])
+  const removed = type.length > 20 && new Set([FilterType.Assignee])
 
   return (
     <Stack
@@ -31,8 +31,8 @@ export const FilterTypeSection = ({ setFilterMode, filterModes }: FilterTypeSect
       rowGap={'2px'}
     >
       {filterModes.map((filterMode) => {
-        const isDisabled = disabled.includes(filterMode)
-        const isRemoved = removed.includes(filterMode)
+        const isDisabled = disabled && disabled.has(filterMode)
+        const isRemoved = removed && removed.has(filterMode)
         if (isRemoved) return null
 
         return (

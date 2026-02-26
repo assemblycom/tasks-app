@@ -35,8 +35,7 @@ export const FilterAssigneeSection = ({ filterMode, setAnchorEl }: FilterAssigne
   const hideClientsAndCompanies =
     filterMode === FilterType.Creator || (type === FilterOptionsKeywords.TEAM && filterMode === FilterType.Assignee)
   const hideIus =
-    [FilterType.Association].includes(filterMode) ||
-    (type === FilterOptionsKeywords.CLIENTS && filterMode === FilterType.Assignee)
+    filterMode === FilterType.Association || (type === FilterOptionsKeywords.CLIENTS && filterMode === FilterType.Assignee)
 
   const handleChange = (inputValue: InputValue[]) => {
     const newUserIds = getSelectedUserIds(inputValue)
