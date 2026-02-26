@@ -11,13 +11,22 @@ interface FilterTypeSectionProps {
   filterModes: FilterType[]
 }
 
+type FilterSetType = (typeof FilterType)[keyof typeof FilterType]
+
 export const FilterTypeSection = ({ setFilterMode, filterModes }: FilterTypeSectionProps) => {
   const {
     filterOptions: { type },
   } = useSelector(selectTaskBoard)
 
-  const disabled = type === FilterOptionsKeywords.CLIENTS && new Set([FilterType.Association])
-  const removed = type.length > 20 && new Set([FilterType.Assignee])
+  const disabledFilter = new Set<FilterSetType>()
+  if (type === FilterOptionsKeywords.CLIENTS) {
+    disabledFilter.add(FilterType.Association)
+  }
+
+  const removedFilter = new Set<FilterSetType>()
+  if (type.length > 20) {
+    removedFilter.add(FilterType.Assignee)
+  }
 
   return (
     <Stack
@@ -31,8 +40,8 @@ export const FilterTypeSection = ({ setFilterMode, filterModes }: FilterTypeSect
       rowGap={'2px'}
     >
       {filterModes.map((filterMode) => {
-        const isDisabled = disabled && disabled.has(filterMode)
-        const isRemoved = removed && removed.has(filterMode)
+        const isDisabled = disabledFilter.has(filterMode)
+        const isRemoved = removedFilter.has(filterMode)
         if (isRemoved) return null
 
         return (
