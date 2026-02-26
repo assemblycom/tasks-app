@@ -16,7 +16,7 @@ export const FilterTypeSection = ({ setFilterMode, filterModes }: FilterTypeSect
     filterOptions: { type },
   } = useSelector(selectTaskBoard)
 
-  const disabled = type === FilterOptionsKeywords.CLIENTS || FilterOptionsKeywords.UNASSIGNED ? [FilterType.IsShared] : []
+  const disabled = type === FilterOptionsKeywords.CLIENTS ? [FilterType.Association] : []
   const removed = type.length > 20 ? [FilterType.Assignee] : []
 
   return (
@@ -67,13 +67,11 @@ export const FilterTypeSection = ({ setFilterMode, filterModes }: FilterTypeSect
               <Box>
                 <CopilotTooltip
                   content={
-                    <div>
-                      <div>
-                        <strong>Shared with</strong> is only available
-                      </div>
-                      <div>for tasks assigned to internal users.</div>
-                    </div>
+                    <>
+                      <strong>Related to</strong> is only available for unassigned tasks or tasks assigned to internal users.
+                    </>
                   }
+                  allowMaxWidth
                 >
                   <InfoIcon />
                 </CopilotTooltip>

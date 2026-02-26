@@ -39,9 +39,6 @@ export class ViewSettingsService extends BaseService {
     if (filterOptions && !filterOptions.association) {
       viewSettings.filterOptions = { ...filterOptions, [FilterOptions.ASSOCIATION]: emptyAssignee }
     }
-    if (filterOptions && !filterOptions.isShared) {
-      viewSettings.filterOptions = { ...filterOptions, [FilterOptions.IS_SHARED]: emptyAssignee }
-    }
 
     return viewSettings
   }
@@ -84,7 +81,6 @@ export class ViewSettingsService extends BaseService {
       filterOptions: {
         [FilterOptions.ASSIGNEE]: emptyAssignee,
         [FilterOptions.ASSOCIATION]: emptyAssignee,
-        [FilterOptions.IS_SHARED]: emptyAssignee,
         [FilterOptions.CREATOR]: emptyAssignee,
         [FilterOptions.KEYWORD]: '',
         [FilterOptions.TYPE]: '',
