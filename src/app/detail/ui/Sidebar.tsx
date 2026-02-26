@@ -333,11 +333,11 @@ export const Sidebar = ({
           <CopilotPopSelector
             name="Set assignee"
             onChange={handleAssigneeChange}
-            disabled={disabled || fromNotificationCenter}
+            disabled={(disabled && !previewMode) || fromNotificationCenter}
             initialValue={assigneeValue}
             buttonContent={
               <SelectorButton
-                disabled={disabled || fromNotificationCenter}
+                disabled={(disabled && !previewMode) || fromNotificationCenter}
                 height={'30px'}
                 startIcon={<CopilotAvatar size="xs" currentAssignee={assigneeValue} />}
                 buttonContent={
@@ -561,11 +561,11 @@ export const Sidebar = ({
               <CopilotPopSelector
                 name="Set assignee"
                 onChange={handleAssigneeChange}
-                disabled={disabled || fromNotificationCenter}
+                disabled={(disabled && !previewMode) || fromNotificationCenter}
                 initialValue={assigneeValue}
                 buttonContent={
                   <SelectorButton
-                    disabled={disabled || fromNotificationCenter}
+                    disabled={(disabled && !previewMode) || fromNotificationCenter}
                     padding="0px"
                     startIcon={<CopilotAvatar size="xs" currentAssignee={assigneeValue} />}
                     outlined={true}
