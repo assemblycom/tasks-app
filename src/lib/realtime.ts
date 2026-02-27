@@ -28,13 +28,15 @@ export class RealtimeHandler {
     }
   }
 
-  private isViewer(newTask: RealTimeTaskResponse): boolean {
+  private isTaskShared(newTask: RealTimeTaskResponse): boolean {
     return this.tokenPayload.clientId || !!getPreviewMode(this.tokenPayload)
-      ? (newTask.associations?.some(
-          (viewer) =>
-            (viewer.clientId === this.tokenPayload.clientId && viewer.companyId === this.tokenPayload.companyId) ||
-            (!viewer.clientId && viewer.companyId === this.tokenPayload.companyId),
-        ) ?? false)
+      ? ((newTask.associations?.some(
+          (association) =>
+            (association.clientId === this.tokenPayload.clientId && association.companyId === this.tokenPayload.companyId) ||
+            (!association.clientId && association.companyId === this.tokenPayload.companyId),
+        ) &&
+          newTask.isShared) ??
+          false)
       : false
   } //check if the task incoming from realtime includes the logged in client as a viewer.
 
@@ -65,7 +67,7 @@ export class RealtimeHandler {
       // Ignore all tasks that don't belong to client
 
       if (
-        !this.isViewer(newTask) &&
+        !this.isTaskShared(newTask) &&
         !(
           (newTask.clientId == this.tokenPayload.clientId && newTask.companyId == this.tokenPayload.companyId) ||
           (newTask.clientId == null && newTask.companyId == this.tokenPayload.companyId)
@@ -227,7 +229,7 @@ export class RealtimeHandler {
       // - task is a client task, assigned to another client
       // - task's companyId does not match current user's active companyId
       if (
-        !this.isViewer(newTask) &&
+        !this.isTaskShared(newTask) &&
         (!newTask.assigneeId ||
           !!newTask.internalUserId ||
           (newTask.clientId && newTask.clientId !== this.tokenPayload.clientId) ||
@@ -280,7 +282,7 @@ export class RealtimeHandler {
     // --- Handle unassignment for clients (board + details page)
     const isReassignedOutOfClientScope =
       this.userRole === AssigneeType.client &&
-      !this.isViewer(updatedTask) &&
+      !this.isTaskShared(updatedTask) &&
       (!updatedTask.clientId
         ? updatedTask.companyId !== this.tokenPayload.companyId
         : updatedTask.companyId !== this.tokenPayload.companyId || updatedTask.clientId !== this.tokenPayload.clientId)
@@ -317,8 +319,8 @@ export class RealtimeHandler {
     // CASE III: Reassignment into scope
     const isReassignedIntoClientScope =
       this.userRole === AssigneeType.client &&
-      updatedTask.assigneeId !== prevTask.assigneeId &&
-      (this.isViewer(updatedTask) ||
+      (updatedTask.assigneeId !== prevTask.assigneeId ||
+        this.isTaskShared(updatedTask) ||
         (!updatedTask.clientId
           ? updatedTask.companyId === this.tokenPayload.companyId
           : updatedTask.companyId === this.tokenPayload.companyId && updatedTask.clientId === this.tokenPayload.clientId))
