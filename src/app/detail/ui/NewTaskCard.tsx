@@ -490,7 +490,6 @@ export const NewTaskCard = ({
         {showShareToggle && (
           <CopilotToggle
             label={`Share with ${associationLabel}`}
-            disabled={!previewMode}
             onChange={() => {
               setIsShared(!isShared)
               handleFieldChange('isShared', !isShared)
