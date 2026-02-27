@@ -413,7 +413,7 @@ export const Sidebar = ({
             }}
           >
             <CopilotToggle
-              label="Share with client"
+              label={`Share with ${associationLabel}`}
               disabled={(disabled && !previewMode) || fromNotificationCenter} // allow task share in preview mode
               onChange={handleTaskShared}
               checked={isTaskShared}
