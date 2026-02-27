@@ -14,6 +14,11 @@ export enum UserType {
   CLIENT_USER = 'cu',
 }
 
+export enum DefaultUserLabels {
+  Client = 'client',
+  Company = 'company',
+}
+
 export enum View {
   LIST_VIEW = 'list',
   BOARD_VIEW = 'board',
