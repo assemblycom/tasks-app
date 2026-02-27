@@ -377,7 +377,10 @@ export abstract class TasksSharedService extends BaseService {
           throw new APIError(httpStatus.BAD_REQUEST, 'Invalid companyId for the provided association.')
         }
       } else {
-        await this.copilot.getCompany(association.companyId)
+        const company = await this.copilot.getCompany(association.companyId)
+        if (company.isPlaceholder) {
+          throw new APIError(httpStatus.BAD_REQUEST, 'Invalid companyId for the provided association.')
+        }
       }
     } catch (err) {
       if (err instanceof APIError) {

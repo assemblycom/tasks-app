@@ -48,6 +48,7 @@ import { useSelector } from 'react-redux'
 import { z } from 'zod'
 import { CopilotToggle } from '@/components/inputs/CopilotToggle'
 import { SelectorFieldType } from '@/types/common'
+import { useAssociationLabelForWorkspace } from '@/hooks/useWorkspaceLabel'
 
 type StyledTypographyProps = {
   display?: string
@@ -84,7 +85,7 @@ export const Sidebar = ({
 }) => {
   const { activeTask, workflowStates, assignee, previewMode } = useSelector(selectTaskBoard)
   const { showSidebar, showConfirmAssignModal, fromNotificationCenter } = useSelector(selectTaskDetails)
-  const { tokenPayload } = useSelector(selectAuthDetails)
+  const { tokenPayload, workspace } = useSelector(selectAuthDetails)
 
   const [isHydrated, setIsHydrated] = useState(false)
 
@@ -106,7 +107,6 @@ export const Sidebar = ({
 
   const [taskAssociationValue, setTaskAssociationValue] = useState<IAssigneeCombined | null>(null)
   const [selectedAssociationUser, setSelectedAssociationUser] = useState<Associations | undefined>()
-
   const [isTaskShared, setIsTaskShared] = useState(false)
 
   const baseAssociationCondition = assigneeValue && assigneeValue.type === FilterByOptions.IUS
@@ -144,6 +144,8 @@ export const Sidebar = ({
       setIsTaskShared(!!activeTask.isShared)
     }
   }, [assignee, activeTask])
+
+  const { associationLabel } = useAssociationLabelForWorkspace({ workspace, associationValue: taskAssociationValue })
 
   const windowWidth = useWindowWidth()
   const isMobile = windowWidth < 800 && windowWidth !== 0
@@ -411,7 +413,7 @@ export const Sidebar = ({
             }}
           >
             <CopilotToggle
-              label="Share with client"
+              label={`Share with ${associationLabel}`}
               disabled={(disabled && !previewMode) || fromNotificationCenter} // allow task share in preview mode
               onChange={handleTaskShared}
               checked={isTaskShared}
@@ -671,7 +673,7 @@ export const Sidebar = ({
           <>
             <Divider sx={{ borderColor: (theme) => theme.color.borders.border, height: '1px' }} />
             <CopilotToggle
-              label="Share with client"
+              label={`Share with ${associationLabel}`}
               disabled={(disabled && !previewMode) || fromNotificationCenter} // allow task share in preview mode
               onChange={handleTaskShared}
               checked={isTaskShared}
