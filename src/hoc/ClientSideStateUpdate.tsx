@@ -25,6 +25,7 @@ import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { FilterOptionsKeywords, IAssigneeCombined, IAssigneeSuggestions, ITemplate } from '@/types/interfaces'
 import { filterOptionsMap } from '@/types/objectMaps'
+import { useTokenRefresh } from '@/hooks/app-bridge/useTokenRefresh'
 import { getPreviewMode, handlePreviewMode } from '@/utils/previewMode'
 import { ReactNode, useEffect } from 'react'
 import { useSelector } from 'react-redux'
@@ -73,6 +74,7 @@ export const ClientSideStateUpdate = ({
 }: ClientSideStateUpdateProps) => {
   const { tasks: tasksInStore, viewSettingsTemp, accessibleTasks: accessibleTaskInStore } = useSelector(selectTaskBoard)
   const { templates: templatesInStore } = useSelector(selectCreateTemplate)
+  useTokenRefresh(workspace?.portalUrl)
 
   useEffect(() => {
     if (workflowStates) {
