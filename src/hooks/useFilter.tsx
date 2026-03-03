@@ -1,4 +1,4 @@
-import { selectTaskBoard, setFilteredTasks } from '@/redux/features/taskBoardSlice'
+import { selectTaskBoard, setFilteredTasks, updateFilterOption } from '@/redux/features/taskBoardSlice'
 import store from '@/redux/store'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { FilterOptions, FilterOptionsKeywords, IAssigneeCombined, IFilterOptions, UserIds } from '@/types/interfaces'
@@ -182,4 +182,10 @@ export const useFilter = (filterOptions: IFilterOptions, isPreviewMode: boolean)
   useEffect(() => {
     applyFilter(tasks, filterOptions)
   }, [tasks, filterOptions])
+
+  useEffect(() => {
+    if (assignee?.length) {
+      store.dispatch(updateFilterOption({ filterOptions }))
+    }
+  }, [assignee])
 }

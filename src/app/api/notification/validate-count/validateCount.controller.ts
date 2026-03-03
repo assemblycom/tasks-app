@@ -5,11 +5,6 @@ import { ValidateCountService } from '@api/notification/validate-count/validateC
 import httpStatus from 'http-status'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Don't let NextJS do something stupid like cache the JSON response for all users
-export const revalidate = 0
-// This can take a while
-export const maxDuration = 300
-
 export const validateCount = async (req: NextRequest) => {
   const user = await authenticate(req)
   const clientId = Uuid.safeParse(user.clientId)
