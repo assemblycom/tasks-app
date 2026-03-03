@@ -28,16 +28,24 @@ export class RealtimeHandler {
     }
   }
 
-  private isTaskShared(newTask: RealTimeTaskResponse): boolean {
-    return this.tokenPayload.clientId || !!getPreviewMode(this.tokenPayload)
-      ? ((newTask.associations?.some(
-          (association) =>
-            (association.clientId === this.tokenPayload.clientId && association.companyId === this.tokenPayload.companyId) ||
-            (!association.clientId && association.companyId === this.tokenPayload.companyId),
-        ) &&
-          newTask.isShared) ??
-          false)
-      : false
+  /**
+   * Check if the task is associated with the user or shared with the user
+   * If CRM view include association and shared. If CU view include only shared
+   */
+  private isAssociatedOrShared(newTask: RealTimeTaskResponse): boolean {
+    const isPreviewMode = !!getPreviewMode(this.tokenPayload)
+    const isClientUser = this.tokenPayload.clientId && !isPreviewMode
+
+    if (isClientUser || isPreviewMode) {
+      const isRelatedTo = !!newTask.associations?.some(
+        (association) =>
+          (association.clientId === this.tokenPayload.clientId && association.companyId === this.tokenPayload.companyId) ||
+          (!association.clientId && association.companyId === this.tokenPayload.companyId),
+      )
+      return isClientUser ? isRelatedTo && !!newTask.isShared : isRelatedTo
+    }
+
+    return false
   } //check if the task incoming from realtime includes the logged in client as a viewer.
 
   /**
@@ -67,7 +75,7 @@ export class RealtimeHandler {
       // Ignore all tasks that don't belong to client
 
       if (
-        !this.isTaskShared(newTask) &&
+        !this.isAssociatedOrShared(newTask) &&
         !(
           (newTask.clientId == this.tokenPayload.clientId && newTask.companyId == this.tokenPayload.companyId) ||
           (newTask.clientId == null && newTask.companyId == this.tokenPayload.companyId)
@@ -229,7 +237,7 @@ export class RealtimeHandler {
       // - task is a client task, assigned to another client
       // - task's companyId does not match current user's active companyId
       if (
-        !this.isTaskShared(newTask) &&
+        !this.isAssociatedOrShared(newTask) &&
         (!newTask.assigneeId ||
           !!newTask.internalUserId ||
           (newTask.clientId && newTask.clientId !== this.tokenPayload.clientId) ||
@@ -282,7 +290,7 @@ export class RealtimeHandler {
     // --- Handle unassignment for clients (board + details page)
     const isReassignedOutOfClientScope =
       this.userRole === AssigneeType.client &&
-      !this.isTaskShared(updatedTask) &&
+      !this.isAssociatedOrShared(updatedTask) &&
       (!updatedTask.clientId
         ? updatedTask.companyId !== this.tokenPayload.companyId
         : updatedTask.companyId !== this.tokenPayload.companyId || updatedTask.clientId !== this.tokenPayload.clientId)
@@ -320,7 +328,7 @@ export class RealtimeHandler {
     const isReassignedIntoClientScope =
       this.userRole === AssigneeType.client &&
       (updatedTask.assigneeId !== prevTask.assigneeId ||
-        this.isTaskShared(updatedTask) ||
+        this.isAssociatedOrShared(updatedTask) ||
         (!updatedTask.clientId
           ? updatedTask.companyId === this.tokenPayload.companyId
           : updatedTask.companyId === this.tokenPayload.companyId && updatedTask.clientId === this.tokenPayload.clientId))
