@@ -92,20 +92,19 @@ export function assemblyApi({ apiKey, token: tokenString }) {
     throw new Error('Unable to authorize Assembly SDK.')
   }
 
-  // TEMPORARY FIX: suppress sending tokenId to auth header if ASSEMBLY_SUPPRESS_TOKEN_ID is set
-  const suppressTokenId = !!process.env.ASSEMBLY_SUPPRESS_TOKEN_ID
+  // TEMPORARY FIX: suppress sending tokenId to auth header
 
-  if (suppressTokenId) {
-    const [org, project] = key.split('/')
+  const [org, project] = key.split('/')
 
-    if (!org || !project) {
-      throw new Error(`Invalid auth header`)
-    }
-
-    key = `${org}/${project}`
-    // disable SDK version to prevent expiry logic from triggering (?)
-    SDK_VERSION = undefined
+  if (!org || !project) {
+    throw new Error(`Invalid auth header`)
   }
+
+  key = `${org}/${project}`
+  // disable SDK version to prevent expiry logic from triggering (?)
+  SDK_VERSION = undefined
+
+  // TEMPORARY FIX END
 
   if (isDebug) {
     console.log(`Authorizing with key: ${key}`)
