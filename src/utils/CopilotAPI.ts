@@ -193,7 +193,7 @@ export class CopilotAPI {
 
   async _getCustomFields(): Promise<CustomFieldResponse> {
     console.info('CopilotAPI#_getCustomFields', this.token)
-    return CustomFieldResponseSchema.parse(await this.copilot.listCustomFields({}))
+    return CustomFieldResponseSchema.parse(await this.copilot.listCustomFields())
   }
 
   async _getInternalUsers(args: CopilotListArgs = {}): Promise<InternalUsersResponse> {

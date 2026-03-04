@@ -19,7 +19,7 @@
     "bottleneck": "^2.19.5",
     "clsx": "^2.1.1",
     "copilot-design-system": "^2.3.4",
-    "copilot-node-sdk": "^3.16.0",
+    "copilot-node-sdk": "~3.16.0",
     "dayjs": "^1.11.10",
     "deep-equal": "^2.2.3",
     "fetch-retry": "^6.0.0",

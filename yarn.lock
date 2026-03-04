@@ -4893,10 +4893,10 @@ copilot-design-system@^2.3.4:
     tailwind-merge "^2.3.0"
     uuid "^9.0.1"
 
-copilot-node-sdk@^3.16.0:
-  version "3.19.1"
-  resolved "https://registry.yarnpkg.com/copilot-node-sdk/-/copilot-node-sdk-3.19.1.tgz#4467873d003379dac4db57a99a620685b8ae2cd9"
-  integrity sha512-NV5jS50wMxAf+327fPjoizOJgC/+uaENqAJjjofurD38pnLKp5PpVjru02L4wBQOL0le9EaU59VE9tLmjmS4+Q==
+copilot-node-sdk@~3.16.0:
+  version "3.16.0"
+  resolved "https://registry.yarnpkg.com/copilot-node-sdk/-/copilot-node-sdk-3.16.0.tgz#c1335c768bd3f9d091c154f930fce9a2633ade8d"
+  integrity sha512-wqqeJuW+uge39nC1/+cqMWSSgCCNThtCR+JykPYFB2PTj0d0tfROCXofwtqZZccUUzk/xXXkJF53QfweVxmMLg==
   dependencies:
     isomorphic-fetch "^3.0.0"
     next "^14.0.2"
