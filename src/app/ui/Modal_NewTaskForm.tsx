@@ -35,7 +35,8 @@ export const ModalNewTaskForm = ({
     showModal,
     templateId,
     parentId,
-    viewers,
+    associations,
+    isShared,
     disableSubtaskTemplates,
   } = useSelector(selectCreateTask)
 
@@ -86,7 +87,8 @@ export const ModalNewTaskForm = ({
             ...userIds,
             dueDate: formattedDueDate,
             templateId,
-            ...(viewers && viewers.length > 0 && { viewers }),
+            ...(associations && associations.length > 0 && { associations }),
+            isShared,
             parentId,
           }
 

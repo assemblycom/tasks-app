@@ -27,7 +27,7 @@ interface IInitialState {
   accesibleTaskIds: string[]
   accessibleTasks: TaskResponse[]
   confirmAssignModalId: string | undefined
-  confirmViewershipModalId: string | undefined
+  confirmAssociationModalId: string | undefined
   assigneeCache: Record<string, IAssigneeCombined>
   previewClientCompany: PreviewClientCompanyType
   urlActionParams: UrlActionParamsType
@@ -42,7 +42,7 @@ const initialState: IInitialState = {
   filteredTasks: [], //contains tasks which are client-side filtered. is modified from the useFilter custom hook.
   filterOptions: {
     [FilterOptions.ASSIGNEE]: emptyAssignee,
-    [FilterOptions.VISIBILITY]: emptyAssignee,
+    [FilterOptions.ASSOCIATION]: emptyAssignee,
     [FilterOptions.CREATOR]: emptyAssignee,
     [FilterOptions.KEYWORD]: '',
     [FilterOptions.TYPE]: '',
@@ -63,7 +63,7 @@ const initialState: IInitialState = {
   accesibleTaskIds: [],
   accessibleTasks: [],
   confirmAssignModalId: '',
-  confirmViewershipModalId: '',
+  confirmAssociationModalId: '',
   assigneeCache: {},
   urlActionParams: {
     action: '',
@@ -157,12 +157,12 @@ const taskBoardSlice = createSlice({
         }
       }
       if (
-        (filterOptions && filterOptions.visibility === undefined) ||
-        (filterOptions?.visibility && !getAssignee(filterOptions.visibility))
+        (filterOptions && filterOptions.association === undefined) ||
+        (filterOptions?.association && !getAssignee(filterOptions.association))
       ) {
         updatedFilterOptions = {
           ...updatedFilterOptions,
-          visibility: emptyAssignee,
+          association: emptyAssignee,
         }
       }
       if (
@@ -221,8 +221,8 @@ const taskBoardSlice = createSlice({
       state.confirmAssignModalId = action.payload
     },
 
-    setConfirmViewershipModalId: (state, action: { payload: string | undefined }) => {
-      state.confirmViewershipModalId = action.payload
+    setConfirmAssociationModalId: (state, action: { payload: string | undefined }) => {
+      state.confirmAssociationModalId = action.payload
     },
 
     setAssigneeCache: (state, action: { payload: { key: string; value: IAssigneeCombined } }) => {
@@ -255,7 +255,7 @@ export const {
   setAccesibleTaskIds,
   setAccessibleTasks,
   setConfirmAssigneeModalId,
-  setConfirmViewershipModalId,
+  setConfirmAssociationModalId,
   setAssigneeCache,
   setPreviewClientCompany,
   setUrlActionParams,

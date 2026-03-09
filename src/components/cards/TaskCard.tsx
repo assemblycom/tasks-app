@@ -10,7 +10,7 @@ import {
   selectTaskBoard,
   setAssigneeCache,
   setConfirmAssigneeModalId,
-  setConfirmViewershipModalId,
+  setConfirmAssociationModalId,
   updateWorkflowStateIdByTaskId,
 } from '@/redux/features/taskBoardSlice'
 import store from '@/redux/store'
@@ -20,7 +20,7 @@ import { IAssigneeCombined, InputValue, Sizes } from '@/types/interfaces'
 import {
   getAssigneeId,
   getAssigneeName,
-  getAssigneeValueFromViewers,
+  getAssigneeValueFromAssociations,
   getUserIds,
   isEmptyAssignee,
   UserIdsType,
@@ -47,11 +47,11 @@ import {
   getSelectedUserIds,
   getSelectorAssignee,
   getSelectorAssigneeFromTask,
-  getSelectorViewerFromTask,
+  getSelectorAssociationFromTask,
 } from '@/utils/selector'
 import {
   shouldConfirmBeforeReassignment,
-  shouldConfirmViewershipBeforeReassignment,
+  shouldConfirmTaskSharedBeforeReassignment,
 } from '@/utils/shouldConfirmBeforeReassign'
 import z from 'zod'
 import { StyledModal } from '@/app/detail/ui/styledComponent'
@@ -96,7 +96,7 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
     accessibleTasks,
     showSubtasks,
     confirmAssignModalId,
-    confirmViewershipModalId,
+    confirmAssociationModalId,
   } = useSelector(selectTaskBoard)
 
   const subtaskCount = useSubtaskCount(task.id)
@@ -132,11 +132,14 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
   }, [task.dueDate])
 
   const handleConfirmAssigneeChange = (userIds: UserIdsType) => {
+    const isAssigneeClient = !!(userIds.clientId || userIds.companyId)
+    const hasNoAssignee = !userIds.internalUserId && !isAssigneeClient
+    const associations = isAssigneeClient ? [] : undefined
+    const isShared = hasNoAssignee || isAssigneeClient ? false : undefined
     const { internalUserId, clientId, companyId } = userIds
-    const viewers = !internalUserId ? [] : undefined
     store.dispatch(setConfirmAssigneeModalId(undefined))
-    store.dispatch(setConfirmViewershipModalId(undefined))
-    token && updateAssignee(token, task.id, internalUserId, clientId, companyId, viewers)
+    store.dispatch(setConfirmAssociationModalId(undefined))
+    token && updateAssignee(token, task.id, internalUserId, clientId, companyId, associations, isShared)
   }
 
   const handleAssigneeChange = (inputValue: InputValue[]) => {
@@ -144,23 +147,28 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
     const previousAssignee = assignee.find((assignee) => assignee.id == getAssigneeId(getUserIds(task)))
     const nextAssignee = getSelectorAssignee(assignee, inputValue)
     const shouldShowConfirmModal = shouldConfirmBeforeReassignment(previousAssignee, nextAssignee)
-    const shouldShowConfirmViewershipModal = shouldConfirmViewershipBeforeReassignment(
-      getSelectorViewerFromTask(assignee, task) ?? null,
+    const showAssociationConfirmModal = shouldConfirmTaskSharedBeforeReassignment(
+      getSelectorAssociationFromTask(assignee, task) ?? null,
+      !!task.isShared,
       nextAssignee,
     )
     if (shouldShowConfirmModal) {
       setSelectedAssignee(newUserIds)
       store.dispatch(setConfirmAssigneeModalId(task.id))
-    } else if (shouldShowConfirmViewershipModal) {
+    } else if (showAssociationConfirmModal) {
       setSelectedAssignee(newUserIds)
-      store.dispatch(setConfirmViewershipModalId(task.id))
+      store.dispatch(setConfirmAssociationModalId(task.id))
     } else {
       const { internalUserId, clientId, companyId } = newUserIds
-      const viewers = !internalUserId ? [] : undefined
-      token && updateAssignee(token, task.id, internalUserId, clientId, companyId, viewers)
+      const isAssigneeClient = !!(clientId || companyId)
+      const hasNoAssignee = !internalUserId && !isAssigneeClient
+      const associations = isAssigneeClient ? [] : undefined
+      const isShared = hasNoAssignee || isAssigneeClient ? false : undefined
+      token && updateAssignee(token, task.id, internalUserId, clientId, companyId, associations, isShared)
       setAssigneeValue(nextAssignee ?? NoAssignee)
     }
   }
+
   const getAssigneeValue = (userIds?: UserIdsType) => {
     if (!userIds) {
       return NoAssignee
@@ -330,11 +338,11 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
         )}
       </Stack>
       <StyledModal
-        open={confirmAssignModalId === task.id || confirmViewershipModalId === task.id}
+        open={confirmAssignModalId === task.id || confirmAssociationModalId === task.id}
         onClose={(e: React.MouseEvent) => {
           e.stopPropagation()
           store.dispatch(setConfirmAssigneeModalId(undefined))
-          store.dispatch(setConfirmViewershipModalId(undefined))
+          store.dispatch(setConfirmAssociationModalId(undefined))
         }}
         aria-labelledby="confirm-reassignment-modal"
         aria-describedby="confirm-reassignment"
@@ -343,14 +351,14 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
           handleCancel={() => {
             setSelectedAssignee(undefined)
             store.dispatch(setConfirmAssigneeModalId(undefined))
-            store.dispatch(setConfirmViewershipModalId(undefined))
+            store.dispatch(setConfirmAssociationModalId(undefined))
           }}
           handleConfirm={() => {
             if (selectedAssignee) {
               handleConfirmAssigneeChange(selectedAssignee)
             }
           }}
-          buttonText={confirmViewershipModalId === task.id ? 'Remove' : 'Reassign'}
+          buttonText={confirmAssociationModalId === task.id ? 'Remove' : 'Reassign'}
           description={
             confirmAssignModalId === task.id ? (
               <>
@@ -362,17 +370,21 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
               </>
             ) : (
               <>
+                The task will be stopped sharing with{' '}
                 <strong>
-                  {getAssigneeName(getAssigneeValueFromViewers(getSelectorViewerFromTask(assignee, task) ?? null, assignee))}
-                </strong>{' '}
-                will also lose visibility to the task.
+                  {getAssigneeName(
+                    getAssigneeValueFromAssociations(getSelectorAssociationFromTask(assignee, task) ?? null, assignee),
+                  )}
+                </strong>
               </>
             )
           }
           title={
-            confirmViewershipModalId === task.id && isEmptyAssignee(selectedAssignee) ? 'Remove assignee?' : 'Reassign task?'
+            confirmAssociationModalId === task.id && isEmptyAssignee(selectedAssignee)
+              ? 'Remove assignee?'
+              : 'Reassign task?'
           }
-          variant={confirmViewershipModalId === task.id ? 'danger' : 'default'}
+          variant={confirmAssociationModalId === task.id ? 'danger' : 'default'}
         />
       </StyledModal>
     </TaskCardContainer>

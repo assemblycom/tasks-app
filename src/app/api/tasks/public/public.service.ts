@@ -1,7 +1,6 @@
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
 import { deleteTaskNotifications, sendTaskCreateNotifications, sendTaskUpdateNotifications } from '@/jobs/notifications'
-import { TaskWithWorkflowState } from '@/types/db'
-import { CreateTaskRequest, CreateTaskRequestSchema, UpdateTaskRequest, Viewers, ViewersSchema } from '@/types/dto/tasks.dto'
+import { CreateTaskRequest, UpdateTaskRequest, Associations, AssociationsSchema } from '@/types/dto/tasks.dto'
 import { DISPATCHABLE_EVENT } from '@/types/webhook'
 import { UserIdsType } from '@/utils/assignee'
 import { isPastDateString } from '@/utils/dateHelper'
@@ -170,13 +169,13 @@ export class PublicTasksService extends TasksSharedService {
       console.info('TasksService#createTask | createdById overridden for public API:', createdById)
     }
 
-    let viewers: Viewers = []
-    if (data.viewers?.length) {
-      if (!validatedIds.internalUserId) {
+    let associations: Associations = []
+    if (data.associations?.length) {
+      if (!!data.isShared && !validatedIds.internalUserId) {
         throw new APIError(httpStatus.BAD_REQUEST, `Task cannot be created with viewers if its not assigned to an IU.`)
       }
-      viewers = await this.validateViewers(data.viewers)
-      console.info('PublicTasksService#createTask | Viewers validated for task:', viewers)
+      associations = await this.validateAssociations(data.associations)
+      console.info('PublicTasksService#createTask | Associations validated for task:', associations)
     }
 
     // Create a new task associated with current workspaceId. Also inject current request user as the creator.
@@ -191,7 +190,7 @@ export class PublicTasksService extends TasksSharedService {
         source: Source.api,
         assigneeId,
         assigneeType,
-        viewers: viewers,
+        associations,
         ...validatedIds,
         ...(opts?.manualTimestamp && { createdAt: opts.manualTimestamp }),
         ...(await getTaskTimestamps('create', this.user, data, undefined, workflowStateStatus)),
@@ -279,6 +278,25 @@ export class PublicTasksService extends TasksSharedService {
     return newTask
   }
 
+  private async getValidatedAssociations({
+    prevAssociations,
+    associationsResetCondition,
+  }: {
+    prevAssociations: Prisma.JsonValue[]
+    associationsResetCondition: boolean
+  }) {
+    let associations: Associations = AssociationsSchema.parse(prevAssociations)
+    if (associations) {
+      // only update of associations attribute is available. No associations in payload attribute means the data remains as it is in DB.
+      if (associationsResetCondition || !associations?.length) {
+        associations = [] // reset associations to [] if task is not reassigned to IU.
+      } else if (associations?.length) {
+        associations = await this.validateAssociations(associations)
+      }
+    }
+    return associations
+  }
+
   async updateTask(id: string, data: UpdateTaskRequest) {
     const policyGate = new PoliciesService(this.user)
     policyGate.authorize(UserAction.Update, Resource.Tasks)
@@ -314,17 +332,13 @@ export class PublicTasksService extends TasksSharedService {
       companyId: validatedIds?.companyId ?? null,
     })
 
-    let viewers: Viewers = ViewersSchema.parse(prevTask.viewers)
-
-    const viewersResetCondition = shouldUpdateUserIds ? !!clientId || !!companyId : !prevTask.internalUserId
-    if (data.viewers) {
-      // only update of viewers attribute is available. No viewers in payload attribute means the data remains as it is in DB.
-      if (viewersResetCondition || !data.viewers?.length) {
-        viewers = [] // reset viewers to [] if task is not reassigned to IU.
-      } else if (data.viewers?.length) {
-        viewers = await this.validateViewers(data.viewers)
-      }
-    }
+    const associations = await this.resolveAssociations({
+      prevTask,
+      data,
+      shouldUpdateUserIds,
+      clientId,
+      companyId,
+    })
 
     const userAssignmentFields = shouldUpdateUserIds
       ? {
@@ -371,7 +385,8 @@ export class PublicTasksService extends TasksSharedService {
           archivedBy,
           completedBy,
           completedByUserType,
-          viewers,
+          associations,
+          isShared: this.validateTaskShare(prevTask, data),
           ...userAssignmentFields,
           ...(await getTaskTimestamps('update', this.user, data, prevTask)),
         },

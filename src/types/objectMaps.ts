@@ -5,7 +5,8 @@ import { StateType } from '@prisma/client'
 export const filterTypeToButtonIndexMap: Record<string, number> = {
   [FilterOptionsKeywords.CLIENTS]: 2,
   [FilterOptionsKeywords.TEAM]: 1,
-  '': 3,
+  [FilterOptionsKeywords.UNASSIGNED]: 3,
+  '': 4,
 }
 
 export const clientFilterTypeToButtonIndexMap: Record<string, number> = {
@@ -14,8 +15,9 @@ export const clientFilterTypeToButtonIndexMap: Record<string, number> = {
 }
 
 export const previewFilterTypeToButtonIndexMap: Record<string, number> = {
-  [FilterOptionsKeywords.CLIENTS]: 2,
   [FilterOptionsKeywords.TEAM]: 1,
+  [FilterOptionsKeywords.UNASSIGNED]: 2,
+  [FilterOptionsKeywords.CLIENTS]: 3,
 }
 
 export const filterOptionsMap: Record<string, FilterByOptions> = {

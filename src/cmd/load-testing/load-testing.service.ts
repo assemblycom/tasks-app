@@ -108,7 +108,8 @@ class LoadTester {
         | 'clientId'
         | 'companyId'
         | 'lastSubtaskUpdated'
-        | 'viewers'
+        | 'associations'
+        | 'isShared'
       >[] = []
       const currentUser = await authenticateWithToken(this.token, this.apiKey)
       const labelsService = new LabelMappingService(currentUser, this.apiKey)

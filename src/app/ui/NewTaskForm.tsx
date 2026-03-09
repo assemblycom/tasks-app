@@ -12,6 +12,7 @@ import { CopilotPopSelector } from '@/components/inputs/CopilotSelector'
 import { DatePickerComponent } from '@/components/inputs/DatePickerComponent'
 import Selector, { SelectorType } from '@/components/inputs/Selector'
 import { WorkflowStateSelector } from '@/components/inputs/Selector-WorkflowState'
+import { CopilotToggle } from '@/components/inputs/CopilotToggle'
 import { StyledTextField } from '@/components/inputs/TextField'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
@@ -25,6 +26,7 @@ import {
   setAppliedTitle,
   setCreateTaskFields,
   setErrors,
+  setMultipleCreateTaskFields,
 } from '@/redux/features/createTaskSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { selectCreateTemplate } from '@/redux/features/templateSlice'
@@ -57,6 +59,7 @@ import { marked } from 'marked'
 import { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Tapwrite } from 'tapwrite'
+import { useAssociationLabelForWorkspace } from '@/hooks/useWorkspaceLabel'
 
 interface NewTaskFormInputsProps {
   isEditorReadonly?: boolean
@@ -79,6 +82,7 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
   const { workflowStates, assignee, previewMode, filterOptions, urlActionParams, token, previewClientCompany } =
     useSelector(selectTaskBoard)
   const [actionParamPayload, setActionParamPayload] = useState<PublicTaskCreateDto | null>(null)
+  const { workspace } = useSelector(selectAuthDetails)
 
   const todoWorkflowState = workflowStates.find((el) => el.key === 'todo') || workflowStates[0]
   const actionParamWorkflowState = actionParamPayload
@@ -112,7 +116,7 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
   }
 
   const [assigneeValue, setAssigneeValue] = useState<IAssigneeCombined | null>(getDefaultAssigneeValue)
-  const [taskViewerValue, setTaskViewerValue] = useState<IAssigneeCombined | null>(
+  const [taskAssociationsValue, setTaskAssociationsValue] = useState<IAssigneeCombined | null>(
     !!previewMode
       ? (getSelectorAssigneeFromFilterOptions(
           assignee,
@@ -120,6 +124,7 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
         ) ?? null)
       : null,
   )
+  const { associationLabel } = useAssociationLabelForWorkspace({ workspace, associationValue: taskAssociationsValue })
 
   // this function handles the action param passed in the url and fill the values in the form
   const handleUrlActionParam = useCallback(async () => {
@@ -192,24 +197,24 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
       } else if (!checkEmptyAssignee(filterOptions[FilterOptions.ASSIGNEE])) {
         store.dispatch(setCreateTaskFields({ targetField: 'userIds', value: filterOptions[FilterOptions.ASSIGNEE] }))
       } else if (filterOptions[FilterOptions.TYPE]) {
+        // set default task associations when filter by type is applied on preview mode
+        if (!!previewMode && taskAssociationsValue) {
+          const correctedViewerObject = getAssigneeTypeCorrected(taskAssociationsValue)
+          if (!correctedViewerObject) return
+
+          store.dispatch(
+            setCreateTaskFields({
+              targetField: 'associations',
+              value: getSelectedViewerIds([{ ...taskAssociationsValue, object: correctedViewerObject }]),
+            }),
+          )
+        }
+
         if (!assigneeValue) return
         const correctedObject = getAssigneeTypeCorrected(assigneeValue)
         if (!correctedObject) return
         const newUserIds = getSelectedUserIds([{ ...assigneeValue, object: correctedObject }])
         store.dispatch(setCreateTaskFields({ targetField: 'userIds', value: newUserIds }))
-
-        // set default task viewers when filter by type "My tasks" is applied on preview mode
-        if (!!previewMode && taskViewerValue) {
-          const correctedViewerObject = getAssigneeTypeCorrected(taskViewerValue)
-          if (!correctedViewerObject) return
-
-          store.dispatch(
-            setCreateTaskFields({
-              targetField: 'viewers',
-              value: getSelectedViewerIds([{ ...taskViewerValue, object: correctedViewerObject }]),
-            }),
-          )
-        }
       } else {
         store.dispatch(setCreateTaskFields({ targetField: 'userIds', value: emptyAssignee }))
       }
@@ -239,15 +244,27 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
 
   const handleAssigneeChange = (inputValue: InputValue[]) => {
     // remove task viewers if assignee is cleared or changed to client or company
-    if (inputValue.length === 0 || inputValue[0].object !== UserRole.IU) {
-      setTaskViewerValue(null)
-      store.dispatch(setCreateTaskFields({ targetField: 'viewers', value: [] }))
+    if (inputValue.length === 0) {
+      store.dispatch(setCreateTaskFields({ targetField: 'isShared', value: false }))
+    }
+    if (inputValue.length && inputValue[0].object !== UserRole.IU) {
+      setTaskAssociationsValue(null)
+      store.dispatch(
+        setMultipleCreateTaskFields([
+          { targetField: 'associations', value: [] },
+          { targetField: 'isShared', value: false },
+        ]),
+      )
     }
 
     // if preview mode, auto-select current CU as viewer
-    if (!!previewMode && inputValue.length && inputValue[0].object === UserRole.IU && previewClientCompany.companyId) {
-      if (!taskViewerValue)
-        setTaskViewerValue(
+    if (
+      !!previewMode &&
+      ((inputValue.length && inputValue[0].object === UserRole.IU) || !inputValue.length) &&
+      previewClientCompany.companyId
+    ) {
+      if (!taskAssociationsValue)
+        setTaskAssociationsValue(
           getSelectorAssigneeFromFilterOptions(
             assignee,
             { internalUserId: null, ...previewClientCompany }, // if preview mode, default select the respective client/company as viewer
@@ -255,7 +272,7 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
         )
       store.dispatch(
         setCreateTaskFields({
-          targetField: 'viewers',
+          targetField: 'associations',
           value: [{ clientId: previewClientCompany.clientId || undefined, companyId: previewClientCompany.companyId }],
         }),
       )
@@ -266,6 +283,11 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
     setAssigneeValue(selectedAssignee || null)
     store.dispatch(setCreateTaskFields({ targetField: 'userIds', value: newUserIds }))
   }
+
+  // client association conditions
+  const baseCondition = assigneeValue && assigneeValue.type === FilterByOptions.IUS
+  const showSharedToggle = baseCondition && taskAssociationsValue
+  const showAssociation = !assigneeValue || baseCondition
 
   return (
     <NewTaskContainer>
@@ -360,24 +382,28 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
                 }
               />
             </Stack>
-            {assigneeValue && assigneeValue.type === FilterByOptions.IUS && (
+            {showAssociation && (
               <Stack alignSelf="flex-start">
                 <CopilotPopSelector
                   hideIusList
                   disabled={!!previewMode}
-                  name="Set client visibility"
-                  initialValue={taskViewerValue || undefined}
+                  name="Set related to"
+                  initialValue={taskAssociationsValue || undefined}
                   onChange={(inputValue) => {
                     const newUserIds = getSelectedViewerIds(inputValue)
                     const selectedTaskViewers = getSelectorAssignee(assignee, inputValue)
-                    setTaskViewerValue(selectedTaskViewers || null)
-                    store.dispatch(setCreateTaskFields({ targetField: 'viewers', value: newUserIds }))
+                    setTaskAssociationsValue(selectedTaskViewers || null)
+                    store.dispatch(setCreateTaskFields({ targetField: 'associations', value: newUserIds }))
                   }}
                   buttonContent={
                     <SelectorButton
                       disabled={!!previewMode}
                       startIcon={
-                        taskViewerValue ? <CopilotAvatar size="xs" currentAssignee={taskViewerValue} /> : <PersonIconSmall />
+                        taskAssociationsValue ? (
+                          <CopilotAvatar size="xs" currentAssignee={taskAssociationsValue} />
+                        ) : (
+                          <PersonIconSmall />
+                        )
                       }
                       height="30px"
                       padding="4px 8px"
@@ -385,7 +411,8 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
                         <Typography
                           variant="bodySm"
                           sx={{
-                            color: (theme) => (taskViewerValue ? theme.color.gray[600] : theme.color.text.textDisabled),
+                            color: (theme) =>
+                              taskAssociationsValue ? theme.color.gray[600] : theme.color.text.textDisabled,
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
@@ -393,7 +420,7 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
                             maxWidth: { xs: '60px', sm: '100px' },
                           }}
                         >
-                          {getAssigneeName(taskViewerValue as IAssigneeCombined, 'Client visibility')}
+                          {getAssigneeName(taskAssociationsValue as IAssigneeCombined, 'Related to')}
                         </Typography>
                       }
                     />
@@ -402,6 +429,24 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
               </Stack>
             )}
           </Stack>
+          {showSharedToggle && (
+            <Stack
+              sx={{
+                backgroundColor: (theme) => theme.color.background.bgCallout,
+                borderRadius: '4px',
+              }}
+            >
+              <CopilotToggle
+                label={`Share with ${associationLabel}`}
+                onChange={() => {
+                  const localSharedState = store.getState().createTask.isShared
+                  store.dispatch(setCreateTaskFields({ targetField: 'isShared', value: !localSharedState }))
+                }}
+                checked={store.getState().createTask.isShared}
+                className="p-1.5 py-2" // px-1.5 is not working
+              />
+            </Stack>
+          )}
           {errorMessage && (
             <StyledHelperText sx={{ paddingTop: '6px', textAlign: 'left', marginLeft: '0px' }}>
               {errorMessage}

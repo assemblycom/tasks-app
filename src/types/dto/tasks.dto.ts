@@ -4,14 +4,18 @@ import { WorkflowStateResponseSchema } from './workflowStates.dto'
 import { DateStringSchema } from '@/types/date'
 import { ClientResponseSchema, CompanyResponseSchema, InternalUsersSchema } from '../common'
 
-export const ViewerSchema = z.object({
+export const AssociationSchema = z.object({
   clientId: z.string().uuid().optional(),
-  companyId: z.string().uuid(),
+  companyId: z
+    .string({
+      required_error: 'companyId is required on association or viewers',
+    })
+    .uuid(),
 })
-export type ViewerType = z.infer<typeof ViewerSchema>
+export type ViewerType = z.infer<typeof AssociationSchema>
 
-export const ViewersSchema = z.array(ViewerSchema).max(1).optional()
-export type Viewers = z.infer<typeof ViewersSchema>
+export const AssociationsSchema = z.array(AssociationSchema).max(1).optional()
+export type Associations = z.infer<typeof AssociationsSchema>
 
 export const validateUserIds = (
   data: { internalUserId?: string | null; clientId?: string | null; companyId?: string | null },
@@ -36,6 +40,34 @@ export const validateUserIds = (
   }
 }
 
+const validateAssociationAndTaskShare = (
+  data: {
+    associations?: Associations
+    isShared?: boolean
+    clientId?: string | null
+    companyId?: string | null
+    internalUserId?: string | null
+  },
+  ctx: z.RefinementCtx,
+) => {
+  const { clientId, companyId, associations, isShared, internalUserId } = data
+  if (associations && associations?.length && (clientId || companyId)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Task cannot have associations when assignee is client or company',
+      path: ['associations'],
+    })
+  }
+
+  if ((!associations || !associations?.length || !internalUserId) && isShared) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Task cannot be shared with no associations or when assignee is not internal user',
+      path: ['isShared'],
+    })
+  }
+}
+
 export const AssigneeTypeSchema = z.nativeEnum(PrismaAssigneeType).nullish()
 export type AssigneeType = z.infer<typeof AssigneeTypeSchema>
 
@@ -51,9 +83,11 @@ export const CreateTaskRequestSchema = z
     internalUserId: z.string().uuid().nullish().default(null),
     clientId: z.string().uuid().nullish().default(null),
     companyId: z.string().uuid().nullish().default(null),
-    viewers: ViewersSchema, //right now, we only need the feature to have max of 1 viewer per task
+    associations: AssociationsSchema, //right now, we only need the feature to have max of 1 viewer per task
+    isShared: z.boolean().optional(),
   })
   .superRefine(validateUserIds)
+  .superRefine(validateAssociationAndTaskShare)
 
 export type CreateTaskRequest = z.infer<typeof CreateTaskRequestSchema>
 
@@ -67,7 +101,8 @@ export const UpdateTaskRequestSchema = z
     internalUserId: z.string().uuid().nullish(),
     clientId: z.string().uuid().nullish(),
     companyId: z.string().uuid().nullish(),
-    viewers: ViewersSchema, //right now, we only need the feature to have max of 1 viewer per task
+    associations: AssociationsSchema, //right now, we only need the feature to have max of 1 viewer per task
+    isShared: z.boolean().optional(),
   })
   .superRefine(validateUserIds)
 
@@ -97,7 +132,8 @@ export const TaskResponseSchema = z.object({
   internalUserId: z.string().uuid().nullish(),
   clientId: z.string().uuid().nullish(),
   companyId: z.string().uuid().nullish(),
-  viewers: ViewersSchema,
+  associations: AssociationsSchema,
+  isShared: z.boolean().optional(),
 })
 
 export type TaskResponse = z.infer<typeof TaskResponseSchema>
@@ -109,7 +145,7 @@ export const SubTaskStatusSchema = z.object({
 
 export type SubTaskStatusResponse = z.infer<typeof SubTaskStatusSchema>
 
-export type AncestorTaskResponse = Pick<Task, 'id' | 'title' | 'label' | 'viewers'> & {
+export type AncestorTaskResponse = Pick<Task, 'id' | 'title' | 'label' | 'associations' | 'isShared'> & {
   internalUserId: string | null
   clientId: string | null
   companyId: string | null

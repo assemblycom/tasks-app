@@ -37,7 +37,7 @@ import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
 import { WorkspaceResponse } from '@/types/common'
 import { AncestorTaskResponse, SubTaskStatusResponse, TaskResponse } from '@/types/dto/tasks.dto'
 import { UserType } from '@/types/interfaces'
-import { getAssigneeCacheLookupKey, UserIdsWithViewersType } from '@/utils/assignee'
+import { getAssigneeCacheLookupKey, UserIdsWithAssociationSharedType } from '@/utils/assignee'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import EscapeHandler from '@/utils/escapeHandler'
 import { getPreviewMode } from '@/utils/previewMode'
@@ -125,7 +125,7 @@ export default async function TaskDetailPage(props: {
   }))
 
   // flag that determines if the current user is the task viewer
-  const isViewer = checkIfTaskViewer(task.viewers, tokenPayload)
+  const isViewer = checkIfTaskViewer(task.associations, tokenPayload)
 
   return (
     <DetailStateUpdate
@@ -257,9 +257,15 @@ export default async function TaskDetailPage(props: {
                     ? await clientUpdateTask(token, task_id, workflowState.id)
                     : await updateWorkflowStateIdOfTask(token, task_id, workflowState?.id)
                 }}
-                updateAssignee={async ({ internalUserId, clientId, companyId, viewers }: UserIdsWithViewersType) => {
+                updateAssignee={async ({
+                  internalUserId,
+                  clientId,
+                  companyId,
+                  associations,
+                  isShared,
+                }: UserIdsWithAssociationSharedType) => {
                   'use server'
-                  await updateAssignee(token, task_id, internalUserId, clientId, companyId, viewers)
+                  await updateAssignee(token, task_id, internalUserId, clientId, companyId, associations, isShared)
                 }}
                 updateTask={async (payload) => {
                   'use server'

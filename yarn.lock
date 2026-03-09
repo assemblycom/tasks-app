@@ -4893,7 +4893,7 @@ copilot-design-system@^2.3.4:
     tailwind-merge "^2.3.0"
     uuid "^9.0.1"
 
-copilot-node-sdk@^3.16.0:
+copilot-node-sdk@~3.16.0:
   version "3.16.0"
   resolved "https://registry.yarnpkg.com/copilot-node-sdk/-/copilot-node-sdk-3.16.0.tgz#c1335c768bd3f9d091c154f930fce9a2633ade8d"
   integrity sha512-wqqeJuW+uge39nC1/+cqMWSSgCCNThtCR+JykPYFB2PTj0d0tfROCXofwtqZZccUUzk/xXXkJF53QfweVxmMLg==
@@ -9519,6 +9519,11 @@ tailwind-merge@^2.3.0:
   version "2.6.0"
   resolved "https://registry.yarnpkg.com/tailwind-merge/-/tailwind-merge-2.6.0.tgz#ac5fb7e227910c038d458f396b7400d93a3142d5"
   integrity sha512-P+Vu1qXfzediirmHOC3xKGAYeZtPcV9g76X+xg2FD4tYgR71ewMA35Y3sCz3zhiN/dwefRpJX0yBcgwi1fXNQA==
+
+tailwind-merge@^3.4.0:
+  version "3.4.0"
+  resolved "https://registry.yarnpkg.com/tailwind-merge/-/tailwind-merge-3.4.0.tgz#5a264e131a096879965f1175d11f8c36e6b64eca"
+  integrity sha512-uSaO4gnW+b3Y2aWoWfFpX62vn2sR3skfhbjsEnaBI81WD1wBLlHZe5sWf0AqjksNdYTbGBEd0UasQMT3SNV15g==
 
 tailwindcss@^3.3.0:
   version "3.4.17"

@@ -16,7 +16,7 @@ export const SecondaryFilterBar = ({ mode }: SecondaryFilterBarProps) => {
   return (
     <Stack direction="row" gap={'8px'} sx={{ padding: '12px 20px' }}>
       <FilterChip type={FilterType.Assignee} assignee={filterOptions.assignee} />
-      <FilterChip type={FilterType.Visibility} assignee={filterOptions.visibility} />
+      <FilterChip type={FilterType.Association} assignee={filterOptions.association} />
       <FilterChip type={FilterType.Creator} assignee={filterOptions.creator} />
 
       <Box>

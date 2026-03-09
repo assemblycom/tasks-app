@@ -1,6 +1,6 @@
 import { WorkspaceResponse } from '@/types/common'
 
-type WorkspaceLabels = {
+export type WorkspaceLabels = {
   individualTerm: string
   individualTermPlural: string
   groupTerm: string

@@ -58,7 +58,8 @@ model Task {
 
   taskUpdateBacklogs TaskUpdateBacklog[]
 
-  viewers          Json[]      @db.JsonB @default([])
+  associations       Json[]      @db.JsonB @default([])
+  isShared           Boolean     @default(false)
 
   @@index([path], type: Gist)
   @@map("Tasks")

@@ -69,7 +69,7 @@ export const theme = createTheme({
     },
     text: {
       text: '#212B36',
-      textSecondary: '#6B6F76',
+      textSecondary: 'var(--text-secondary)',
       textDisabled: '#90959D',
       textPlaceholder: '#9B9FA3',
       textPrimary: '#101828',

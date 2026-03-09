@@ -1,5 +1,5 @@
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
-import { ViewersSchema, ViewerType } from '@/types/dto/tasks.dto'
+import { AssociationsSchema, ViewerType } from '@/types/dto/tasks.dto'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { buildLtreeNodeString } from '@/utils/ltree'
 import APIError from '@api/core/exceptions/api'
@@ -13,7 +13,8 @@ interface Assignable {
   internalUserId: string | null
   clientId: string | null
   companyId: string | null
-  viewers: JsonValue[]
+  associations: JsonValue[]
+  isShared: boolean
 }
 
 export class SubtaskService extends BaseService {
@@ -127,8 +128,8 @@ export class SubtaskService extends BaseService {
       latestAccessibleTaskIndex = tasks.findLastIndex((task) => {
         let viewer: ViewerType | undefined
         // check if viewer exists and parse and assign viewer
-        if (Array.isArray(task.viewers) && !!task.viewers.length) {
-          viewer = ViewersSchema.parse(task.viewers)?.[0]
+        if (Array.isArray(task.associations) && !!task.associations.length) {
+          viewer = AssociationsSchema.parse(task.associations)?.[0]
         }
 
         return !(
@@ -136,7 +137,8 @@ export class SubtaskService extends BaseService {
           (task.clientId === null && task.companyId === this.user.companyId) ||
           (viewer &&
             (!viewer?.clientId || viewer?.clientId === this.user.clientId) &&
-            viewer.companyId === this.user.companyId)
+            viewer.companyId === this.user.companyId &&
+            task.isShared)
         )
       })
     } else {

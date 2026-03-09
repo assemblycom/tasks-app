@@ -1,6 +1,6 @@
 import { Token } from '@/types/common'
 import { TruncateMaxNumber } from '@/types/constants'
-import { TaskResponse, Viewers, ViewersSchema } from '@/types/dto/tasks.dto'
+import { TaskResponse, Associations, AssociationsSchema } from '@/types/dto/tasks.dto'
 import { IAssigneeCombined, ISelectorOption, UserType } from '@/types/interfaces'
 import { getAssigneeTypeCorrected } from '@/utils/getAssigneeTypeCorrected'
 import { NoAssignee } from '@/utils/noAssignee'
@@ -17,7 +17,7 @@ export const UserIdsSchema = z.object({
 
 export type UserIdsType = z.infer<typeof UserIdsSchema>
 
-export type UserIdsWithViewersType = UserIdsType & { viewers?: Viewers }
+export type UserIdsWithAssociationSharedType = UserIdsType & { associations?: Associations; isShared?: boolean }
 
 export const isAssigneeTextMatching = (newInputValue: string, assigneeValue: IAssigneeCombined): boolean => {
   const truncate = (newInputValue: string) => truncateText(newInputValue, TruncateMaxNumber.SELECTOR)
@@ -106,7 +106,7 @@ export const isEmptyAssignee = (userIds?: UserIdsType) => {
   return Object.values(userIds).every((value) => value === null)
 }
 
-export const getAssigneeValueFromViewers = (viewer: IAssigneeCombined | null, assignee: IAssigneeCombined[]) => {
+export const getAssigneeValueFromAssociations = (viewer: IAssigneeCombined | null, assignee: IAssigneeCombined[]) => {
   if (!viewer) {
     return NoAssignee
   }
@@ -119,8 +119,8 @@ export const getAssigneeValueFromViewers = (viewer: IAssigneeCombined | null, as
   return match ?? undefined
 }
 
-export const getTaskViewers = (task: TaskResponse | Task | Pick<TaskResponse, 'viewers'>) => {
-  const taskViewers = ViewersSchema.parse(task.viewers)
-  const viewer = !!taskViewers?.length ? taskViewers[0] : undefined
-  return viewer
+export const getTaskAssociations = (task: TaskResponse | Task | Pick<TaskResponse, 'associations'>) => {
+  const taskAssociations = AssociationsSchema.parse(task.associations)
+  const association = !!taskAssociations?.length ? taskAssociations[0] : undefined
+  return association
 }
