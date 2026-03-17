@@ -37,6 +37,7 @@ import dayjs from 'dayjs'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Tapwrite } from 'tapwrite'
+import { useAssociationLabelForWorkspace } from '@/hooks/useWorkspaceLabel'
 
 interface SubTaskFields {
   title: string
@@ -72,7 +73,7 @@ export const NewTaskCard = ({
         [UserIds.COMPANY_ID]: null,
       }
 
-  const { tokenPayload } = useSelector(selectAuthDetails)
+  const { tokenPayload, workspace } = useSelector(selectAuthDetails)
   const [subTaskFields, setSubTaskFields] = useState<SubTaskFields>({
     title: '',
     description: '',
@@ -153,6 +154,8 @@ export const NewTaskCard = ({
     : null
   const [taskAssociationValue, setTaskAssociationValue] = useState<IAssigneeCombined | null>(previewTaskAssociation)
   const [isShared, setIsShared] = useState(!!previewTaskAssociation)
+
+  const { associationLabel } = useAssociationLabelForWorkspace({ workspace, associationValue: taskAssociationValue })
 
   const applyTemplate = useCallback(
     (id: string, templateTitle: string) => {
@@ -269,6 +272,13 @@ export const NewTaskCard = ({
     const selectedAssignee = getSelectorAssignee(assignee, inputValue)
     setAssigneeValue(selectedAssignee || null)
     handleFieldChange('userIds', newUserIds)
+  }
+
+  const handleAssociationChange = (inputValue: InputValue[]) => {
+    const newUserIds = getSelectedViewerIds(inputValue)
+    const selectedAssignee = getSelectorAssignee(assignee, inputValue)
+    setTaskAssociationValue(selectedAssignee || null)
+    handleFieldChange('associations', newUserIds)
   }
 
   const baseAssociationCondition = assigneeValue && assigneeValue.type === FilterByOptions.IUS
@@ -446,12 +456,7 @@ export const NewTaskCard = ({
               hideIusList
               disabled={!!previewMode}
               name="Set related to"
-              onChange={(inputValue) => {
-                const newUserIds = getSelectedViewerIds(inputValue)
-                const selectedAssignee = getSelectorAssignee(assignee, inputValue)
-                setTaskAssociationValue(selectedAssignee || null)
-                handleFieldChange('associations', newUserIds)
-              }}
+              onChange={handleAssociationChange}
               initialValue={taskAssociationValue || undefined}
               buttonContent={
                 <SelectorButton
@@ -484,8 +489,7 @@ export const NewTaskCard = ({
         </Stack>
         {showShareToggle && (
           <CopilotToggle
-            label="Share with client"
-            disabled={!previewMode}
+            label={`Share with ${associationLabel}`}
             onChange={() => {
               setIsShared(!isShared)
               handleFieldChange('isShared', !isShared)

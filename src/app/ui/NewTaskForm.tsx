@@ -59,6 +59,7 @@ import { marked } from 'marked'
 import { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Tapwrite } from 'tapwrite'
+import { useAssociationLabelForWorkspace } from '@/hooks/useWorkspaceLabel'
 
 interface NewTaskFormInputsProps {
   isEditorReadonly?: boolean
@@ -81,6 +82,7 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
   const { workflowStates, assignee, previewMode, filterOptions, urlActionParams, token, previewClientCompany } =
     useSelector(selectTaskBoard)
   const [actionParamPayload, setActionParamPayload] = useState<PublicTaskCreateDto | null>(null)
+  const { workspace } = useSelector(selectAuthDetails)
 
   const todoWorkflowState = workflowStates.find((el) => el.key === 'todo') || workflowStates[0]
   const actionParamWorkflowState = actionParamPayload
@@ -122,6 +124,7 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
         ) ?? null)
       : null,
   )
+  const { associationLabel } = useAssociationLabelForWorkspace({ workspace, associationValue: taskAssociationsValue })
 
   // this function handles the action param passed in the url and fill the values in the form
   const handleUrlActionParam = useCallback(async () => {
@@ -434,7 +437,7 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
               }}
             >
               <CopilotToggle
-                label="Share with client"
+                label={`Share with ${associationLabel}`}
                 onChange={() => {
                   const localSharedState = store.getState().createTask.isShared
                   store.dispatch(setCreateTaskFields({ targetField: 'isShared', value: !localSharedState }))
