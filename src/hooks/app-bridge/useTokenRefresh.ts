@@ -19,6 +19,7 @@ export function useTokenRefresh(portalUrl?: string) {
 
   useEffect(() => {
     const unsubscribe = AssemblyBridge.sessionToken.onTokenUpdate((data) => {
+      console.info('#onTokenUpdate active', data)
       store.dispatch(setToken(data.token))
     })
     return unsubscribe
