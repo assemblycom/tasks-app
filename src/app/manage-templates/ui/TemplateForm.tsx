@@ -30,6 +30,11 @@ import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils
 import AttachmentLayout from '@/components/AttachmentLayout'
 import { StyledModal } from '@/app/detail/ui/styledComponent'
 import { createUploadFn } from '@/utils/createUploadFn'
+import {
+  TapwriteDynamicFieldDropdown,
+  TapwriteDynamicFieldTemplate,
+  tapwriteDynamicFields,
+} from '@/components/inputs/TapwriteDynamicFieldDropdown'
 
 export const TemplateForm = ({ handleCreate }: { handleCreate: () => void }) => {
   const { workflowStates, assignee } = useSelector(selectTaskBoard)
@@ -174,6 +179,11 @@ const NewTemplateFormInputs = () => {
             attachmentLayout={(props) => <AttachmentLayout {...props} />}
             maxUploadLimit={MAX_UPLOAD_LIMIT}
             parentContainerStyle={{ gap: '0px', minHeight: '60px' }}
+            dynamicFieldConfig={{
+              fields: tapwriteDynamicFields,
+              dropdownComponent: TapwriteDynamicFieldDropdown,
+              templateComponent: TapwriteDynamicFieldTemplate,
+            }}
           />
         </Box>
       </Stack>
