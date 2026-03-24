@@ -54,6 +54,12 @@ import {
   getSelectorAssigneeFromFilterOptions,
 } from '@/utils/selector'
 import { resolveDynamicFields } from '@/utils/dynamicFields'
+import {
+  TapwriteDynamicFieldDropdown,
+  TapwriteDynamicFieldTemplate,
+  tapwriteDynamicFields,
+} from '@/components/inputs/TapwriteDynamicFieldDropdown'
+import { resolveDynamicField } from '@/utils/dynamicFields'
 import { trimAllTags } from '@/utils/trimTags'
 import { Box, Stack, styled, Typography } from '@mui/material'
 import { marked } from 'marked'
@@ -613,6 +619,8 @@ const NewTaskFormInputs = ({ isEditorReadonly }: NewTaskFormInputsProps) => {
     workspaceId: tokenPayload?.workspaceId,
   })
 
+  const resolvedValues = Object.fromEntries(tapwriteDynamicFields.map((f) => [f.value, resolveDynamicField(f.value)]))
+
   return (
     <>
       <Stack
@@ -674,6 +682,13 @@ const NewTaskFormInputs = ({ isEditorReadonly }: NewTaskFormInputsProps) => {
             attachmentLayout={(props) => <AttachmentLayout {...props} />}
             maxUploadLimit={MAX_UPLOAD_LIMIT}
             parentContainerStyle={{ gap: '0px', minHeight: '60px' }}
+            dynamicFieldConfig={{
+              fields: tapwriteDynamicFields,
+              dropdownComponent: TapwriteDynamicFieldDropdown,
+              templateComponent: TapwriteDynamicFieldTemplate,
+              showResolved: true,
+              resolvedValues,
+            }}
           />
         </Box>
       </Stack>
