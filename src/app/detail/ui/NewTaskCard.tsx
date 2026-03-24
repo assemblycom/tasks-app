@@ -31,7 +31,12 @@ import {
   getSelectorAssignee,
   getSelectorAssigneeFromFilterOptions,
 } from '@/utils/selector'
-import { resolveDynamicFields } from '@/utils/dynamicFields'
+import { resolveDynamicField, resolveDynamicFields } from '@/utils/dynamicFields'
+import {
+  TapwriteDynamicFieldDropdown,
+  TapwriteDynamicFieldTemplate,
+  tapwriteDynamicFields,
+} from '@/components/inputs/TapwriteDynamicFieldDropdown'
 import { trimAllTags } from '@/utils/trimTags'
 import { Box, Stack, Typography } from '@mui/material'
 import dayjs from 'dayjs'
@@ -379,6 +384,13 @@ export const NewTaskCard = ({
             maxUploadLimit={MAX_UPLOAD_LIMIT}
             parentContainerStyle={{ gap: '0px' }}
             readonly={isEditorReadonly}
+            dynamicFieldConfig={{
+              fields: tapwriteDynamicFields,
+              dropdownComponent: TapwriteDynamicFieldDropdown,
+              templateComponent: TapwriteDynamicFieldTemplate,
+              showResolved: true,
+              resolvedValues: Object.fromEntries(tapwriteDynamicFields.map((f) => [f.value, resolveDynamicField(f.value)])),
+            }}
           />
         </Box>
       </Stack>
