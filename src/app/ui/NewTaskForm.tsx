@@ -53,6 +53,7 @@ import {
   getSelectorAssignee,
   getSelectorAssigneeFromFilterOptions,
 } from '@/utils/selector'
+import { resolveDynamicFields } from '@/utils/dynamicFields'
 import { trimAllTags } from '@/utils/trimTags'
 import { Box, Stack, styled, Typography } from '@mui/material'
 import { marked } from 'marked'
@@ -497,11 +498,12 @@ const NewTaskHeader = ({
 
           setIsEditorReadonly?.(true)
 
-          store.dispatch(setAppliedTitle({ title: templateTitle }))
+          const resolvedTitle = resolveDynamicFields(templateTitle)
+          store.dispatch(setAppliedTitle({ title: resolvedTitle }))
           if (appliedTitle == title.trim()) {
-            store.dispatch(setCreateTaskFields({ targetField: 'title', value: templateTitle }))
+            store.dispatch(setCreateTaskFields({ targetField: 'title', value: resolvedTitle }))
           } else {
-            store.dispatch(setCreateTaskFields({ targetField: 'title', value: title + ' ' + templateTitle }))
+            store.dispatch(setCreateTaskFields({ targetField: 'title', value: title + ' ' + resolvedTitle }))
           }
 
           setSubtasksCount(subTaskTemplates.length ?? 0)

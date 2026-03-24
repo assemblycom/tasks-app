@@ -2,13 +2,14 @@
 
 import { PrimaryBtn } from '@/components/buttons/PrimaryBtn'
 import { SecondaryBtn } from '@/components/buttons/SecondaryBtn'
-import { StyledTextField } from '@/components/inputs/TextField'
+import { TokenizedInput, restoreCursorOffset } from '@/components/inputs/TokenizedInput'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { AttachmentIcon } from '@/icons'
 import store from '@/redux/store'
 import { Close } from '@mui/icons-material'
 import { Box, Stack, Typography, styled } from '@mui/material'
 import { AttachmentTypes, createTemplateErrors, TargetMethod } from '@/types/interfaces'
+import { useRef } from 'react'
 import { useSelector } from 'react-redux'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import {
@@ -82,6 +83,7 @@ const NewTemplateFormInputs = () => {
     useSelector(selectCreateTemplate)
   const { workflowStates, token } = useSelector(selectTaskBoard)
   const { tokenPayload } = useSelector(selectAuthDetails)
+  const titleRef = useRef<HTMLDivElement>(null)
 
   const uploadFn = createUploadFn({
     token,
@@ -100,6 +102,22 @@ const NewTemplateFormInputs = () => {
   })
 
   const statusValue = _statusValue as WorkflowStateResponse //typecasting
+
+  const handleTitleChange = (newValue: string) => {
+    store.dispatch(setCreateTemplateFields({ targetField: 'taskName', value: newValue }))
+    store.dispatch(setErrors({ key: createTemplateErrors.TITLE, value: false }))
+  }
+
+  const handleDynamicFieldInsert = (newValue: string, cursorPos: number) => {
+    store.dispatch(setCreateTemplateFields({ targetField: 'taskName', value: newValue }))
+    store.dispatch(setErrors({ key: createTemplateErrors.TITLE, value: false }))
+    setTimeout(() => {
+      if (titleRef.current) {
+        titleRef.current.focus()
+        restoreCursorOffset(titleRef.current, cursorPos)
+      }
+    }, 0)
+  }
 
   const handleDescriptionChange = (content: string) => {
     store.dispatch(setCreateTemplateFields({ targetField: 'description', value: content }))
@@ -120,39 +138,22 @@ const NewTemplateFormInputs = () => {
           marginBottom: '12px',
         }}
       >
-        <StyledTextField
-          type="text"
-          padding="8px 0px 0px"
-          autoFocus={true}
+        <TokenizedInput
+          ref={titleRef}
           value={taskName}
-          borderLess
-          onChange={(e) => {
-            store.dispatch(setCreateTemplateFields({ targetField: 'taskName', value: e.target.value }))
-            store.dispatch(setErrors({ key: createTemplateErrors.TITLE, value: false }))
-          }}
-          error={errors.title}
-          helperText={errors.title && 'Enter template name'}
-          inputProps={{
-            maxLength: 255,
-          }}
-          sx={{
-            width: '100%',
-            '& .MuiInputBase-input': {
-              fontSize: '16px',
-              lineHeight: '24px',
-              color: (theme) => theme.color.gray[600],
-              fontWeight: 500,
-            },
-            '& .MuiInputBase-input.Mui-disabled': {
-              WebkitTextFillColor: (theme) => theme.color.gray[600],
-            },
-            '& .MuiInputBase-root': {
-              padding: '0px 0px',
-            },
-          }}
+          onChange={handleTitleChange}
+          onInsert={handleDynamicFieldInsert}
+          autoFocus
           placeholder="Template name"
-          multiline
+          fontSize="16px"
+          lineHeight="24px"
+          padding="8px 0px 0px"
         />
+        {errors.title && (
+          <Typography variant="bodySm" sx={{ color: '#d32f2f', textAlign: 'right', width: '100%', fontSize: '12px' }}>
+            Enter template name
+          </Typography>
+        )}
         <Box sx={{ height: '100%', width: '100%', overflow: 'auto' }}>
           <Tapwrite
             content={description}
