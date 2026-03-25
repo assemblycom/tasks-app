@@ -2,7 +2,7 @@
 
 import { StyledModal } from '@/app/detail/ui/styledComponent'
 import AttachmentLayout from '@/components/AttachmentLayout'
-import { StyledTextField } from '@/components/inputs/TextField'
+import { TokenizedInput, restoreCursorOffset } from '@/components/inputs/TokenizedInput'
 import { ConfirmDeleteUI } from '@/components/layouts/ConfirmDeleteUI'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
 import { useDebounce, useDebounceWithCancel } from '@/hooks/useDebounce'
@@ -42,6 +42,7 @@ export default function TemplateDetails({
   const { activeTemplate, targetTemplateId, taskName } = useSelector(selectCreateTemplate)
   const [isUserTyping, setIsUserTyping] = useState(false)
   const [activeUploads, setActiveUploads] = useState(0)
+  const titleRef = useRef<HTMLDivElement>(null)
 
   const { showConfirmDeleteModal } = useSelector(selectTaskDetails)
 
@@ -73,8 +74,7 @@ export default function TemplateDetails({
   const [debouncedResetTypingFlag, _cancelDebouncedResetTypingFlag] = useDebounceWithCancel(resetTypingFlag, 1500)
   const [debouncedResetTypingFlagTitle, cancelDebouncedResetTypingFlagTitle] = useDebounceWithCancel(resetTypingFlag, 2500)
 
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = e.target.value
+  const handleTitleChange = (newTitle: string) => {
     setUpdateTitle(newTitle)
     if (newTitle.trim() == '') {
       cancelTitleUpdateDebounced()
@@ -93,6 +93,21 @@ export default function TemplateDetails({
         setUpdateTitle(currentTask?.title ?? '')
       }, 300)
     }
+  }
+
+  const handleDynamicFieldInsert = (newValue: string, cursorPos: number) => {
+    setUpdateTitle(newValue)
+    if (newValue.trim() !== '') {
+      setIsUserTyping(true)
+      titleUpdateDebounced(newValue)
+      debouncedResetTypingFlagTitle()
+    }
+    setTimeout(() => {
+      if (titleRef.current) {
+        titleRef.current.focus()
+        restoreCursorOffset(titleRef.current, cursorPos)
+      }
+    }, 0)
   }
 
   const handleDetailChange = (content: string) => {
@@ -121,38 +136,16 @@ export default function TemplateDetails({
 
   return (
     <>
-      <StyledTextField
-        type="text"
-        multiline
-        borderLess
-        sx={{
-          width: '100%',
-          '& .MuiInputBase-input': {
-            fontSize: '20px',
-            lineHeight: '28px',
-            color: (theme) => theme.color.gray[600],
-            fontWeight: 500,
-          },
-          '& .MuiInputBase-input.Mui-disabled': {
-            WebkitTextFillColor: (theme) => theme.color.gray[600],
-          },
-          '& .MuiInputBase-root': {
-            padding: '0px 0px',
-          },
-        }}
+      <TokenizedInput
+        ref={titleRef}
         value={updateTitle}
         onChange={handleTitleChange}
-        inputProps={{ maxLength: 255 }}
-        padding="0px"
+        onInsert={handleDynamicFieldInsert}
         onBlur={handleTitleBlur}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault() //prevent users from breaking line
-          }
-        }}
+        style={{ fontSize: '20px', lineHeight: '28px', fontWeight: 500 }}
       />
 
-      <Box mt="12px" sx={{ height: '100%', width: '100%' }}>
+      <Box sx={{ height: '100%', width: '100%' }}>
         <Tapwrite
           content={updateDetail}
           getContent={(content: string) => {
@@ -183,7 +176,7 @@ export default function TemplateDetails({
             handleDeleteTemplate(targetTemplateId)
             store.dispatch(clearTemplateFields())
           }}
-          description={`“${taskName}” will be permanently deleted.`}
+          description={`"${taskName}" will be permanently deleted.`}
           customBody={'Delete template?'}
         />
       </StyledModal>

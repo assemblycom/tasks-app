@@ -31,6 +31,7 @@ import {
   getSelectorAssignee,
   getSelectorAssigneeFromFilterOptions,
 } from '@/utils/selector'
+import { resolveDynamicFields } from '@/utils/dynamicFields'
 import { trimAllTags } from '@/utils/trimTags'
 import { Box, Stack, Typography } from '@mui/material'
 import dayjs from 'dayjs'
@@ -165,15 +166,16 @@ export const NewTaskCard = ({
         try {
           setIsEditorReadonly?.(true)
 
+          const resolvedTitle = resolveDynamicFields(templateTitle)
           if (!subTaskFields.title.trim()) {
             setSubTaskFields((prev) => ({
               ...prev,
-              title: templateTitle,
+              title: resolvedTitle,
             }))
           } else {
             setSubTaskFields((prev) => ({
               ...prev,
-              title: prev.title + ' ' + templateTitle,
+              title: prev.title + ' ' + resolvedTitle,
             }))
           }
           const resp = await fetch(`/api/tasks/templates/${id}/apply?token=${token}`, {
