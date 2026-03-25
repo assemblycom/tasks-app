@@ -2,9 +2,10 @@
 
 import { StyledModal } from '@/app/detail/ui/styledComponent'
 import AttachmentLayout from '@/components/AttachmentLayout'
-import { TokenizedInput, restoreCursorOffset } from '@/components/inputs/TokenizedInput'
+import { TokenizedInput, restoreCursorOffset, getCursorOffset } from '@/components/inputs/TokenizedInput'
 import { ConfirmDeleteUI } from '@/components/layouts/ConfirmDeleteUI'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
+import { useDynamicFieldInsert } from '@/context/hooks/useDynamicFieldInsert'
 import { useDebounce, useDebounceWithCancel } from '@/hooks/useDebounce'
 import { selectTaskDetails, setOpenImage, setShowConfirmDeleteModal } from '@/redux/features/taskDetailsSlice'
 import { clearTemplateFields, selectCreateTemplate } from '@/redux/features/templateSlice'
@@ -17,6 +18,8 @@ import { Box } from '@mui/material'
 import { MouseEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Tapwrite } from 'tapwrite'
+
+export type DynamicFieldInsertFn = (fieldKey: string) => void
 
 interface TemplateDetailsProps {
   template: ITemplate
@@ -86,7 +89,14 @@ export default function TemplateDetails({
     debouncedResetTypingFlagTitle()
   }
 
+  const lastCursorPosRef = useRef<number>(-1)
+
   const handleTitleBlur = () => {
+    // Save cursor position before blur so sidebar clicks can insert at last position
+    if (titleRef.current) {
+      const pos = getCursorOffset(titleRef.current)
+      if (pos >= 0) lastCursorPosRef.current = pos
+    }
     if (updateTitle.trim() == '') {
       setTimeout(() => {
         const currentTask = activeTemplate
@@ -109,6 +119,25 @@ export default function TemplateDetails({
       }
     }, 0)
   }
+
+  // Insert a dynamic field from the sidebar panel
+  const handleSidebarFieldInsert = useCallback(
+    (fieldKey: string) => {
+      const token = `{{${fieldKey}}}`
+      const pos = lastCursorPosRef.current >= 0 ? lastCursorPosRef.current : updateTitle.length
+      const newValue = updateTitle.slice(0, pos) + token + updateTitle.slice(pos)
+      const newCursorPos = pos + token.length
+      handleDynamicFieldInsert(newValue, newCursorPos)
+      lastCursorPosRef.current = newCursorPos
+    },
+    [updateTitle],
+  )
+
+  const dynamicFieldInsertCtx = useDynamicFieldInsert()
+
+  useEffect(() => {
+    dynamicFieldInsertCtx?.registerHandler(handleSidebarFieldInsert)
+  }, [handleSidebarFieldInsert, dynamicFieldInsertCtx])
 
   const handleDetailChange = (content: string) => {
     if (!didMount.current) {

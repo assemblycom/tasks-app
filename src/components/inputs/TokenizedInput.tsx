@@ -21,7 +21,7 @@ interface TokenizedInputProps {
 /**
  * Get the cursor offset as a plain-text character index within a contentEditable element.
  */
-function getCursorOffset(container: HTMLElement): number {
+export function getCursorOffset(container: HTMLElement): number {
   const sel = window.getSelection()
   if (!sel || sel.rangeCount === 0) return -1
 
