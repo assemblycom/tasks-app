@@ -20,12 +20,6 @@ import { MouseEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Tapwrite } from 'tapwrite'
 import { createUploadFn } from '@/utils/createUploadFn'
-import { resolveDynamicField } from '@/utils/dynamicFields'
-import {
-  TapwriteDynamicFieldDropdown,
-  TapwriteDynamicFieldTemplate,
-  tapwriteDynamicFields,
-} from '@/components/inputs/TapwriteDynamicFieldDropdown'
 
 interface Prop {
   task_id: string
@@ -205,13 +199,6 @@ export const TaskEditor = ({
           attachmentLayout={(props) => <AttachmentLayout {...props} />}
           addAttachmentButton
           maxUploadLimit={MAX_UPLOAD_LIMIT}
-          dynamicFieldConfig={{
-            fields: tapwriteDynamicFields,
-            dropdownComponent: TapwriteDynamicFieldDropdown,
-            templateComponent: TapwriteDynamicFieldTemplate,
-            showResolved: true,
-            resolvedValues: Object.fromEntries(tapwriteDynamicFields.map((f) => [f.value, resolveDynamicField(f.value)])),
-          }}
         />
       </Box>
 
