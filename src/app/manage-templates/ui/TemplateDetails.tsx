@@ -130,7 +130,7 @@ export default function TemplateDetails({
       handleDynamicFieldInsert(newValue, newCursorPos)
       lastCursorPosRef.current = newCursorPos
     },
-    [updateTitle],
+    [updateTitle, handleDynamicFieldInsert],
   )
 
   const dynamicFieldInsertCtx = useDynamicFieldInsert()
