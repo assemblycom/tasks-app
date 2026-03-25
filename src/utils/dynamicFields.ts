@@ -27,7 +27,7 @@ function getQuarter(date: dayjs.Dayjs): string {
 export function resolveDynamicField(key: DynamicFieldKey, now: dayjs.Dayjs = dayjs()): string {
   switch (key) {
     case DynamicFieldKey.CurrentWeek:
-      return `Week of ${now.format('MMMM D')}`
+      return `Week of ${now.format('MMMM D, YYYY')}`
     case DynamicFieldKey.CurrentMonth:
       return now.format('MMMM')
     case DynamicFieldKey.CurrentQuarter:
