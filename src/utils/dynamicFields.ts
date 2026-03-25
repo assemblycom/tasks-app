@@ -50,6 +50,16 @@ export function resolveDynamicFields(text: string): string {
   })
 }
 
+/**
+ * Resolves <autofill-field data-value="..."> tags in HTML to their actual values.
+ */
+export function resolveAutofillTags(html: string): string {
+  const now = dayjs()
+  return html.replace(/<autofill-field\s+data-value="([^"]+)"[^>]*><\/autofill-field>/g, (_match, key) => {
+    return resolveDynamicField(key, now)
+  })
+}
+
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
