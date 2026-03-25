@@ -1,7 +1,7 @@
 'use client'
 
 import { DynamicFieldsPopper } from '@/components/inputs/DynamicFieldsMenu'
-import { normalizeBraces, useDynamicFieldTrigger } from '@/hooks/useDynamicFieldTrigger'
+import { useDynamicFieldTrigger } from '@/hooks/useDynamicFieldTrigger'
 import { htmlToTokens, tokensToHtml } from '@/utils/dynamicFields'
 import { Box, styled } from '@mui/material'
 import { Ref, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
@@ -144,16 +144,6 @@ export const TokenizedInput = ({
     if (!div) return
 
     let newText = htmlToTokens(div)
-
-    // Auto-normalize multiple braces to double braces
-    const normalized = normalizeBraces(newText)
-    if (normalized !== newText) {
-      const offset = getCursorOffset(div)
-      const diff = newText.length - normalized.length
-      newText = normalized
-      div.innerHTML = tokensToHtml(newText)
-      restoreCursorOffset(div, Math.max(0, offset - diff))
-    }
 
     if (newText.length > maxLength) {
       const offset = getCursorOffset(div)

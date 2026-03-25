@@ -71,13 +71,10 @@ export const DYNAMIC_FIELD_TOKEN_CLASS = 'dynamic-field-token'
 /**
  * Convert plain text with {{tokens}} to HTML with styled spans.
  * Token spans have contenteditable="false" so the browser treats them as atomic units.
- * Normalizes multiple braces to exactly double braces before converting.
+ * Only exactly double braces are treated as tokens — triple or more braces are normal text.
  */
 export function tokensToHtml(text: string): string {
-  // Normalize any excess braces (e.g. {{{Current Year}}} → {{Current Year}})
-  text = text.replace(/\{{2,}([^{}]+)\}{2,}/g, '{{$1}}')
-  return text.replace(/(\{\{[^}]+\}\})/g, (match) => {
-    const key = match.slice(2, -2)
+  return text.replace(/(?<!\{)\{\{(?!\{)([^{}]+)\}\}(?!\})/g, (match, key) => {
     return `<span data-token="${escapeHtml(key)}" contenteditable="false" class="${DYNAMIC_FIELD_TOKEN_CLASS}">${escapeHtml(match)}</span>`
   })
 }
@@ -111,4 +108,16 @@ export function htmlToTokens(element: HTMLElement): string {
     }
   }
   return result
+}
+
+/**
+ * Insert a token into text at a given position, adding spaces before/after only when needed.
+ */
+export function insertToken(text: string, pos: number, token: string): { newValue: string; cursorPos: number } {
+  const before = text.slice(0, pos)
+  const after = text.slice(pos)
+  const spaceBefore = before.length > 0 && !before.endsWith(' ') ? ' ' : ''
+  const spaceAfter = after.length > 0 && !after.startsWith(' ') ? ' ' : ''
+  const insertion = spaceBefore + token + spaceAfter
+  return { newValue: before + insertion + after, cursorPos: pos + insertion.length }
 }

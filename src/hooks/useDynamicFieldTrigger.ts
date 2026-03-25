@@ -1,4 +1,4 @@
-import { DYNAMIC_FIELDS } from '@/utils/dynamicFields'
+import { DYNAMIC_FIELDS, insertToken } from '@/utils/dynamicFields'
 import { PopperProps as MuiPopperProps } from '@mui/material'
 import { useCallback, useRef, useState } from 'react'
 
@@ -29,14 +29,6 @@ function getCursorVirtualElement(): VirtualElement | null {
   }
 }
 
-/**
- * Normalize multiple consecutive curly braces to exactly double braces.
- * E.g. `{{{Current Week}}}` → `{{Current Week}}`, `{{{{Current Year}}` → `{{Current Year}}`
- */
-export function normalizeBraces(text: string): string {
-  return text.replace(/\{{2,}([^{}]+)\}{2,}/g, '{{$1}}')
-}
-
 export function useDynamicFieldTrigger({ getCursorPos, value, onInsert }: UseDynamicFieldTriggerOptions) {
   const [open, setOpen] = useState(false)
   const [filterText, setFilterText] = useState('')
@@ -53,17 +45,8 @@ export function useDynamicFieldTrigger({ getCursorPos, value, onInsert }: UseDyn
   }, [])
 
   const dismiss = useCallback(() => {
-    const start = triggerCursorPos.current
-    if (start >= 0) {
-      const currentValue = valueRef.current
-      const cursorPos = getCursorPos()
-      const newValue = currentValue.slice(0, start) + currentValue.slice(cursorPos)
-      close()
-      onInsert(newValue, start)
-    } else {
-      close()
-    }
-  }, [close, getCursorPos, onInsert])
+    close()
+  }, [close])
 
   const onSelect = useCallback(
     (fieldKey: string) => {
@@ -74,8 +57,8 @@ export function useDynamicFieldTrigger({ getCursorPos, value, onInsert }: UseDyn
       // because clicking the menu item may move focus away from the contentEditable div
       const end = start + 2 + filterText.length
 
-      const newValue = currentValue.slice(0, start) + token + currentValue.slice(end)
-      const newCursorPos = start + token.length
+      const stripped = currentValue.slice(0, start) + currentValue.slice(end)
+      const { newValue, cursorPos: newCursorPos } = insertToken(stripped, start, token)
 
       close()
       onInsert(newValue, newCursorPos)
@@ -88,8 +71,13 @@ export function useDynamicFieldTrigger({ getCursorPos, value, onInsert }: UseDyn
       const cursorPos = getCursorPos()
 
       if (!open) {
-        // Trigger on `{{` — two consecutive opening braces
-        if (cursorPos >= 2 && newValue[cursorPos - 1] === '{' && newValue[cursorPos - 2] === '{') {
+        // Trigger on exactly `{{` — two consecutive opening braces, not three or more
+        if (
+          cursorPos >= 2 &&
+          newValue[cursorPos - 1] === '{' &&
+          newValue[cursorPos - 2] === '{' &&
+          (cursorPos < 3 || newValue[cursorPos - 3] !== '{')
+        ) {
           triggerCursorPos.current = cursorPos - 2
           cursorAnchorRef.current = getCursorVirtualElement()
           setFilterText('')

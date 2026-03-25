@@ -14,6 +14,7 @@ import { CreateTemplateRequest } from '@/types/dto/templates.dto'
 import { AttachmentTypes, ITemplate } from '@/types/interfaces'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
+import { insertToken } from '@/utils/dynamicFields'
 import {
   TapwriteDynamicFieldDropdown,
   TapwriteDynamicFieldTemplate,
@@ -141,11 +142,9 @@ export default function TemplateDetails({
   const handleSidebarFieldInsert = useCallback((fieldKey: string) => {
     const titleIsActive = titleIsFocusedRef.current || Date.now() - titleBlurTimestampRef.current < 500
     if (!titleIsActive) return
-    const token = `{{${fieldKey}}}`
     const currentTitle = updateTitleRef.current
     const pos = lastCursorPosRef.current >= 0 ? lastCursorPosRef.current : currentTitle.length
-    const newValue = currentTitle.slice(0, pos) + token + currentTitle.slice(pos)
-    const newCursorPos = pos + token.length
+    const { newValue, cursorPos: newCursorPos } = insertToken(currentTitle, pos, `{{${fieldKey}}}`)
     handleDynamicFieldInsert(newValue, newCursorPos)
     lastCursorPosRef.current = newCursorPos
     // eslint-disable-next-line react-hooks/exhaustive-deps
