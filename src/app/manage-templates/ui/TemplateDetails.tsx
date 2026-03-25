@@ -148,6 +148,7 @@ export default function TemplateDetails({
     const newCursorPos = pos + token.length
     handleDynamicFieldInsert(newValue, newCursorPos)
     lastCursorPosRef.current = newCursorPos
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const dynamicFieldInsertCtx = useDynamicFieldInsert()
