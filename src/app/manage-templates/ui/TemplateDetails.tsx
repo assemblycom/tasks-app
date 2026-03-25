@@ -62,6 +62,7 @@ export default function TemplateDetails({
         setUpdateDetail(currentTemplate.body ?? '')
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTemplate?.title, activeTemplate?.body, template_id, activeUploads, template])
 
   const _titleUpdateDebounced = async (title: string) => updateTemplateTitle(title)
@@ -130,7 +131,8 @@ export default function TemplateDetails({
       handleDynamicFieldInsert(newValue, newCursorPos)
       lastCursorPosRef.current = newCursorPos
     },
-    [updateTitle, handleDynamicFieldInsert],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [updateTitle],
   )
 
   const dynamicFieldInsertCtx = useDynamicFieldInsert()
