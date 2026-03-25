@@ -154,7 +154,6 @@ export default function TemplateDetails({
         <Tapwrite
           content={updateDetail}
           getContent={(content: string) => {
-            console.log('content here', content)
             if (updateDetail !== '') {
               handleDetailChange(content)
             }
