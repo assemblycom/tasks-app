@@ -55,8 +55,10 @@ export function resolveDynamicFields(text: string): string {
  */
 export function resolveAutofillTags(html: string): string {
   const now = dayjs()
-  return html.replace(/<autofill-field\s+data-value="([^"]+)"[^>]*><\/autofill-field>/g, (_match, key) => {
-    return resolveDynamicField(key, now)
+  return html.replace(/<autofill-field\s+data-value="([^"]+)"[^>]*><\/autofill-field>/g, (match, key) => {
+    const field = DYNAMIC_FIELDS.find((f) => f.key === key)
+    if (!field) return match
+    return resolveDynamicField(field.key, now)
   })
 }
 
