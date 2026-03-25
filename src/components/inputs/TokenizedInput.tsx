@@ -12,6 +12,7 @@ interface TokenizedInputProps {
   onChange: (newValue: string) => void
   onInsert: (newValue: string, cursorPos: number) => void
   onBlur?: () => void
+  onFocus?: () => void
   placeholder?: string
   maxLength?: number
   autoFocus?: boolean
@@ -89,6 +90,7 @@ export const TokenizedInput = ({
   onChange,
   onInsert,
   onBlur,
+  onFocus,
   placeholder,
   maxLength = 255,
   autoFocus,
@@ -195,6 +197,7 @@ export const TokenizedInput = ({
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         onBlur={onBlur}
+        onFocus={onFocus}
         onPaste={handlePaste}
         onCompositionStart={() => {
           isComposingRef.current = true

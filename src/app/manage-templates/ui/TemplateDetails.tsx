@@ -96,8 +96,16 @@ export default function TemplateDetails({
   }
 
   const lastCursorPosRef = useRef<number>(-1)
+  const titleBlurTimestampRef = useRef<number>(0)
+  const titleIsFocusedRef = useRef(false)
+
+  const handleTitleFocus = () => {
+    titleIsFocusedRef.current = true
+  }
 
   const handleTitleBlur = () => {
+    titleIsFocusedRef.current = false
+    titleBlurTimestampRef.current = Date.now()
     // Save cursor position before blur so sidebar clicks can insert at last position
     if (titleRef.current) {
       const pos = getCursorOffset(titleRef.current)
@@ -126,19 +134,21 @@ export default function TemplateDetails({
     }, 0)
   }
 
-  // Insert a dynamic field from the sidebar panel
-  const handleSidebarFieldInsert = useCallback(
-    (fieldKey: string) => {
-      const token = `{{${fieldKey}}}`
-      const pos = lastCursorPosRef.current >= 0 ? lastCursorPosRef.current : updateTitle.length
-      const newValue = updateTitle.slice(0, pos) + token + updateTitle.slice(pos)
-      const newCursorPos = pos + token.length
-      handleDynamicFieldInsert(newValue, newCursorPos)
-      lastCursorPosRef.current = newCursorPos
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [updateTitle],
-  )
+  const updateTitleRef = useRef(updateTitle)
+  updateTitleRef.current = updateTitle
+
+  // Insert a dynamic field from the sidebar panel — only if title is focused or was recently focused
+  const handleSidebarFieldInsert = useCallback((fieldKey: string) => {
+    const titleIsActive = titleIsFocusedRef.current || Date.now() - titleBlurTimestampRef.current < 500
+    if (!titleIsActive) return
+    const token = `{{${fieldKey}}}`
+    const currentTitle = updateTitleRef.current
+    const pos = lastCursorPosRef.current >= 0 ? lastCursorPosRef.current : currentTitle.length
+    const newValue = currentTitle.slice(0, pos) + token + currentTitle.slice(pos)
+    const newCursorPos = pos + token.length
+    handleDynamicFieldInsert(newValue, newCursorPos)
+    lastCursorPosRef.current = newCursorPos
+  }, [])
 
   const dynamicFieldInsertCtx = useDynamicFieldInsert()
 
@@ -178,6 +188,7 @@ export default function TemplateDetails({
         onChange={handleTitleChange}
         onInsert={handleDynamicFieldInsert}
         onBlur={handleTitleBlur}
+        onFocus={handleTitleFocus}
         style={{ fontSize: '20px', lineHeight: '28px', fontWeight: 500 }}
       />
 
