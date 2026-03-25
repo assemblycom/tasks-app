@@ -31,12 +31,7 @@ import {
   getSelectorAssignee,
   getSelectorAssigneeFromFilterOptions,
 } from '@/utils/selector'
-import { resolveDynamicField, resolveDynamicFields } from '@/utils/dynamicFields'
-import {
-  TapwriteDynamicFieldDropdown,
-  TapwriteDynamicFieldTemplate,
-  tapwriteDynamicFields,
-} from '@/components/inputs/TapwriteDynamicFieldDropdown'
+import { resolveAutofillTags, resolveDynamicFields } from '@/utils/dynamicFields'
 import { trimAllTags } from '@/utils/trimTags'
 import { Box, Stack, Typography } from '@mui/material'
 import dayjs from 'dayjs'
@@ -194,17 +189,18 @@ export const NewTaskCard = ({
             ...prev,
             workflowStateId: template.workflowStateId,
           }))
+          const resolvedBody = resolveAutofillTags(template.body)
           const trimmedAppliedDescription = template.description && trimAllTags(template.description)
           const trimmedDescription = trimAllTags(subTaskFields.description)
           if (trimmedAppliedDescription == trimmedDescription || trimmedDescription === '<p></p>') {
             setSubTaskFields((prev) => ({
               ...prev,
-              description: template.body,
+              description: resolvedBody,
             }))
           } else {
             setSubTaskFields((prev) => ({
               ...prev,
-              description: prev.description + template.body,
+              description: prev.description + resolvedBody,
             }))
           }
         } catch (error) {
@@ -384,13 +380,6 @@ export const NewTaskCard = ({
             maxUploadLimit={MAX_UPLOAD_LIMIT}
             parentContainerStyle={{ gap: '0px' }}
             readonly={isEditorReadonly}
-            dynamicFieldConfig={{
-              fields: tapwriteDynamicFields,
-              dropdownComponent: TapwriteDynamicFieldDropdown,
-              templateComponent: TapwriteDynamicFieldTemplate,
-              showResolved: true,
-              resolvedValues: Object.fromEntries(tapwriteDynamicFields.map((f) => [f.value, resolveDynamicField(f.value)])),
-            }}
           />
         </Box>
       </Stack>

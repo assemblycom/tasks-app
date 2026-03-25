@@ -53,13 +53,7 @@ import {
   getSelectorAssignee,
   getSelectorAssigneeFromFilterOptions,
 } from '@/utils/selector'
-import { resolveDynamicFields } from '@/utils/dynamicFields'
-import {
-  TapwriteDynamicFieldDropdown,
-  TapwriteDynamicFieldTemplate,
-  tapwriteDynamicFields,
-} from '@/components/inputs/TapwriteDynamicFieldDropdown'
-import { resolveDynamicField } from '@/utils/dynamicFields'
+import { resolveAutofillTags, resolveDynamicFields } from '@/utils/dynamicFields'
 import { trimAllTags } from '@/utils/trimTags'
 import { Box, Stack, styled, Typography } from '@mui/material'
 import { marked } from 'marked'
@@ -524,16 +518,17 @@ const NewTaskHeader = ({
           updateWorkflowStatusValue(workflowStates.find((state) => state.id === template.workflowStateId))
           store.dispatch(setCreateTaskFields({ targetField: 'workflowStateId', value: template.workflowStateId }))
           store.dispatch(setCreateTaskFields({ targetField: 'activeWorkflowStateId', value: template.workflowStateId }))
-          store.dispatch(setAppliedDescription({ description: template.body }))
+          const resolvedBody = resolveAutofillTags(template.body)
+          store.dispatch(setAppliedDescription({ description: resolvedBody }))
           store.dispatch(setCreateTaskFields({ targetField: 'templateId', value: id }))
 
           const trimmedAppliedDescription = appliedDescription && trimAllTags(appliedDescription)
           const trimmedDescription = trimAllTags(description)
 
           if (trimmedAppliedDescription == trimmedDescription || trimmedDescription === '<p></p>') {
-            store.dispatch(setCreateTaskFields({ targetField: 'description', value: template.body }))
+            store.dispatch(setCreateTaskFields({ targetField: 'description', value: resolvedBody }))
           } else {
-            store.dispatch(setCreateTaskFields({ targetField: 'description', value: description + template.body }))
+            store.dispatch(setCreateTaskFields({ targetField: 'description', value: description + resolvedBody }))
           }
           store.dispatch(setErrors({ key: CreateTaskErrors.TITLE, value: false }))
         } catch (error) {
@@ -619,8 +614,6 @@ const NewTaskFormInputs = ({ isEditorReadonly }: NewTaskFormInputsProps) => {
     workspaceId: tokenPayload?.workspaceId,
   })
 
-  const resolvedValues = Object.fromEntries(tapwriteDynamicFields.map((f) => [f.value, resolveDynamicField(f.value)]))
-
   return (
     <>
       <Stack
@@ -682,13 +675,6 @@ const NewTaskFormInputs = ({ isEditorReadonly }: NewTaskFormInputsProps) => {
             attachmentLayout={(props) => <AttachmentLayout {...props} />}
             maxUploadLimit={MAX_UPLOAD_LIMIT}
             parentContainerStyle={{ gap: '0px', minHeight: '60px' }}
-            dynamicFieldConfig={{
-              fields: tapwriteDynamicFields,
-              dropdownComponent: TapwriteDynamicFieldDropdown,
-              templateComponent: TapwriteDynamicFieldTemplate,
-              showResolved: true,
-              resolvedValues,
-            }}
           />
         </Box>
       </Stack>
