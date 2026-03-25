@@ -19,6 +19,7 @@ a {
   padding: 0 4px;
   white-space: nowrap;
   font-weight: 500;
+  cursor: default;
 }
 
 .scrollhost::-webkit-scrollbar {

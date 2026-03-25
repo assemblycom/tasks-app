@@ -84,6 +84,34 @@ export function restoreCursorOffset(container: HTMLElement, targetOffset: number
   }
 }
 
+/**
+ * Find the closest token span from a DOM node (walking up).
+ */
+function findTokenSpan(node: Node | null): HTMLElement | null {
+  let current = node
+  while (current && current !== document) {
+    if (current instanceof HTMLElement && current.dataset.token) return current
+    current = current.parentNode
+  }
+  return null
+}
+
+/**
+ * Move cursor after a token if the cursor is currently inside one.
+ */
+function moveCursorOutOfToken(container: HTMLElement) {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return
+  const tokenEl = findTokenSpan(sel.anchorNode)
+  if (!tokenEl || !tokenEl.parentNode) return
+  const index = Array.from(tokenEl.parentNode.childNodes).indexOf(tokenEl as ChildNode)
+  const range = document.createRange()
+  range.setStart(tokenEl.parentNode, index + 1)
+  range.collapse(true)
+  sel.removeAllRanges()
+  sel.addRange(range)
+}
+
 export const TokenizedInput = ({
   ref,
   value,
@@ -117,7 +145,7 @@ export const TokenizedInput = ({
     onInsert,
   })
 
-  // Sync innerHTML when value changes externally (not from user typing)
+  // Sync innerHTML when value changes externally
   useEffect(() => {
     const div = divRef.current
     if (!div) return
@@ -138,12 +166,32 @@ export const TokenizedInput = ({
     }
   }, [autoFocus])
 
+  /**
+   * Self-healing input handler: reads the DOM, extracts plain text,
+   * and if any token was corrupted (text inserted inside it), rebuilds the HTML.
+   */
   const handleInput = useCallback(() => {
     if (isComposingRef.current) return
     const div = divRef.current
     if (!div) return
 
+    // Check if any token span has been corrupted (browser inserted text inside it)
+    let corrupted = false
+    div.querySelectorAll('[data-token]').forEach((span) => {
+      const expected = `{{${(span as HTMLElement).dataset.token}}}`
+      if (span.textContent !== expected) {
+        corrupted = true
+      }
+    })
+
     let newText = htmlToTokens(div)
+
+    // If corrupted, rebuild the HTML from plain text to fix token spans
+    if (corrupted) {
+      const offset = getCursorOffset(div)
+      div.innerHTML = tokensToHtml(newText)
+      restoreCursorOffset(div, Math.min(offset, newText.length))
+    }
 
     if (newText.length > maxLength) {
       const offset = getCursorOffset(div)
@@ -163,8 +211,16 @@ export const TokenizedInput = ({
     [dynamicFieldKeyDown],
   )
 
+  // After click settles, move cursor out of any token span
+  const handleClick = useCallback(() => {
+    if (divRef.current) {
+      moveCursorOutOfToken(divRef.current)
+    }
+  }, [])
+
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault()
+    if (divRef.current) moveCursorOutOfToken(divRef.current)
     const text = e.clipboardData.getData('text/plain').replace(/\n/g, ' ')
     const sel = window.getSelection()
     if (!sel || sel.rangeCount === 0) return
@@ -174,7 +230,6 @@ export const TokenizedInput = ({
     range.collapse(false)
     sel.removeAllRanges()
     sel.addRange(range)
-    // Trigger input handler to sync state
     divRef.current?.dispatchEvent(new Event('input', { bubbles: true }))
   }, [])
 
@@ -185,6 +240,7 @@ export const TokenizedInput = ({
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}
+        onClick={handleClick}
         onKeyDown={handleKeyDown}
         onBlur={onBlur}
         onFocus={onFocus}

@@ -117,7 +117,7 @@ export function insertToken(text: string, pos: number, token: string): { newValu
   const before = text.slice(0, pos)
   const after = text.slice(pos)
   const spaceBefore = before.length > 0 && !before.endsWith(' ') ? ' ' : ''
-  const spaceAfter = after.length > 0 && !after.startsWith(' ') ? ' ' : ''
+  const spaceAfter = ' ' // Add space after the token by default
   const insertion = spaceBefore + token + spaceAfter
   return { newValue: before + insertion + after, cursorPos: pos + insertion.length }
 }
