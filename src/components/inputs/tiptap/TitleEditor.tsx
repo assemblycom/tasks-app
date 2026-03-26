@@ -2,7 +2,7 @@
 
 import { useTitleEditor } from '@/components/inputs/tiptap/useTitleEditor'
 import { Box, styled } from '@mui/material'
-import { EditorContent } from '@tiptap/react'
+import { Editor, EditorContent } from '@tiptap/react'
 
 interface TitleEditorProps {
   value: string
@@ -12,6 +12,7 @@ interface TitleEditorProps {
   fontSize?: string
   lineHeight?: string
   fontWeight?: number
+  onEditorReady?: (editor: Editor) => void
 }
 
 export const TitleEditor = ({
@@ -22,8 +23,9 @@ export const TitleEditor = ({
   fontSize = '16px',
   lineHeight = '24px',
   fontWeight = 500,
+  onEditorReady,
 }: TitleEditorProps) => {
-  const editor = useTitleEditor({ value, onChange, placeholder, autoFocus })
+  const editor = useTitleEditor({ value, onChange, placeholder, autoFocus, onEditorReady })
 
   return (
     <StyledEditorWrapper
