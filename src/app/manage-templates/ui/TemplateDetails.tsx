@@ -3,6 +3,8 @@
 import { StyledModal } from '@/app/detail/ui/styledComponent'
 import AttachmentLayout from '@/components/AttachmentLayout'
 import { TitleEditor } from '@/components/inputs/tiptap/TitleEditor'
+import { useDynamicFieldInsert } from '@/context/hooks/useDynamicFieldInsert'
+import type { Editor } from '@tiptap/react'
 import { ConfirmDeleteUI } from '@/components/layouts/ConfirmDeleteUI'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
 import { useDebounce, useDebounceWithCancel } from '@/hooks/useDebounce'
@@ -12,7 +14,7 @@ import store from '@/redux/store'
 import { CreateTemplateRequest } from '@/types/dto/templates.dto'
 import { AttachmentTypes, ITemplate } from '@/types/interfaces'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
-import { insertTokenInTitle, insertAutofillAtCursor, insertAutofillIntoHtml } from '@/utils/sidebarFieldInsert'
+import { insertAutofillAtCursor, insertAutofillIntoHtml } from '@/utils/sidebarFieldInsert'
 import { createUploadFn } from '@/utils/createUploadFn'
 import {
   TapwriteDynamicFieldDropdown,
@@ -93,6 +95,7 @@ export default function TemplateDetails({
     titleUpdateDebounced(newTitle)
     debouncedResetTypingFlagTitle()
   }
+  const titleEditorRef = useRef<Editor | null>(null)
   const tapwriteEditorRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>
 
   // Tapwrite's internal EditorContent wrapper has onFocus={() => editor.commands.focus("end")}
@@ -119,16 +122,25 @@ export default function TemplateDetails({
     }
   }, [])
 
-  const updateTitleRef = useRef(updateTitle)
-  updateTitleRef.current = updateTitle
-
   const updateDetailRef = useRef(updateDetail)
   updateDetailRef.current = updateDetail
 
   // Insert a dynamic field from the sidebar panel into the title or Tapwrite body.
   // mousedown preventDefault on the sidebar card keeps the active editor focused.
   const handleSidebarFieldInsert = useCallback((fieldKey: string) => {
-    // 1. If title is focused, insert in title at cursor
+    // 1. If title TipTap editor is focused, insert there at cursor
+    const titleEditor = titleEditorRef.current
+    if (titleEditor?.isFocused) {
+      titleEditor
+        .chain()
+        .focus()
+        .insertContent([
+          { type: 'autofillField', attrs: { value: fieldKey } },
+          { type: 'text', text: ' ' },
+        ])
+        .run()
+      return
+    }
 
     // 2. If cursor is inside Tapwrite (still focused thanks to mousedown preventDefault),
     //    insert at cursor position via DOM — ProseMirror's mutation observer will pick it up.
@@ -144,6 +156,12 @@ export default function TemplateDetails({
     debouncedResetTypingFlag()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const dynamicFieldInsertCtx = useDynamicFieldInsert()
+
+  useEffect(() => {
+    dynamicFieldInsertCtx?.registerHandler(handleSidebarFieldInsert)
+  }, [handleSidebarFieldInsert, dynamicFieldInsertCtx])
 
   const handleDetailChange = (content: string) => {
     if (!didMount.current) {
@@ -171,7 +189,16 @@ export default function TemplateDetails({
 
   return (
     <>
-      <TitleEditor value={updateTitle} onChange={handleTitleChange} fontSize="20px" lineHeight="28px" fontWeight={500} />
+      <TitleEditor
+        value={updateTitle}
+        onChange={handleTitleChange}
+        onEditorReady={(editor) => {
+          titleEditorRef.current = editor
+        }}
+        fontSize="20px"
+        lineHeight="28px"
+        fontWeight={500}
+      />
 
       <Box sx={{ height: '100%', width: '100%' }}>
         <Tapwrite

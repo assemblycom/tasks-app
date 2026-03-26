@@ -43,9 +43,10 @@ interface UseTitleEditorOptions {
   onChange: (plainText: string) => void
   placeholder?: string
   autoFocus?: boolean
+  onEditorReady?: (editor: Editor) => void
 }
 
-export function useTitleEditor({ value, onChange, placeholder = '', autoFocus }: UseTitleEditorOptions) {
+export function useTitleEditor({ value, onChange, placeholder = '', autoFocus, onEditorReady }: UseTitleEditorOptions) {
   const isInternalRef = useRef(false)
 
   const editor = useEditor({
@@ -85,6 +86,10 @@ export function useTitleEditor({ value, onChange, placeholder = '', autoFocus }:
       },
     },
   })
+
+  useEffect(() => {
+    if (editor) onEditorReady?.(editor)
+  }, [editor, onEditorReady])
 
   // Sync external value changes
   useEffect(() => {
