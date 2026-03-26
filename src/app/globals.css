@@ -12,15 +12,6 @@ a {
   text-decoration: none;
 }
 
-.dynamic-field-token {
-  border: 1px solid #dfe1e4;
-  color: var(--text-secondary);
-  border-radius: 4px;
-  padding: 0 4px;
-  white-space: nowrap;
-  font-weight: 500;
-}
-
 .scrollhost::-webkit-scrollbar {
   display: none;
 }
