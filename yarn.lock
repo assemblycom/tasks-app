@@ -9890,10 +9890,10 @@ tailwindcss@^3.3.0:
     resolve "^1.22.8"
     sucrase "^3.35.0"
 
-tapwrite@1.1.97:
-  version "1.1.97"
-  resolved "https://registry.yarnpkg.com/tapwrite/-/tapwrite-1.1.97.tgz#08c983446c0ff3295e13d4f70c2e11710178fda7"
-  integrity sha512-jWsue+eryqdKUvApemHmzPgHIFU79XJWrs6yA73KND37DHuy4q14CKlN88i88Gaw+Szps2SMTz5rn7Hj9O+bAg==
+tapwrite@1.1.98:
+  version "1.1.98"
+  resolved "https://registry.yarnpkg.com/tapwrite/-/tapwrite-1.1.98.tgz#9dcea49ab604b802d7505f3a8ab006082c07c9a4"
+  integrity sha512-3efsqAzjTBcNx5ogzHEKqJQ328CElgEbgFllp+QP8HBoHX6chYHWLcVQs7HEmNYFS3/48TondyTZ5OsP4Nncnw==
   dependencies:
     re-resizable "^6.10.0"
     tippy.js "^6.3.7"
