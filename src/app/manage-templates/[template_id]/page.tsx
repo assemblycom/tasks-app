@@ -10,7 +10,6 @@ import TemplateDetails from '@/app/manage-templates/ui/TemplateDetails'
 import { deleteTemplate, editTemplate } from '@/app/manage-templates/actions'
 import { UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { StyledBox, StyledTiptapDescriptionWrapper, TaskDetailsContainer } from '@/app/detail/ui/styledComponent'
-import { DynamicFieldInsertProvider } from '@/context/provider/DynamicFieldInsertProvider'
 import { TemplateSidebar } from '@/app/manage-templates/ui/TemplateSidebar'
 import { Subtemplates } from '@/app/manage-templates/ui/Subtemplates'
 import { HeaderBreadcrumbs } from '@/components/layouts/HeaderBreadcrumbs'
@@ -70,61 +69,59 @@ export default async function TaskDetailPage(props: {
       {token && <OneTemplateDataFetcher token={token} template_id={template_id} initialTemplate={template} />}
       <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
         <EscapeHandler />
-        <DynamicFieldInsertProvider>
-          <ResponsiveStack fromNotificationCenter={false}>
-            <Box sx={{ width: '100%', display: 'flex', flex: 1, flexDirection: 'column', overflow: 'auto' }}>
-              <StyledBox>
-                {isPreviewMode ? (
-                  <AppMargin size={SizeofAppMargin.HEADER} py="17.5px">
-                    <HeaderBreadcrumbs token={token} items={breadcrumbItems} userType={UserType.INTERNAL_USER} />
-                  </AppMargin>
-                ) : (
+        <ResponsiveStack fromNotificationCenter={false}>
+          <Box sx={{ width: '100%', display: 'flex', flex: 1, flexDirection: 'column', overflow: 'auto' }}>
+            <StyledBox>
+              {isPreviewMode ? (
+                <AppMargin size={SizeofAppMargin.HEADER} py="17.5px">
                   <HeaderBreadcrumbs token={token} items={breadcrumbItems} userType={UserType.INTERNAL_USER} />
-                )}
-              </StyledBox>
-              <ManageTemplateDetailsAppBridge portalUrl={workspace.portalUrl} template={template} />
-              <TaskDetailsContainer
-                sx={{
-                  padding: { xs: '20px 16px ', sm: '30px 20px' },
-                }}
-              >
-                <StyledTiptapDescriptionWrapper>
-                  <TemplateDetails
-                    template={template}
-                    template_id={template_id}
-                    handleDeleteTemplate={async (templateId: string) => {
-                      'use server'
-                      await deleteTemplate(token, templateId)
-                    }}
-                    handleEditTemplate={async (payload: UpdateTemplateRequest, templateId: string) => {
-                      'use server'
-                      await editTemplate(token, templateId, payload)
-                    }}
-                    updateTemplateDetail={async (detail: string) => {
-                      'use server'
-                      await editTemplate(token, template_id, { body: detail })
-                    }}
-                    updateTemplateTitle={async (title: string) => {
-                      'use server'
-                      title.trim() != '' && (await editTemplate(token, template_id, { title }))
-                    }}
-                    token={token}
-                  />
-                </StyledTiptapDescriptionWrapper>
-                {!template.parentId && <Subtemplates template_id={template_id} token={token} />}
-              </TaskDetailsContainer>
-            </Box>
-
-            <TemplateSidebar
-              template_id={template_id}
-              // selectedWorkflowState={task?.workflowState}
-              updateWorkflowState={async (workflowState) => {
-                'use server'
-                await editTemplate(token, template_id, { workflowStateId: workflowState?.id })
+                </AppMargin>
+              ) : (
+                <HeaderBreadcrumbs token={token} items={breadcrumbItems} userType={UserType.INTERNAL_USER} />
+              )}
+            </StyledBox>
+            <ManageTemplateDetailsAppBridge portalUrl={workspace.portalUrl} template={template} />
+            <TaskDetailsContainer
+              sx={{
+                padding: { xs: '20px 16px ', sm: '30px 20px' },
               }}
-            />
-          </ResponsiveStack>
-        </DynamicFieldInsertProvider>
+            >
+              <StyledTiptapDescriptionWrapper>
+                <TemplateDetails
+                  template={template}
+                  template_id={template_id}
+                  handleDeleteTemplate={async (templateId: string) => {
+                    'use server'
+                    await deleteTemplate(token, templateId)
+                  }}
+                  handleEditTemplate={async (payload: UpdateTemplateRequest, templateId: string) => {
+                    'use server'
+                    await editTemplate(token, templateId, payload)
+                  }}
+                  updateTemplateDetail={async (detail: string) => {
+                    'use server'
+                    await editTemplate(token, template_id, { body: detail })
+                  }}
+                  updateTemplateTitle={async (title: string) => {
+                    'use server'
+                    title.trim() != '' && (await editTemplate(token, template_id, { title }))
+                  }}
+                  token={token}
+                />
+              </StyledTiptapDescriptionWrapper>
+              {!template.parentId && <Subtemplates template_id={template_id} token={token} />}
+            </TaskDetailsContainer>
+          </Box>
+
+          <TemplateSidebar
+            template_id={template_id}
+            // selectedWorkflowState={task?.workflowState}
+            updateWorkflowState={async (workflowState) => {
+              'use server'
+              await editTemplate(token, template_id, { workflowStateId: workflowState?.id })
+            }}
+          />
+        </ResponsiveStack>
       </RealTimeTemplates>
     </ClientSideStateUpdate>
   )

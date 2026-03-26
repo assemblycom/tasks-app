@@ -10,7 +10,6 @@ import {
   AssociationsSchema,
 } from '@/types/dto/tasks.dto'
 import { rfc3339ToDateString, toRFC3339 } from '@/utils/dateHelper'
-import { resolveAutofillTags, resolveDynamicFields } from '@/utils/dynamicFields'
 import { sanitizeHtml } from '@/utils/santizeContents'
 import { copyTemplateMediaToTask } from '@/utils/signedTemplateUrlReplacer'
 import { replaceImageSrc } from '@/utils/signedUrlReplacer'
@@ -140,8 +139,8 @@ export class PublicTaskSerializer {
         body,
         workflowStateId,
       )
-      title = resolveDynamicFields(updated.title)
-      body = resolveAutofillTags(updated.body)
+      title = updated.title
+      body = updated.body
       workflowStateId = updated.workflowStateId
     }
 

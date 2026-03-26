@@ -507,6 +507,7 @@ export abstract class TasksSharedService extends BaseService {
 
   protected async createSubtasksFromTemplate(data: TaskTemplate, parentTask: Task, manualTimestamp: Date) {
     const { workspaceId, title, body, workflowStateId } = data
+    const previewMode = Boolean(this.user.clientId || this.user.companyId)
     const { id: parentId, internalUserId, clientId, companyId, associations } = parentTask
 
     try {
@@ -517,10 +518,12 @@ export abstract class TasksSharedService extends BaseService {
         workflowStateId,
         parentId,
         templateId: undefined, //just to be safe from circular recursion
-        internalUserId,
-        clientId,
-        companyId,
-        associations,
+        ...(previewMode && {
+          internalUserId,
+          clientId,
+          companyId,
+          associations,
+        }), //On CRM view, we set assignee and viewers for subtasks same as the parent task.
       })
 
       await this.createTask(createTaskPayload, { disableSubtaskTemplates: true, manualTimestamp: manualTimestamp })

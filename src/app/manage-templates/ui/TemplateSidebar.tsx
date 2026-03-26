@@ -12,14 +12,11 @@ import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { selectTaskDetails, setShowSidebar } from '@/redux/features/taskDetailsSlice'
 import { selectCreateTemplate } from '@/redux/features/templateSlice'
 import store from '@/redux/store'
-import { DYNAMIC_FIELDS, resolveDynamicField } from '@/utils/dynamicFields'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { Sizes } from '@/types/interfaces'
-import { Box, Divider, Stack, Typography } from '@mui/material'
-import { Icon } from 'copilot-design-system'
+import { Box, Stack, Typography } from '@mui/material'
 import { useEffect } from 'react'
 import { useSelector } from 'react-redux'
-import { useDynamicFieldInsert } from '@/context/hooks/useDynamicFieldInsert'
 
 export const TemplateSidebar = ({
   template_id,
@@ -28,7 +25,6 @@ export const TemplateSidebar = ({
   template_id: string
   updateWorkflowState: (workflowState: WorkflowStateResponse) => void
 }) => {
-  const dynamicFieldInsertCtx = useDynamicFieldInsert()
   const { workflowStates } = useSelector(selectTaskBoard)
   const { showSidebar } = useSelector(selectTaskDetails)
   const { activeTemplate } = useSelector(selectCreateTemplate)
@@ -125,8 +121,8 @@ export const TemplateSidebar = ({
         </AppMargin>
       </StyledBox>
 
-      <AppMargin size={SizeofAppMargin.HEADER} py="0px 20px 20px">
-        <Stack direction="row" alignItems="center" m="0px 0px" columnGap="8px">
+      <AppMargin size={SizeofAppMargin.HEADER} py={'0px'}>
+        <Stack direction="row" alignItems="center" m="0px 0px 8px" columnGap="8px">
           <Typography
             sx={{
               color: (theme) => theme.color.gray[500],
@@ -168,76 +164,6 @@ export const TemplateSidebar = ({
           )}
         </Stack>
       </AppMargin>
-
-      <Divider />
-
-      <AppMargin size={SizeofAppMargin.HEADER} py="0px 29px 0px">
-        <Stack direction="column" m="16px 0px 8px" gap="20px">
-          <Typography
-            variant="sm"
-            lineHeight={'24px'}
-            fontSize={'16px'}
-            fontWeight={500}
-            color={(theme) => theme.color.text.text}
-          >
-            Dynamic Fields
-          </Typography>
-          <Stack direction="column" gap="12px">
-            {DYNAMIC_FIELDS.map((field) => (
-              <DynamicFieldCard
-                key={field.key}
-                label={`{{${field.label}}}`}
-                preview={resolveDynamicField(field.key)}
-                onClick={() => dynamicFieldInsertCtx?.insertField(field.key)}
-              />
-            ))}
-          </Stack>
-        </Stack>
-      </AppMargin>
     </Box>
   )
 }
-
-const DynamicFieldCard = ({ label, preview, onClick }: { label: string; preview: string; onClick: () => void }) => (
-  <Box
-    onMouseDown={(e) => e.preventDefault()}
-    onClick={onClick}
-    sx={{
-      border: (theme) => `1px solid ${theme.color.borders.border}`,
-      borderRadius: '4px',
-      padding: '6px 12px',
-      '&:hover': {
-        backgroundColor: (theme) => theme.color.gray[100],
-      },
-      cursor: 'pointer',
-      // '&:active': {
-      //   cursor: 'grabbing',
-      // },
-    }}
-  >
-    <Typography
-      variant="bodySm"
-      sx={{
-        fontSize: '13px',
-        lineHeight: '20px',
-        fontWeight: 500,
-        color: (theme) => theme.color.gray[600],
-      }}
-    >
-      {label}
-    </Typography>
-    <Stack direction="row" alignItems="center" gap="6px" mt="4px">
-      <Icon icon="Time" height={10} width={10} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-      <Typography
-        variant="bodySm"
-        sx={{
-          fontSize: '12px',
-          lineHeight: '20px',
-          color: (theme) => theme.color.gray[400],
-        }}
-      >
-        {preview}
-      </Typography>
-    </Stack>
-  </Box>
-)
