@@ -97,40 +97,76 @@ export default function TemplateDetails({
   }
   const titleEditorRef = useRef<Editor | null>(null)
   const tapwriteEditorRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>
+  const tapwriteWrapperRef = useRef<HTMLDivElement>(null)
+  const lastFocusedRef = useRef<'title' | 'description' | null>(null)
 
-  // Tapwrite's internal EditorContent wrapper has onFocus={() => editor.commands.focus("end")}
-  // which overrides ProseMirror's click-based cursor placement when the editor gains focus.
-  // Suppress that by stopping focusin propagation when focus was triggered by a mouse click.
   useEffect(() => {
-    const el = tapwriteEditorRef.current
+    const el = tapwriteWrapperRef.current
     if (!el) return
+
+    // Suppress Tapwrite's onFocus={() => editor.commands.focus("end")} which overrides
+    // cursor placement. Capture phase intercepts before React's event delegation.
     let mouseDownInside = false
     const onMouseDown = () => {
       mouseDownInside = true
+      requestAnimationFrame(() => {
+        mouseDownInside = false
+      })
     }
     const onFocusIn = (e: Event) => {
-      if (mouseDownInside) {
+      if (mouseDownInside || lastFocusedRef.current === 'description') {
         e.stopPropagation()
-        mouseDownInside = false
       }
     }
-    el.addEventListener('mousedown', onMouseDown)
-    el.addEventListener('focusin', onFocusIn)
+
+    // Handle dynamic field drops manually so ProseMirror doesn't create a NodeSelection.
+    const onDragOver = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes('application/x-dynamic-field')) {
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+      }
+    }
+    const onDrop = (e: DragEvent) => {
+      const fieldKey = e.dataTransfer?.getData('application/x-dynamic-field')
+      if (!fieldKey) return
+      e.preventDefault()
+      e.stopPropagation()
+
+      const range = document.caretRangeFromPoint(e.clientX, e.clientY)
+      if (!range || !el.contains(range.startContainer)) return
+
+      const autofillEl = document.createElement('autofill-field')
+      autofillEl.setAttribute('data-value', fieldKey)
+      const spaceNode = document.createTextNode('\u00A0')
+      range.collapse(true)
+      range.insertNode(spaceNode)
+      range.insertNode(autofillEl)
+      range.setStartAfter(spaceNode)
+      range.collapse(true)
+      const sel = window.getSelection()
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    }
+
+    el.addEventListener('mousedown', onMouseDown, true)
+    el.addEventListener('focusin', onFocusIn, true)
+    el.addEventListener('dragover', onDragOver)
+    el.addEventListener('drop', onDrop, true)
     return () => {
-      el.removeEventListener('mousedown', onMouseDown)
-      el.removeEventListener('focusin', onFocusIn)
+      el.removeEventListener('mousedown', onMouseDown, true)
+      el.removeEventListener('focusin', onFocusIn, true)
+      el.removeEventListener('dragover', onDragOver)
+      el.removeEventListener('drop', onDrop, true)
     }
   }, [])
 
   const updateDetailRef = useRef(updateDetail)
   updateDetailRef.current = updateDetail
 
-  // Insert a dynamic field from the sidebar panel into the title or Tapwrite body.
-  // mousedown preventDefault on the sidebar card keeps the active editor focused.
   const handleSidebarFieldInsert = useCallback((fieldKey: string) => {
-    // 1. If title TipTap editor is focused, insert there at cursor
+    // 1. Title was last focused — TipTap's .focus() restores its stored cursor position
     const titleEditor = titleEditorRef.current
-    if (titleEditor?.isFocused) {
+    if (lastFocusedRef.current === 'title' && titleEditor) {
       titleEditor
         .chain()
         .focus()
@@ -142,13 +178,12 @@ export default function TemplateDetails({
       return
     }
 
-    // 2. If cursor is inside Tapwrite (still focused thanks to mousedown preventDefault),
-    //    insert at cursor position via DOM — ProseMirror's mutation observer will pick it up.
+    // 2. Description was last focused — insert at cursor via DOM
     if (tapwriteEditorRef.current && insertAutofillAtCursor(tapwriteEditorRef.current, fieldKey)) {
       return
     }
 
-    // 3. Nothing focused — insert at the end of the Description body
+    // 3. Both blurred — append to end of description
     const newBody = insertAutofillIntoHtml(updateDetailRef.current, fieldKey)
     setUpdateDetail(newBody)
     setIsUserTyping(true)
@@ -194,16 +229,22 @@ export default function TemplateDetails({
         onChange={handleTitleChange}
         onEditorReady={(editor) => {
           titleEditorRef.current = editor
+          editor.on('focus', () => {
+            lastFocusedRef.current = 'title'
+          })
         }}
         fontSize="20px"
         lineHeight="28px"
         fontWeight={500}
       />
 
-      <Box sx={{ height: '100%', width: '100%' }}>
+      <Box ref={tapwriteWrapperRef} sx={{ height: '100%', width: '100%' }}>
         <Tapwrite
           editorRef={tapwriteEditorRef}
           content={updateDetail}
+          onFocus={() => {
+            lastFocusedRef.current = 'description'
+          }}
           getContent={(content: string) => {
             if (updateDetail !== '') {
               handleDetailChange(content)

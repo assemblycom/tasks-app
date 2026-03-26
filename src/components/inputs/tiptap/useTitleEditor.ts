@@ -9,6 +9,8 @@ import Paragraph from '@tiptap/extension-paragraph'
 import Placeholder from '@tiptap/extension-placeholder'
 import Text from '@tiptap/extension-text'
 import { Editor, useEditor } from '@tiptap/react'
+import { TextSelection } from '@tiptap/pm/state'
+import { Fragment } from '@tiptap/pm/model'
 import { AutofillExtension } from 'tapwrite'
 import { useEffect, useRef } from 'react'
 
@@ -83,6 +85,23 @@ export function useTitleEditor({ value, onChange, placeholder = '', autoFocus, o
           if (!dropdownOpen) return true
         }
         return false
+      },
+      handleDrop: (view, event) => {
+        const fieldKey = event.dataTransfer?.getData('application/x-dynamic-field')
+        if (!fieldKey) return false
+
+        event.preventDefault()
+        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })
+        if (!pos) return true
+
+        const { schema } = view.state
+        const node = schema.nodes.autofillField.create({ value: fieldKey })
+        const space = schema.text(' ')
+        const tr = view.state.tr.insert(pos.pos, Fragment.from([node, space]))
+        tr.setSelection(TextSelection.create(tr.doc, pos.pos + node.nodeSize + space.nodeSize))
+        view.dispatch(tr)
+        view.focus()
+        return true
       },
     },
   })
