@@ -2,10 +2,9 @@
 
 import { StyledModal } from '@/app/detail/ui/styledComponent'
 import AttachmentLayout from '@/components/AttachmentLayout'
-import { TokenizedInput, restoreCursorOffset, getCursorOffset } from '@/components/inputs/TokenizedInput'
+import { TitleEditor } from '@/components/inputs/tiptap/TitleEditor'
 import { ConfirmDeleteUI } from '@/components/layouts/ConfirmDeleteUI'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
-import { useDynamicFieldInsert } from '@/context/hooks/useDynamicFieldInsert'
 import { useDebounce, useDebounceWithCancel } from '@/hooks/useDebounce'
 import { selectTaskDetails, setOpenImage, setShowConfirmDeleteModal } from '@/redux/features/taskDetailsSlice'
 import { clearTemplateFields, selectCreateTemplate } from '@/redux/features/templateSlice'
@@ -51,7 +50,6 @@ export default function TemplateDetails({
   const { activeTemplate, targetTemplateId, taskName } = useSelector(selectCreateTemplate)
   const [isUserTyping, setIsUserTyping] = useState(false)
   const [activeUploads, setActiveUploads] = useState(0)
-  const titleRef = useRef<HTMLDivElement>(null)
 
   const { showConfirmDeleteModal } = useSelector(selectTaskDetails)
 
@@ -95,46 +93,6 @@ export default function TemplateDetails({
     titleUpdateDebounced(newTitle)
     debouncedResetTypingFlagTitle()
   }
-
-  const lastCursorPosRef = useRef<number>(-1)
-  const titleBlurTimestampRef = useRef<number>(0)
-  const titleIsFocusedRef = useRef(false)
-
-  const handleTitleFocus = () => {
-    titleIsFocusedRef.current = true
-  }
-
-  const handleTitleBlur = () => {
-    titleIsFocusedRef.current = false
-    titleBlurTimestampRef.current = Date.now()
-    // Save cursor position before blur so sidebar clicks can insert at last position
-    if (titleRef.current) {
-      const pos = getCursorOffset(titleRef.current)
-      if (pos >= 0) lastCursorPosRef.current = pos
-    }
-    if (updateTitle.trim() == '') {
-      setTimeout(() => {
-        const currentTask = activeTemplate
-        setUpdateTitle(currentTask?.title ?? '')
-      }, 300)
-    }
-  }
-
-  const handleDynamicFieldInsert = (newValue: string, cursorPos: number) => {
-    setUpdateTitle(newValue)
-    if (newValue.trim() !== '') {
-      setIsUserTyping(true)
-      titleUpdateDebounced(newValue)
-      debouncedResetTypingFlagTitle()
-    }
-    setTimeout(() => {
-      if (titleRef.current) {
-        titleRef.current.focus()
-        restoreCursorOffset(titleRef.current, cursorPos)
-      }
-    }, 0)
-  }
-
   const tapwriteEditorRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>
 
   // Tapwrite's internal EditorContent wrapper has onFocus={() => editor.commands.focus("end")}
@@ -171,12 +129,6 @@ export default function TemplateDetails({
   // mousedown preventDefault on the sidebar card keeps the active editor focused.
   const handleSidebarFieldInsert = useCallback((fieldKey: string) => {
     // 1. If title is focused, insert in title at cursor
-    if (titleIsFocusedRef.current) {
-      const { newValue, newCursorPos } = insertTokenInTitle(updateTitleRef.current, fieldKey, lastCursorPosRef.current)
-      handleDynamicFieldInsert(newValue, newCursorPos)
-      lastCursorPosRef.current = newCursorPos
-      return
-    }
 
     // 2. If cursor is inside Tapwrite (still focused thanks to mousedown preventDefault),
     //    insert at cursor position via DOM — ProseMirror's mutation observer will pick it up.
@@ -192,12 +144,6 @@ export default function TemplateDetails({
     debouncedResetTypingFlag()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  const dynamicFieldInsertCtx = useDynamicFieldInsert()
-
-  useEffect(() => {
-    dynamicFieldInsertCtx?.registerHandler(handleSidebarFieldInsert)
-  }, [handleSidebarFieldInsert, dynamicFieldInsertCtx])
 
   const handleDetailChange = (content: string) => {
     if (!didMount.current) {
@@ -225,15 +171,7 @@ export default function TemplateDetails({
 
   return (
     <>
-      <TokenizedInput
-        ref={titleRef}
-        value={updateTitle}
-        onChange={handleTitleChange}
-        onInsert={handleDynamicFieldInsert}
-        onBlur={handleTitleBlur}
-        onFocus={handleTitleFocus}
-        style={{ fontSize: '20px', lineHeight: '28px', fontWeight: 500 }}
-      />
+      <TitleEditor value={updateTitle} onChange={handleTitleChange} fontSize="20px" lineHeight="28px" fontWeight={500} />
 
       <Box sx={{ height: '100%', width: '100%' }}>
         <Tapwrite
