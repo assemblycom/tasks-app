@@ -35,6 +35,9 @@ echo "👷 Running build script for environment: $VERCEL_ENV"
 ) &
 wait
 
+# TEMPORARY FIX: suppress sending tokenId to auth header
+# yarn patch-copilot-node-sdk
+
 # Grant anon privileges so realtime channel can work using only Copilot token
 echo "🏃 [3/3] Running grant-supabase-privileges"
 yarn db:grant-supabase-privileges

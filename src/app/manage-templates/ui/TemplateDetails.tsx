@@ -2,7 +2,9 @@
 
 import { StyledModal } from '@/app/detail/ui/styledComponent'
 import AttachmentLayout from '@/components/AttachmentLayout'
-import { StyledTextField } from '@/components/inputs/TextField'
+import { TitleEditor } from '@/components/inputs/tiptap/TitleEditor'
+import { useDynamicFieldInsert } from '@/context/hooks/useDynamicFieldInsert'
+import type { Editor } from '@tiptap/react'
 import { ConfirmDeleteUI } from '@/components/layouts/ConfirmDeleteUI'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
 import { useDebounce, useDebounceWithCancel } from '@/hooks/useDebounce'
@@ -12,11 +14,19 @@ import store from '@/redux/store'
 import { CreateTemplateRequest } from '@/types/dto/templates.dto'
 import { AttachmentTypes, ITemplate } from '@/types/interfaces'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
+import { insertAutofillAtCursor, insertAutofillIntoHtml } from '@/utils/sidebarFieldInsert'
 import { createUploadFn } from '@/utils/createUploadFn'
+import {
+  TapwriteDynamicFieldDropdown,
+  TapwriteDynamicFieldTemplate,
+  tapwriteDynamicFields,
+} from '@/components/inputs/TapwriteDynamicFieldDropdown'
 import { Box } from '@mui/material'
 import { MouseEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Tapwrite } from 'tapwrite'
+
+export type DynamicFieldInsertFn = (fieldKey: string) => void
 
 interface TemplateDetailsProps {
   template: ITemplate
@@ -58,6 +68,7 @@ export default function TemplateDetails({
         setUpdateDetail(currentTemplate.body ?? '')
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTemplate?.title, activeTemplate?.body, template_id, activeUploads, template])
 
   const _titleUpdateDebounced = async (title: string) => updateTemplateTitle(title)
@@ -73,8 +84,7 @@ export default function TemplateDetails({
   const [debouncedResetTypingFlag, _cancelDebouncedResetTypingFlag] = useDebounceWithCancel(resetTypingFlag, 1500)
   const [debouncedResetTypingFlagTitle, cancelDebouncedResetTypingFlagTitle] = useDebounceWithCancel(resetTypingFlag, 2500)
 
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = e.target.value
+  const handleTitleChange = (newTitle: string) => {
     setUpdateTitle(newTitle)
     if (newTitle.trim() == '') {
       cancelTitleUpdateDebounced()
@@ -85,15 +95,73 @@ export default function TemplateDetails({
     titleUpdateDebounced(newTitle)
     debouncedResetTypingFlagTitle()
   }
+  const titleEditorRef = useRef<Editor | null>(null)
+  const tapwriteEditorRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>
 
-  const handleTitleBlur = () => {
-    if (updateTitle.trim() == '') {
-      setTimeout(() => {
-        const currentTask = activeTemplate
-        setUpdateTitle(currentTask?.title ?? '')
-      }, 300)
+  // Tapwrite's internal EditorContent wrapper has onFocus={() => editor.commands.focus("end")}
+  // which overrides ProseMirror's click-based cursor placement when the editor gains focus.
+  // Suppress that by stopping focusin propagation when focus was triggered by a mouse click.
+  useEffect(() => {
+    const el = tapwriteEditorRef.current
+    if (!el) return
+    let mouseDownInside = false
+    const onMouseDown = () => {
+      mouseDownInside = true
     }
-  }
+    const onFocusIn = (e: Event) => {
+      if (mouseDownInside) {
+        e.stopPropagation()
+        mouseDownInside = false
+      }
+    }
+    el.addEventListener('mousedown', onMouseDown)
+    el.addEventListener('focusin', onFocusIn)
+    return () => {
+      el.removeEventListener('mousedown', onMouseDown)
+      el.removeEventListener('focusin', onFocusIn)
+    }
+  }, [])
+
+  const updateDetailRef = useRef(updateDetail)
+  updateDetailRef.current = updateDetail
+
+  // Insert a dynamic field from the sidebar panel into the title or Tapwrite body.
+  // mousedown preventDefault on the sidebar card keeps the active editor focused.
+  const handleSidebarFieldInsert = useCallback((fieldKey: string) => {
+    // 1. If title TipTap editor is focused, insert there at cursor
+    const titleEditor = titleEditorRef.current
+    if (titleEditor?.isFocused) {
+      titleEditor
+        .chain()
+        .focus()
+        .insertContent([
+          { type: 'autofillField', attrs: { value: fieldKey } },
+          { type: 'text', text: ' ' },
+        ])
+        .run()
+      return
+    }
+
+    // 2. If cursor is inside Tapwrite (still focused thanks to mousedown preventDefault),
+    //    insert at cursor position via DOM — ProseMirror's mutation observer will pick it up.
+    if (tapwriteEditorRef.current && insertAutofillAtCursor(tapwriteEditorRef.current, fieldKey)) {
+      return
+    }
+
+    // 3. Nothing focused — insert at the end of the Description body
+    const newBody = insertAutofillIntoHtml(updateDetailRef.current, fieldKey)
+    setUpdateDetail(newBody)
+    setIsUserTyping(true)
+    detailsUpdateDebounced(newBody)
+    debouncedResetTypingFlag()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const dynamicFieldInsertCtx = useDynamicFieldInsert()
+
+  useEffect(() => {
+    dynamicFieldInsertCtx?.registerHandler(handleSidebarFieldInsert)
+  }, [handleSidebarFieldInsert, dynamicFieldInsertCtx])
 
   const handleDetailChange = (content: string) => {
     if (!didMount.current) {
@@ -121,39 +189,20 @@ export default function TemplateDetails({
 
   return (
     <>
-      <StyledTextField
-        type="text"
-        multiline
-        borderLess
-        sx={{
-          width: '100%',
-          '& .MuiInputBase-input': {
-            fontSize: '20px',
-            lineHeight: '28px',
-            color: (theme) => theme.color.gray[600],
-            fontWeight: 500,
-          },
-          '& .MuiInputBase-input.Mui-disabled': {
-            WebkitTextFillColor: (theme) => theme.color.gray[600],
-          },
-          '& .MuiInputBase-root': {
-            padding: '0px 0px',
-          },
-        }}
+      <TitleEditor
         value={updateTitle}
         onChange={handleTitleChange}
-        inputProps={{ maxLength: 255 }}
-        padding="0px"
-        onBlur={handleTitleBlur}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault() //prevent users from breaking line
-          }
+        onEditorReady={(editor) => {
+          titleEditorRef.current = editor
         }}
+        fontSize="20px"
+        lineHeight="28px"
+        fontWeight={500}
       />
 
-      <Box mt="12px" sx={{ height: '100%', width: '100%' }}>
+      <Box sx={{ height: '100%', width: '100%' }}>
         <Tapwrite
+          editorRef={tapwriteEditorRef}
           content={updateDetail}
           getContent={(content: string) => {
             if (updateDetail !== '') {
@@ -168,6 +217,11 @@ export default function TemplateDetails({
           attachmentLayout={(props) => <AttachmentLayout {...props} />}
           addAttachmentButton
           maxUploadLimit={MAX_UPLOAD_LIMIT}
+          dynamicFieldConfig={{
+            fields: tapwriteDynamicFields,
+            dropdownComponent: TapwriteDynamicFieldDropdown,
+            templateComponent: TapwriteDynamicFieldTemplate,
+          }}
         />
       </Box>
       <StyledModal
@@ -183,7 +237,7 @@ export default function TemplateDetails({
             handleDeleteTemplate(targetTemplateId)
             store.dispatch(clearTemplateFields())
           }}
-          description={`“${taskName}” will be permanently deleted.`}
+          description={`"${taskName}" will be permanently deleted.`}
           customBody={'Delete template?'}
         />
       </StyledModal>

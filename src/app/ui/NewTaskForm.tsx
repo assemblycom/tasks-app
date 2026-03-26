@@ -53,6 +53,7 @@ import {
   getSelectorAssignee,
   getSelectorAssigneeFromFilterOptions,
 } from '@/utils/selector'
+import { resolveAutofillTags, resolveDynamicFields } from '@/utils/dynamicFields'
 import { trimAllTags } from '@/utils/trimTags'
 import { Box, Stack, styled, Typography } from '@mui/material'
 import { marked } from 'marked'
@@ -497,11 +498,12 @@ const NewTaskHeader = ({
 
           setIsEditorReadonly?.(true)
 
-          store.dispatch(setAppliedTitle({ title: templateTitle }))
+          const resolvedTitle = resolveDynamicFields(templateTitle)
+          store.dispatch(setAppliedTitle({ title: resolvedTitle }))
           if (appliedTitle == title.trim()) {
-            store.dispatch(setCreateTaskFields({ targetField: 'title', value: templateTitle }))
+            store.dispatch(setCreateTaskFields({ targetField: 'title', value: resolvedTitle }))
           } else {
-            store.dispatch(setCreateTaskFields({ targetField: 'title', value: title + ' ' + templateTitle }))
+            store.dispatch(setCreateTaskFields({ targetField: 'title', value: title + ' ' + resolvedTitle }))
           }
 
           setSubtasksCount(subTaskTemplates.length ?? 0)
@@ -516,16 +518,17 @@ const NewTaskHeader = ({
           updateWorkflowStatusValue(workflowStates.find((state) => state.id === template.workflowStateId))
           store.dispatch(setCreateTaskFields({ targetField: 'workflowStateId', value: template.workflowStateId }))
           store.dispatch(setCreateTaskFields({ targetField: 'activeWorkflowStateId', value: template.workflowStateId }))
-          store.dispatch(setAppliedDescription({ description: template.body }))
+          const resolvedBody = resolveAutofillTags(template.body)
+          store.dispatch(setAppliedDescription({ description: resolvedBody }))
           store.dispatch(setCreateTaskFields({ targetField: 'templateId', value: id }))
 
           const trimmedAppliedDescription = appliedDescription && trimAllTags(appliedDescription)
           const trimmedDescription = trimAllTags(description)
 
           if (trimmedAppliedDescription == trimmedDescription || trimmedDescription === '<p></p>') {
-            store.dispatch(setCreateTaskFields({ targetField: 'description', value: template.body }))
+            store.dispatch(setCreateTaskFields({ targetField: 'description', value: resolvedBody }))
           } else {
-            store.dispatch(setCreateTaskFields({ targetField: 'description', value: description + template.body }))
+            store.dispatch(setCreateTaskFields({ targetField: 'description', value: description + resolvedBody }))
           }
           store.dispatch(setErrors({ key: CreateTaskErrors.TITLE, value: false }))
         } catch (error) {
