@@ -134,20 +134,68 @@ export default function TemplateDetails({
     }, 0)
   }
 
+  const tapwriteEditorRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>
+
   const updateTitleRef = useRef(updateTitle)
   updateTitleRef.current = updateTitle
 
-  // Insert a dynamic field from the sidebar panel — only if title is focused or was recently focused
+  const updateDetailRef = useRef(updateDetail)
+  updateDetailRef.current = updateDetail
+
+  // Insert a dynamic field from the sidebar panel into the title or Tapwrite body.
+  // mousedown preventDefault on the sidebar card keeps the active editor focused.
   const handleSidebarFieldInsert = useCallback((fieldKey: string) => {
-    const titleIsActive = titleIsFocusedRef.current || Date.now() - titleBlurTimestampRef.current < 500
-    if (!titleIsActive) return
-    const token = `{{${fieldKey}}}`
-    const currentTitle = updateTitleRef.current
-    const pos = lastCursorPosRef.current >= 0 ? lastCursorPosRef.current : currentTitle.length
-    const newValue = currentTitle.slice(0, pos) + token + currentTitle.slice(pos)
-    const newCursorPos = pos + token.length
-    handleDynamicFieldInsert(newValue, newCursorPos)
-    lastCursorPosRef.current = newCursorPos
+    // 1. If title is focused, insert in title at cursor
+    if (titleIsFocusedRef.current) {
+      const token = `{{${fieldKey}}}`
+      const currentTitle = updateTitleRef.current
+      const pos = lastCursorPosRef.current >= 0 ? lastCursorPosRef.current : currentTitle.length
+      const newValue = currentTitle.slice(0, pos) + token + currentTitle.slice(pos)
+      const newCursorPos = pos + token.length
+      handleDynamicFieldInsert(newValue, newCursorPos)
+      lastCursorPosRef.current = newCursorPos
+      return
+    }
+
+    // 2. If cursor is inside Tapwrite (still focused thanks to mousedown preventDefault),
+    //    insert at cursor position via DOM — ProseMirror's mutation observer will pick it up.
+    const sel = window.getSelection()
+    if (sel && sel.rangeCount > 0 && tapwriteEditorRef.current) {
+      const range = sel.getRangeAt(0)
+      if (tapwriteEditorRef.current.contains(range.commonAncestorContainer)) {
+        const autofillEl = document.createElement('autofill-field')
+        autofillEl.setAttribute('data-value', fieldKey)
+        const spaceNode = document.createTextNode('\u00A0')
+        range.collapse(false)
+        range.insertNode(spaceNode)
+        range.insertNode(autofillEl)
+        // Move cursor after inserted content
+        range.setStartAfter(spaceNode)
+        range.collapse(true)
+        sel.removeAllRanges()
+        sel.addRange(range)
+        return
+      }
+    }
+
+    // 3. Nothing focused — insert at the end of the Description body
+    const tag = `<autofill-field data-value="${fieldKey}"></autofill-field>`
+    const currentBody = updateDetailRef.current
+    let newBody: string
+    if (!currentBody || currentBody === '<p></p>' || currentBody.trim() === '') {
+      newBody = `<p>${tag} </p>`
+    } else {
+      const lastPIndex = currentBody.lastIndexOf('</p>')
+      if (lastPIndex !== -1) {
+        newBody = currentBody.slice(0, lastPIndex) + tag + ' ' + currentBody.slice(lastPIndex)
+      } else {
+        newBody = currentBody + `<p>${tag} </p>`
+      }
+    }
+    setUpdateDetail(newBody)
+    setIsUserTyping(true)
+    detailsUpdateDebounced(newBody)
+    debouncedResetTypingFlag()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -195,6 +243,7 @@ export default function TemplateDetails({
 
       <Box sx={{ height: '100%', width: '100%' }}>
         <Tapwrite
+          editorRef={tapwriteEditorRef}
           content={updateDetail}
           getContent={(content: string) => {
             if (updateDetail !== '') {
