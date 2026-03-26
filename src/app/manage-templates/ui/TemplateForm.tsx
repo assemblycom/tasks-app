@@ -2,14 +2,13 @@
 
 import { PrimaryBtn } from '@/components/buttons/PrimaryBtn'
 import { SecondaryBtn } from '@/components/buttons/SecondaryBtn'
-import { TokenizedInput, restoreCursorOffset } from '@/components/inputs/TokenizedInput'
+import { TitleEditor } from '@/components/inputs/tiptap/TitleEditor'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { AttachmentIcon } from '@/icons'
 import store from '@/redux/store'
 import { Close } from '@mui/icons-material'
 import { Box, Stack, Typography, styled } from '@mui/material'
 import { AttachmentTypes, createTemplateErrors, TargetMethod } from '@/types/interfaces'
-import { useRef } from 'react'
 import { useSelector } from 'react-redux'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import {
@@ -88,8 +87,6 @@ const NewTemplateFormInputs = () => {
     useSelector(selectCreateTemplate)
   const { workflowStates, token } = useSelector(selectTaskBoard)
   const { tokenPayload } = useSelector(selectAuthDetails)
-  const titleRef = useRef<HTMLDivElement>(null)
-
   const uploadFn = createUploadFn({
     token,
     workspaceId: tokenPayload?.workspaceId,
@@ -113,17 +110,6 @@ const NewTemplateFormInputs = () => {
     store.dispatch(setErrors({ key: createTemplateErrors.TITLE, value: false }))
   }
 
-  const handleDynamicFieldInsert = (newValue: string, cursorPos: number) => {
-    store.dispatch(setCreateTemplateFields({ targetField: 'taskName', value: newValue }))
-    store.dispatch(setErrors({ key: createTemplateErrors.TITLE, value: false }))
-    setTimeout(() => {
-      if (titleRef.current) {
-        titleRef.current.focus()
-        restoreCursorOffset(titleRef.current, cursorPos)
-      }
-    }, 0)
-  }
-
   const handleDescriptionChange = (content: string) => {
     store.dispatch(setCreateTemplateFields({ targetField: 'description', value: content }))
   }
@@ -143,19 +129,17 @@ const NewTemplateFormInputs = () => {
           marginBottom: '12px',
         }}
       >
-        <TokenizedInput
-          ref={titleRef}
-          value={taskName}
-          onChange={handleTitleChange}
-          onInsert={handleDynamicFieldInsert}
-          autoFocus
-          placeholder="Template name"
-          style={{
-            fontSize: '16px',
-            lineHeight: '24px',
-            padding: '8px 0px 0px',
-          }}
-        />
+        <Box sx={{ padding: '8px 0px 0px', width: '100%' }}>
+          <TitleEditor
+            value={taskName}
+            onChange={handleTitleChange}
+            placeholder="Template name"
+            autoFocus
+            fontSize="16px"
+            lineHeight="24px"
+            fontWeight={500}
+          />
+        </Box>
         {errors.title && (
           <Typography variant="bodySm" sx={{ color: '#d32f2f', textAlign: 'right', width: '100%', fontSize: '12px' }}>
             Enter template name
