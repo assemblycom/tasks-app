@@ -13,6 +13,7 @@ import store from '@/redux/store'
 import { CreateTemplateRequest } from '@/types/dto/templates.dto'
 import { AttachmentTypes, ITemplate } from '@/types/interfaces'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
+import { insertTokenInTitle, insertAutofillAtCursor, insertAutofillIntoHtml } from '@/utils/sidebarFieldInsert'
 import { createUploadFn } from '@/utils/createUploadFn'
 import {
   TapwriteDynamicFieldDropdown,
@@ -136,6 +137,30 @@ export default function TemplateDetails({
 
   const tapwriteEditorRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>
 
+  // Tapwrite's internal EditorContent wrapper has onFocus={() => editor.commands.focus("end")}
+  // which overrides ProseMirror's click-based cursor placement when the editor gains focus.
+  // Suppress that by stopping focusin propagation when focus was triggered by a mouse click.
+  useEffect(() => {
+    const el = tapwriteEditorRef.current
+    if (!el) return
+    let mouseDownInside = false
+    const onMouseDown = () => {
+      mouseDownInside = true
+    }
+    const onFocusIn = (e: Event) => {
+      if (mouseDownInside) {
+        e.stopPropagation()
+        mouseDownInside = false
+      }
+    }
+    el.addEventListener('mousedown', onMouseDown)
+    el.addEventListener('focusin', onFocusIn)
+    return () => {
+      el.removeEventListener('mousedown', onMouseDown)
+      el.removeEventListener('focusin', onFocusIn)
+    }
+  }, [])
+
   const updateTitleRef = useRef(updateTitle)
   updateTitleRef.current = updateTitle
 
@@ -147,11 +172,7 @@ export default function TemplateDetails({
   const handleSidebarFieldInsert = useCallback((fieldKey: string) => {
     // 1. If title is focused, insert in title at cursor
     if (titleIsFocusedRef.current) {
-      const token = `{{${fieldKey}}}`
-      const currentTitle = updateTitleRef.current
-      const pos = lastCursorPosRef.current >= 0 ? lastCursorPosRef.current : currentTitle.length
-      const newValue = currentTitle.slice(0, pos) + token + currentTitle.slice(pos)
-      const newCursorPos = pos + token.length
+      const { newValue, newCursorPos } = insertTokenInTitle(updateTitleRef.current, fieldKey, lastCursorPosRef.current)
       handleDynamicFieldInsert(newValue, newCursorPos)
       lastCursorPosRef.current = newCursorPos
       return
@@ -159,39 +180,12 @@ export default function TemplateDetails({
 
     // 2. If cursor is inside Tapwrite (still focused thanks to mousedown preventDefault),
     //    insert at cursor position via DOM — ProseMirror's mutation observer will pick it up.
-    const sel = window.getSelection()
-    if (sel && sel.rangeCount > 0 && tapwriteEditorRef.current) {
-      const range = sel.getRangeAt(0)
-      if (tapwriteEditorRef.current.contains(range.commonAncestorContainer)) {
-        const autofillEl = document.createElement('autofill-field')
-        autofillEl.setAttribute('data-value', fieldKey)
-        const spaceNode = document.createTextNode('\u00A0')
-        range.collapse(false)
-        range.insertNode(spaceNode)
-        range.insertNode(autofillEl)
-        // Move cursor after inserted content
-        range.setStartAfter(spaceNode)
-        range.collapse(true)
-        sel.removeAllRanges()
-        sel.addRange(range)
-        return
-      }
+    if (tapwriteEditorRef.current && insertAutofillAtCursor(tapwriteEditorRef.current, fieldKey)) {
+      return
     }
 
     // 3. Nothing focused — insert at the end of the Description body
-    const tag = `<autofill-field data-value="${fieldKey}"></autofill-field>`
-    const currentBody = updateDetailRef.current
-    let newBody: string
-    if (!currentBody || currentBody === '<p></p>' || currentBody.trim() === '') {
-      newBody = `<p>${tag} </p>`
-    } else {
-      const lastPIndex = currentBody.lastIndexOf('</p>')
-      if (lastPIndex !== -1) {
-        newBody = currentBody.slice(0, lastPIndex) + tag + ' ' + currentBody.slice(lastPIndex)
-      } else {
-        newBody = currentBody + `<p>${tag} </p>`
-      }
-    }
+    const newBody = insertAutofillIntoHtml(updateDetailRef.current, fieldKey)
     setUpdateDetail(newBody)
     setIsUserTyping(true)
     detailsUpdateDebounced(newBody)
