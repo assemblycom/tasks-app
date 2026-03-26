@@ -71,9 +71,8 @@ export const TapwriteDynamicFieldDropdown = ({ items, onSelect, selectedIndex }:
 export const TapwriteDynamicFieldTemplate = ({ value, label, showResolved, resolvedValue }: HandlebarTemplateProps) => (
   <span
     style={{
-      border: '1px solid #D0D4DA',
-      color: '#6B6F76',
-      background: '#F5F5F5',
+      border: '1px solid #DFE1E4',
+      color: 'var(--text-secondary)',
       borderRadius: '4px',
       padding: '0 4px',
       whiteSpace: 'nowrap',
