@@ -1,21 +1,7 @@
 /**
- * Pure helper functions for inserting dynamic field tokens from the sidebar
- * into the template title (TokenizedInput) or description (Tapwrite).
+ * Helper functions for inserting dynamic field tokens from the sidebar
+ * into the description (Tapwrite).
  */
-
-/**
- * Build a new title string with the {{token}} spliced in at the given cursor position.
- */
-export function insertTokenInTitle(
-  currentTitle: string,
-  fieldKey: string,
-  cursorPos: number,
-): { newValue: string; newCursorPos: number } {
-  const token = `{{${fieldKey}}}`
-  const pos = cursorPos >= 0 ? cursorPos : currentTitle.length
-  const newValue = currentTitle.slice(0, pos) + token + currentTitle.slice(pos)
-  return { newValue, newCursorPos: pos + token.length }
-}
 
 /**
  * Insert an `<autofill-field>` element at the current DOM selection inside a
