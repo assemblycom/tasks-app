@@ -200,11 +200,7 @@ export const TemplateSidebar = ({
 
 const DynamicFieldCard = ({ label, preview, onClick }: { label: string; preview: string; onClick: () => void }) => (
   <Box
-    // draggable
-    // onDragStart={(e) => {
-    //   e.dataTransfer.setData('text/plain', label)
-    //   e.dataTransfer.effectAllowed = 'copy'
-    // }}
+    onMouseDown={(e) => e.preventDefault()}
     onClick={onClick}
     sx={{
       border: (theme) => `1px solid ${theme.color.borders.border}`,
