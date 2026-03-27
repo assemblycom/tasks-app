@@ -133,7 +133,8 @@ export default function TemplateDetails({
       e.stopPropagation()
 
       const range = document.caretRangeFromPoint(e.clientX, e.clientY)
-      if (!range || !el.contains(range.startContainer)) return
+      const proseMirrorEl = el.querySelector('.ProseMirror')
+      if (!range || !proseMirrorEl?.contains(range.startContainer)) return
 
       const autofillEl = document.createElement('autofill-field')
       autofillEl.setAttribute('data-value', fieldKey)
