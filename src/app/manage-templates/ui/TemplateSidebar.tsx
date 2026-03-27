@@ -188,6 +188,7 @@ export const TemplateSidebar = ({
                 key={field.key}
                 label={`{{${field.label}}}`}
                 preview={resolveDynamicField(field.key)}
+                fieldKey={field.key}
                 onClick={() => dynamicFieldInsertCtx?.insertField(field.key)}
               />
             ))}
@@ -198,9 +199,24 @@ export const TemplateSidebar = ({
   )
 }
 
-const DynamicFieldCard = ({ label, preview, onClick }: { label: string; preview: string; onClick: () => void }) => (
+const DynamicFieldCard = ({
+  label,
+  preview,
+  fieldKey,
+  onClick,
+}: {
+  label: string
+  preview: string
+  fieldKey: string
+  onClick: () => void
+}) => (
   <Box
-    onMouseDown={(e) => e.preventDefault()}
+    draggable
+    onDragStart={(e) => {
+      e.dataTransfer.setData('text/html', `<autofill-field data-value="${fieldKey}"></autofill-field>\u00A0`)
+      e.dataTransfer.setData('application/x-dynamic-field', fieldKey)
+      e.dataTransfer.effectAllowed = 'copy'
+    }}
     onClick={onClick}
     sx={{
       border: (theme) => `1px solid ${theme.color.borders.border}`,
@@ -210,9 +226,6 @@ const DynamicFieldCard = ({ label, preview, onClick }: { label: string; preview:
         backgroundColor: (theme) => theme.color.gray[100],
       },
       cursor: 'pointer',
-      // '&:active': {
-      //   cursor: 'grabbing',
-      // },
     }}
   >
     <Typography
