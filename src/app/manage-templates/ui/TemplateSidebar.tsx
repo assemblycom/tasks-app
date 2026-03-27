@@ -225,10 +225,7 @@ const DynamicFieldCard = ({
       '&:hover': {
         backgroundColor: (theme) => theme.color.gray[100],
       },
-      cursor: 'grab',
-      '&:active': {
-        cursor: 'grabbing',
-      },
+      cursor: 'pointer',
     }}
   >
     <Typography
