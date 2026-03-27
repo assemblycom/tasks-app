@@ -136,6 +136,16 @@ export default function TemplateDetails({
       const proseMirrorEl = el.querySelector('.ProseMirror')
       if (!range || !proseMirrorEl?.contains(range.startContainer)) return
 
+      // If the caret landed inside a node-view, move insertion after the outermost node-view DOM element.
+      // Structure: <span class="node-*"> (dom) > <span data-node-view-wrapper> > content
+      // We must insert after the outer "dom" span so ProseMirror detects the mutation.
+      const caretNode = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement
+      const nodeViewWrapper = caretNode?.closest('[data-node-view-wrapper]')
+      if (nodeViewWrapper?.parentElement) {
+        range.setStartAfter(nodeViewWrapper.parentElement)
+        range.collapse(true)
+      }
+
       const autofillEl = document.createElement('autofill-field')
       autofillEl.setAttribute('data-value', fieldKey)
       const spaceNode = document.createTextNode('\u00A0')
