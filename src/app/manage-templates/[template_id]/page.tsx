@@ -58,7 +58,7 @@ export default async function TaskDetailPage(props: {
   const breadcrumbItems: { label: string; href: string }[] = [
     { label: 'Manage templates', href: `/manage-templates?token=${token}` },
     ...breadcrumbTemplates.map((template) => ({
-      label: template.title,
+      label: template.title.length > 40 ? `${template.title.slice(0, 30)}...` : template.title,
       href: `/manage-templates/${template.id}?token=${token}`,
     })),
   ]
