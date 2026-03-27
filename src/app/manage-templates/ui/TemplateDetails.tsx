@@ -132,7 +132,17 @@ export default function TemplateDetails({
       e.preventDefault()
       e.stopPropagation()
 
-      const range = document.caretRangeFromPoint(e.clientX, e.clientY)
+      let range: Range | null = null
+      if (document.caretRangeFromPoint) {
+        range = document.caretRangeFromPoint(e.clientX, e.clientY)
+      } else if ((document as any).caretPositionFromPoint) {
+        const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY)
+        if (pos) {
+          range = document.createRange()
+          range.setStart(pos.offsetNode, pos.offset)
+          range.collapse(true)
+        }
+      }
       const proseMirrorEl = el.querySelector('.ProseMirror')
       if (!range || !proseMirrorEl?.contains(range.startContainer)) return
 
