@@ -101,6 +101,11 @@ export function useTitleEditor({ value, onChange, placeholder = '', autoFocus, o
         tr.setSelection(TextSelection.create(tr.doc, pos.pos + node.nodeSize + space.nodeSize))
         view.dispatch(tr)
         view.focus()
+        // Firefox hides the caret after drag-and-drop; a blur/focus cycle forces it to repaint.
+        requestAnimationFrame(() => {
+          view.dom.blur()
+          view.focus()
+        })
         return true
       },
     },
