@@ -1,6 +1,6 @@
 'use client'
 
-import TaskTitle from '@/components/atoms/TaskTitle'
+import DynamicFieldTitle from '@/components/atoms/DynamicFieldTitle'
 import { SelectorType } from '@/components/inputs/Selector'
 import { WorkflowStateSelector } from '@/components/inputs/Selector-WorkflowState'
 import { CustomLink } from '@/hoc/CustomLink'
@@ -102,7 +102,7 @@ export const SubtemplatesList = ({ template, workflowState, isTemp }: Subtemplat
                 flexShrink: 1,
               }}
             >
-              <TaskTitle variant={'subtasks'} title={template.title} />
+              <DynamicFieldTitle title={template.title} variant="subtasks" />
             </Stack>
           </div>
         ) : (
@@ -127,7 +127,7 @@ export const SubtemplatesList = ({ template, workflowState, isTemp }: Subtemplat
                 flexShrink: 1,
               }}
             >
-              <TaskTitle variant={'subtasks'} title={template.title} />
+              <DynamicFieldTitle title={template.title} variant="subtasks" />
             </Stack>
           </CustomLink>
         )}
