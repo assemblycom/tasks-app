@@ -10,6 +10,7 @@ import {
   AssociationsSchema,
 } from '@/types/dto/tasks.dto'
 import { getFileNameFromPath } from '@/utils/attachmentUtils'
+import { resolveDynamicFields, resolveAutofillTags } from '@/utils/dynamicFields'
 import { buildLtree, buildLtreeNodeString } from '@/utils/ltree'
 import { getFilePathFromUrl } from '@/utils/signedUrlReplacer'
 import { getSignedUrl } from '@/utils/signUrl'
@@ -511,8 +512,8 @@ export abstract class TasksSharedService extends BaseService {
 
     try {
       const createTaskPayload = CreateTaskRequestSchema.parse({
-        title,
-        body,
+        title: resolveDynamicFields(title),
+        body: body ? resolveAutofillTags(body) : body,
         workspaceId,
         workflowStateId,
         parentId,
