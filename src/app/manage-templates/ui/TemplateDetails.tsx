@@ -167,6 +167,12 @@ export default function TemplateDetails({
       const sel = window.getSelection()
       sel?.removeAllRanges()
       sel?.addRange(range)
+
+      // Firefox hides the caret after drag-and-drop; a blur/focus cycle forces it to repaint.
+      requestAnimationFrame(() => {
+        ;(proseMirrorEl as HTMLElement)?.blur()
+        ;(proseMirrorEl as HTMLElement)?.focus()
+      })
     }
 
     el.addEventListener('mousedown', onMouseDown, true)
