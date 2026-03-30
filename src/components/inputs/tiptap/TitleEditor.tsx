@@ -57,4 +57,12 @@ const StyledEditorWrapper = styled(Box)(({ theme }) => ({
     float: 'left',
     height: 0,
   },
+  // The chip border (1px top + 1px bottom) makes the inline-flex node view taller than
+  // the paragraph line-height, expanding the line box. Swapping to outline within this
+  // context fixes it — outline is cosmetically identical but has no effect on layout.
+  '& .tiptap-title-editor [data-node-view-wrapper] > span': {
+    border: 'none !important',
+    outline: '1px solid #DFE1E4',
+    outlineOffset: '-1px', // This pulls the outline inward so it sits exactly where the border was
+  },
 }))
