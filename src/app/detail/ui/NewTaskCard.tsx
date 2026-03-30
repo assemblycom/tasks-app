@@ -190,9 +190,8 @@ export const NewTaskCard = ({
             workflowStateId: template.workflowStateId,
           }))
           const resolvedBody = resolveAutofillTags(template.body)
-          const trimmedAppliedDescription = template.description && trimAllTags(template.description)
           const trimmedDescription = trimAllTags(subTaskFields.description)
-          if (trimmedAppliedDescription == trimmedDescription || trimmedDescription === '<p></p>') {
+          if (trimmedDescription === '<p></p>' || !trimmedDescription) {
             setSubTaskFields((prev) => ({
               ...prev,
               description: resolvedBody,

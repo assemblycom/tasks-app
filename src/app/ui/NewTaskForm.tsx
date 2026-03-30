@@ -500,11 +500,9 @@ const NewTaskHeader = ({
 
           const resolvedTitle = resolveDynamicFields(templateTitle)
           store.dispatch(setAppliedTitle({ title: resolvedTitle }))
-          if (appliedTitle == title.trim()) {
-            store.dispatch(setCreateTaskFields({ targetField: 'title', value: resolvedTitle }))
-          } else {
-            store.dispatch(setCreateTaskFields({ targetField: 'title', value: title + ' ' + resolvedTitle }))
-          }
+          store.dispatch(
+            setCreateTaskFields({ targetField: 'title', value: title.trim() ? title + ' ' + resolvedTitle : resolvedTitle }),
+          )
 
           setSubtasksCount(subTaskTemplates.length ?? 0)
 
@@ -522,10 +520,9 @@ const NewTaskHeader = ({
           store.dispatch(setAppliedDescription({ description: resolvedBody }))
           store.dispatch(setCreateTaskFields({ targetField: 'templateId', value: id }))
 
-          const trimmedAppliedDescription = appliedDescription && trimAllTags(appliedDescription)
           const trimmedDescription = trimAllTags(description)
 
-          if (trimmedAppliedDescription == trimmedDescription || trimmedDescription === '<p></p>') {
+          if (trimmedDescription === '<p></p>' || !trimmedDescription) {
             store.dispatch(setCreateTaskFields({ targetField: 'description', value: resolvedBody }))
           } else {
             store.dispatch(setCreateTaskFields({ targetField: 'description', value: description + resolvedBody }))
