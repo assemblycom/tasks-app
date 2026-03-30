@@ -4,8 +4,6 @@ import { useTitleEditor } from '@/components/inputs/tiptap/useTitleEditor'
 import { Box, styled } from '@mui/material'
 import { Editor, EditorContent } from '@tiptap/react'
 
-const TITLE_MAX_LENGTH = 255
-
 interface TitleEditorProps {
   value: string
   onChange: (plainText: string) => void
@@ -15,7 +13,6 @@ interface TitleEditorProps {
   lineHeight?: string
   fontWeight?: number
   onEditorReady?: (editor: Editor) => void
-  maxLength?: number
 }
 
 export const TitleEditor = ({
@@ -27,9 +24,8 @@ export const TitleEditor = ({
   lineHeight = '24px',
   fontWeight = 500,
   onEditorReady,
-  maxLength = TITLE_MAX_LENGTH,
 }: TitleEditorProps) => {
-  const editor = useTitleEditor({ value, onChange, placeholder, autoFocus, onEditorReady, maxLength })
+  const editor = useTitleEditor({ value, onChange, placeholder, autoFocus, onEditorReady })
 
   return (
     <StyledEditorWrapper
