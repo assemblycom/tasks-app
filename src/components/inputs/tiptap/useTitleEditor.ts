@@ -42,13 +42,14 @@ export function plainTextToHtml(text: string): string {
   return `<p>${html}</p>`
 }
 
+const TITLE_MAX_LENGTH = 255
+
 interface UseTitleEditorOptions {
   value: string
   onChange: (plainText: string) => void
   placeholder?: string
   autoFocus?: boolean
   onEditorReady?: (editor: Editor) => void
-  maxLength?: number
 }
 
 function extractTextFromDoc(doc: Node): string {
@@ -81,14 +82,7 @@ function createMaxLengthExtension(maxLength: number) {
   })
 }
 
-export function useTitleEditor({
-  value,
-  onChange,
-  placeholder = '',
-  autoFocus,
-  onEditorReady,
-  maxLength,
-}: UseTitleEditorOptions) {
+export function useTitleEditor({ value, onChange, placeholder = '', autoFocus, onEditorReady }: UseTitleEditorOptions) {
   const isInternalRef = useRef(false)
 
   const editor = useEditor({
@@ -105,7 +99,7 @@ export function useTitleEditor({
         CustomDropdown: TapwriteDynamicFieldDropdown,
         TemplateComponent: TapwriteDynamicFieldTemplate,
       }),
-      ...(maxLength !== undefined ? [createMaxLengthExtension(maxLength)] : []),
+      createMaxLengthExtension(TITLE_MAX_LENGTH),
     ],
     content: plainTextToHtml(value),
     immediatelyRender: false,
