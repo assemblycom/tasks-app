@@ -149,31 +149,49 @@ export const useFilter = (filterOptions: IFilterOptions, isPreviewMode: boolean)
   const { tasks, accessibleTasks, assignee } = useSelector(selectTaskBoard)
   const [_, startTransition] = useTransition()
 
-  function applyFilter(tasks: TaskResponse[], filterOptions: IFilterOptions) {
+  function applyFilters(tasks: TaskResponse[], filterOptions: IFilterOptions) {
     let filteredTasks = [...tasks]
     for (const [filterType, filterValue] of Object.entries(filterOptions)) {
       if (!filterValue) continue
-      if (filterType === FilterOptions.ASSIGNEE && !isPreviewMode) {
-        // there is no filter by assignee in preview mode
-        const assigneeFilterValue = UserIdsSchema.parse(filterValue)
-        filteredTasks = FilterFunctions[FilterOptions.ASSIGNEE](filteredTasks, assigneeFilterValue)
-      }
-      if (filterType === FilterOptions.CREATOR || filterType === FilterOptions.ASSOCIATION) {
-        const assigneeFilterValue = UserIdsSchema.parse(filterValue)
-        filteredTasks = FilterFunctions[filterType](filteredTasks, assigneeFilterValue)
-      }
-      if (filterType === FilterOptions.KEYWORD) {
-        filteredTasks = FilterFunctions[FilterOptions.KEYWORD](
-          filteredTasks,
-          filterValue as string,
-          accessibleTasks,
-          assignee,
-        )
-      }
-      if (filterType === FilterOptions.TYPE) {
-        filteredTasks = FilterFunctions[FilterOptions.TYPE](filteredTasks, filterValue as string)
-      }
+      filteredTasks = applyOneFilter(filteredTasks, filterType, filterValue)
     }
+    return filteredTasks
+  }
+
+  function applyOneFilter(tasks: TaskResponse[], filterType: string, filterValue: unknown): TaskResponse[] {
+    if (filterType === FilterOptions.ASSIGNEE && !isPreviewMode) {
+      const assigneeFilterValue = UserIdsSchema.parse(filterValue)
+      return FilterFunctions[FilterOptions.ASSIGNEE](tasks, assigneeFilterValue)
+    }
+    if (filterType === FilterOptions.CREATOR || filterType === FilterOptions.ASSOCIATION) {
+      const assigneeFilterValue = UserIdsSchema.parse(filterValue)
+      return FilterFunctions[filterType](tasks, assigneeFilterValue)
+    }
+    if (filterType === FilterOptions.KEYWORD) {
+      return FilterFunctions[FilterOptions.KEYWORD](tasks, filterValue as string, accessibleTasks, assignee)
+    }
+    if (filterType === FilterOptions.TYPE) {
+      return FilterFunctions[FilterOptions.TYPE](tasks, filterValue as string)
+    }
+    return tasks
+  }
+
+  function applyFilter(tasks: TaskResponse[], filterOptions: IFilterOptions) {
+    const filteredParentTasks = applyFilters(tasks, filterOptions)
+    const filteredParentIds = new Set(filteredParentTasks.map((t) => t.id))
+
+    // Find subtasks that match all filters but whose parent didn't
+    const hasActiveFilter = Object.values(filterOptions).some((v) => !!v)
+    let standaloneSubtasks: TaskResponse[] = []
+
+    if (hasActiveFilter) {
+      const subtasks = accessibleTasks.filter((t) => !!t.parentId)
+      const matchingSubtasks = applyFilters(subtasks, filterOptions)
+      standaloneSubtasks = matchingSubtasks.filter((t) => !filteredParentIds.has(t.parentId!))
+    }
+
+    const filteredTasks = [...filteredParentTasks, ...standaloneSubtasks]
+
     startTransition(() => {
       store.dispatch(setFilteredTasks(filteredTasks))
     })
@@ -181,7 +199,7 @@ export const useFilter = (filterOptions: IFilterOptions, isPreviewMode: boolean)
 
   useEffect(() => {
     applyFilter(tasks, filterOptions)
-  }, [tasks, filterOptions])
+  }, [tasks, accessibleTasks, filterOptions])
 
   useEffect(() => {
     if (assignee?.length) {
