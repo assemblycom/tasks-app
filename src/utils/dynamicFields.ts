@@ -37,6 +37,29 @@ export function resolveDynamicField(key: DynamicFieldKey, now: dayjs.Dayjs = day
   }
 }
 
+// Maximum possible resolved length for each dynamic field.
+// Used to compute worst-case task title length when tokens are present.
+// "Week of September 30, 2026" is the longest possible resolution for CurrentWeek (26 chars).
+const DYNAMIC_FIELD_MAX_RESOLVED_LENGTHS: Record<DynamicFieldKey, number> = {
+  [DynamicFieldKey.CurrentWeek]: 26,
+  [DynamicFieldKey.CurrentMonth]: 9, // "September"
+  [DynamicFieldKey.CurrentQuarter]: 2, // "Q4"
+  [DynamicFieldKey.CurrentYear]: 4, // "2026"
+}
+
+/**
+ * Returns the worst-case resolved length of a template title string.
+ * Each {{token}} is replaced by its maximum possible resolved value so the result
+ * represents the longest task title that could be generated from this template.
+ */
+export function getWorstCaseResolvedLength(text: string): number {
+  return text.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+    const field = DYNAMIC_FIELDS.find((f) => f.key === key)
+    if (!field) return match
+    return 'x'.repeat(DYNAMIC_FIELD_MAX_RESOLVED_LENGTHS[field.key])
+  }).length
+}
+
 /**
  * Resolves all dynamic field tokens in a string.
  * Tokens are in the format {{fieldKey}}, e.g. {{Current Month}}, {{Current Year}}

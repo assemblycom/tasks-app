@@ -3,14 +3,16 @@ import {
   TapwriteDynamicFieldTemplate,
   tapwriteDynamicFields,
 } from '@/components/inputs/TapwriteDynamicFieldDropdown'
+import { getWorstCaseResolvedLength } from '@/utils/dynamicFields'
 import Document from '@tiptap/extension-document'
 import History from '@tiptap/extension-history'
 import Paragraph from '@tiptap/extension-paragraph'
 import Placeholder from '@tiptap/extension-placeholder'
 import Text from '@tiptap/extension-text'
+import { Extension } from '@tiptap/core'
 import { Editor, useEditor } from '@tiptap/react'
-import { TextSelection } from '@tiptap/pm/state'
-import { Fragment } from '@tiptap/pm/model'
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
+import { Fragment, Node } from '@tiptap/pm/model'
 import { AutofillExtension } from 'tapwrite'
 import { useEffect, useRef } from 'react'
 
@@ -46,9 +48,47 @@ interface UseTitleEditorOptions {
   placeholder?: string
   autoFocus?: boolean
   onEditorReady?: (editor: Editor) => void
+  maxLength?: number
 }
 
-export function useTitleEditor({ value, onChange, placeholder = '', autoFocus, onEditorReady }: UseTitleEditorOptions) {
+function extractTextFromDoc(doc: Node): string {
+  let result = ''
+  doc.descendants((node) => {
+    if (node.type.name === 'autofillField' && node.attrs.value) {
+      result += `{{${node.attrs.value}}}`
+    } else if (node.isText) {
+      result += node.text ?? ''
+    }
+  })
+  return result
+}
+
+function createMaxLengthExtension(maxLength: number) {
+  return Extension.create({
+    name: 'maxLength',
+    addProseMirrorPlugins() {
+      return [
+        new Plugin({
+          key: new PluginKey('maxLength'),
+          filterTransaction(tr) {
+            if (!tr.docChanged) return true
+            const newText = extractTextFromDoc(tr.doc)
+            return newText.length <= maxLength && getWorstCaseResolvedLength(newText) <= maxLength
+          },
+        }),
+      ]
+    },
+  })
+}
+
+export function useTitleEditor({
+  value,
+  onChange,
+  placeholder = '',
+  autoFocus,
+  onEditorReady,
+  maxLength,
+}: UseTitleEditorOptions) {
   const isInternalRef = useRef(false)
 
   const editor = useEditor({
@@ -65,6 +105,7 @@ export function useTitleEditor({ value, onChange, placeholder = '', autoFocus, o
         CustomDropdown: TapwriteDynamicFieldDropdown,
         TemplateComponent: TapwriteDynamicFieldTemplate,
       }),
+      ...(maxLength !== undefined ? [createMaxLengthExtension(maxLength)] : []),
     ],
     content: plainTextToHtml(value),
     immediatelyRender: false,
