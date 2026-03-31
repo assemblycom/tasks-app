@@ -106,6 +106,8 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
 
     accessibleTasks.forEach((item) => {
       if (!item.parentId) return
+      if (item.isArchived && !showArchived) return
+      if (!item.isArchived && !showUnarchived) return
       if (!grouped[item.parentId]) grouped[item.parentId] = []
       grouped[item.parentId].push(item)
     })
@@ -115,7 +117,7 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
     })
 
     return grouped
-  }, [accessibleTasks, showSubtasks])
+  }, [accessibleTasks, showSubtasks, showArchived, showUnarchived])
 
   if (!hasInitialized) {
     return <TaskDataFetcher token={token} />
