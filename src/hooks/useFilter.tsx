@@ -146,7 +146,7 @@ function filterByType(filteredTasks: TaskResponse[], filterValue: string): TaskR
 }
 
 export const useFilter = (filterOptions: IFilterOptions, isPreviewMode: boolean) => {
-  const { tasks, accessibleTasks, assignee } = useSelector(selectTaskBoard)
+  const { tasks, accessibleTasks, assignee, showArchived, showUnarchived } = useSelector(selectTaskBoard)
   const [_, startTransition] = useTransition()
 
   function applyFilters(tasks: TaskResponse[], filterOptions: IFilterOptions) {
@@ -185,7 +185,7 @@ export const useFilter = (filterOptions: IFilterOptions, isPreviewMode: boolean)
     let standaloneSubtasks: TaskResponse[] = []
 
     if (hasActiveFilter) {
-      const subtasks = accessibleTasks.filter((t) => !!t.parentId)
+      const subtasks = accessibleTasks.filter((t) => !!t.parentId && (t.isArchived ? showArchived : showUnarchived))
       const matchingSubtasks = applyFilters(subtasks, filterOptions)
       standaloneSubtasks = matchingSubtasks.filter((t) => !filteredParentIds.has(t.parentId!))
     }
