@@ -12,11 +12,10 @@ import { ITemplate } from '@/types/interfaces'
 import { useCallback, useEffect, useState } from 'react'
 
 interface ManageTemplateDetailsAppBridgeProps {
-  portalUrl?: string
   template: ITemplate
 }
 
-export const ManageTemplateDetailsAppBridge = ({ portalUrl, template }: ManageTemplateDetailsAppBridgeProps) => {
+export const ManageTemplateDetailsAppBridge = ({ template }: ManageTemplateDetailsAppBridgeProps) => {
   const awake = useAwake()
 
   const handleDeleteTemplate = useCallback(() => {
@@ -34,8 +33,8 @@ export const ManageTemplateDetailsAppBridge = ({ portalUrl, template }: ManageTe
       onClick: handleDeleteTemplate,
     },
   ]
-  usePrimaryCta(null, { portalUrl })
-  useActionsMenu(items, { portalUrl })
+  usePrimaryCta(null)
+  useActionsMenu(items)
 
   return <></>
 }

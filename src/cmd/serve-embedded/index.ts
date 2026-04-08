@@ -29,8 +29,8 @@ const createNgrokTunnel = async (port: number): Promise<string> => {
   return ngrokUrl
 }
 
-const openDashboard = async (ngrokUrl: string) => {
-  const url = `${DASHBOARD_DOMAIN}/dev-mode?url=${encodeURIComponent(ngrokUrl)}`
+const openDashboard = async (appUrl: string) => {
+  const url = `${DASHBOARD_DOMAIN[0]}/dev-mode?url=${encodeURIComponent(appUrl)}`
   console.info(`> Opening browser at ${url}`)
 
   const browserApp = Array.isArray(apps.browser) ? apps.browser[0] : apps.browser
@@ -51,6 +51,9 @@ const handleProcessEvents = () => {
 async function startServer() {
   await app.prepare()
 
+  const useNgrok = !!process.env.NGROK_AUTHTOKEN
+  const appUrl = useNgrok ? await createNgrokTunnel(port) : `http://localhost:${port}`
+
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     if (!req.url) {
       res.statusCode = 400
@@ -59,7 +62,7 @@ async function startServer() {
     }
 
     const parsedUrl = parse(req.url, true)
-    res.setHeader('Set-Cookie', `ngrokUrl=${ngrokUrl}`)
+    res.setHeader('Set-Cookie', `appUrl=${appUrl}`)
     res.setHeader('X-Frame-Options', '')
     handle(req, res, parsedUrl)
   })
@@ -68,8 +71,7 @@ async function startServer() {
     console.info(`> Server listening at http://localhost:${port}`)
   })
 
-  const ngrokUrl = await createNgrokTunnel(port)
-  await openDashboard(ngrokUrl)
+  await openDashboard(appUrl)
   handleProcessEvents()
 }
 

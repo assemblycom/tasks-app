@@ -9,10 +9,9 @@ import { useCallback, useEffect, useState } from 'react'
 interface DetailAppBridgeProps {
   handleTaskComplete: () => void
   isTaskCompleted: boolean
-  portalUrl?: string
 }
 
-export const ClientDetailAppBridge = ({ handleTaskComplete, isTaskCompleted, portalUrl }: DetailAppBridgeProps) => {
+export const ClientDetailAppBridge = ({ handleTaskComplete, isTaskCompleted }: DetailAppBridgeProps) => {
   const awake = useAwake()
 
   const handleMarkAsDone = useCallback(() => {
@@ -29,9 +28,8 @@ export const ClientDetailAppBridge = ({ handleTaskComplete, isTaskCompleted, por
           icon: Icons.CHECK,
           onClick: handleMarkAsDone,
         },
-    { portalUrl },
   )
-  useSecondaryCta(null, { portalUrl })
+  useSecondaryCta(null)
 
   return <></>
 }

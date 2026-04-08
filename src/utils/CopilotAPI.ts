@@ -37,22 +37,33 @@ import {
 } from '@/types/common'
 import { DISPATCHABLE_EVENT } from '@/types/webhook'
 import Bottleneck from 'bottleneck'
-import type { CopilotAPI as SDK } from 'copilot-node-sdk'
-import { copilotApi } from 'copilot-node-sdk'
+import type { AssemblyAPI as SDK } from '@assembly-js/node-sdk'
+import { assemblyApi } from '@assembly-js/node-sdk'
 import { z } from 'zod'
 
 export class CopilotAPI {
-  copilot: SDK
+  private assemblyPromise: Promise<SDK>
 
   constructor(
     private token: string,
     customApiKey?: string,
   ) {
-    this.copilot = copilotApi({ apiKey: customApiKey ?? apiKey, token })
+    this.assemblyPromise = assemblyApi({ apiKey: customApiKey ?? apiKey, token })
+  }
+
+  private async _getBaseUrl(): Promise<string> {
+    const assembly = await this.assemblyPromise
+    const tokenPayload = assembly.getTokenPayload ? await assembly.getTokenPayload() : null
+    const baseUrl = tokenPayload?.baseUrl || assemblyApiDomain
+    if (!baseUrl) {
+      throw new Error('No API base URL available: set NEXT_PUBLIC_ASSEMBLY_API_DOMAIN or provide a token with baseUrl')
+    }
+    return baseUrl
   }
 
   private async _manualFetch(route: string, query?: Record<string, string>, workspaceId?: string) {
-    const url = new URL(`${assemblyApiDomain}/v1/${route}`)
+    const baseUrl = await this._getBaseUrl()
+    const url = new URL(`${baseUrl}/v1/${route}`)
     if (query) {
       for (const key of Object.keys(query)) {
         url.searchParams.set(key, query[key])
@@ -78,7 +89,8 @@ export class CopilotAPI {
 
   // Get Token Payload from copilot request token
   async _getTokenPayload(): Promise<Token | null> {
-    const getTokenPayload = this.copilot.getTokenPayload
+    const assembly = await this.assemblyPromise
+    const getTokenPayload = assembly.getTokenPayload
     if (!getTokenPayload) {
       console.error(`CopilotAPI#getTokenPayload | Could not parse token payload for token ${this.token}`)
       return null
@@ -93,9 +105,8 @@ export class CopilotAPI {
     const id = tokenPayload?.internalUserId || tokenPayload?.clientId
     if (!tokenPayload || !id) return null
 
-    const retrieveCurrentUserInfo = tokenPayload.internalUserId
-      ? this.copilot.retrieveInternalUser
-      : this.copilot.retrieveClient
+    const assembly = await this.assemblyPromise
+    const retrieveCurrentUserInfo = tokenPayload.internalUserId ? assembly.retrieveInternalUser : assembly.retrieveClient
     const currentUserInfo = await retrieveCurrentUserInfo({ id })
 
     return MeResponseSchema.parse(currentUserInfo)
@@ -103,7 +114,8 @@ export class CopilotAPI {
 
   async _getWorkspace(): Promise<WorkspaceResponse> {
     console.info('CopilotAPI#_getWorkspace', this.token)
-    return WorkspaceResponseSchema.parse(await this.copilot.retrieveWorkspace())
+    const assembly = await this.assemblyPromise
+    return WorkspaceResponseSchema.parse(await assembly.retrieveWorkspace())
   }
 
   async _getClientTokenPayload(): Promise<ClientToken | null> {
@@ -124,30 +136,33 @@ export class CopilotAPI {
 
   async _createClient(requestBody: ClientRequest, sendInvite: boolean = false): Promise<ClientResponse> {
     console.info('CopilotAPI#_createClient', this.token)
-    return ClientResponseSchema.parse(await this.copilot.createClient({ sendInvite, requestBody }))
+    const assembly = await this.assemblyPromise
+    return ClientResponseSchema.parse(await assembly.createClient({ sendInvite, requestBody }))
   }
 
   async _getClient(id: string): Promise<ClientResponse> {
     console.info('CopilotAPI#_getClient', this.token)
-    return ClientResponseSchema.parse(await this.copilot.retrieveClient({ id }))
+    const assembly = await this.assemblyPromise
+    return ClientResponseSchema.parse(await assembly.retrieveClient({ id }))
   }
 
   async _getClients(args: CopilotListArgs & { companyId?: string } = {}) {
     console.info('CopilotAPI#_getClients', this.token)
+    const assembly = await this.assemblyPromise
     const maxLimit = MAX_LIMIT_CLIENT_COUNT
     const requestedLimit = args.limit || maxLimit
     let clients: ClientResponse[] = []
     let nextToken: string | undefined = undefined
 
     if (requestedLimit <= maxLimit) {
-      return ClientsResponseSchema.parse(await this.copilot.listClients(args))
+      return ClientsResponseSchema.parse(await assembly.listClients(args))
     }
 
     //fetching client data in batches of MAX_LIMIT_CLIENT_COUNT instead of fetching it as a whole.
     do {
       const remaining = requestedLimit - clients.length
       const fetchLimit = Math.min(maxLimit, remaining)
-      const response = await this.copilot.listClients({
+      const response = await assembly.listClients({
         ...args,
         limit: fetchLimit,
         nextToken,
@@ -162,28 +177,33 @@ export class CopilotAPI {
 
   async _updateClient(id: string, requestBody: ClientRequest): Promise<ClientResponse> {
     console.info('CopilotAPI#_updateClient', this.token)
+    const assembly = await this.assemblyPromise
     // @ts-ignore
-    return ClientResponseSchema.parse(await this.copilot.updateClient({ id, requestBody }))
+    return ClientResponseSchema.parse(await assembly.updateClient({ id, requestBody }))
   }
 
   async _deleteClient(id: string) {
     console.info('CopilotAPI#_deleteClient', this.token)
-    return await this.copilot.deleteClient({ id })
+    const assembly = await this.assemblyPromise
+    return await assembly.deleteClient({ id })
   }
 
   async _createCompany(requestBody: CompanyCreateRequest) {
     console.info('CopilotAPI#_createCompany', this.token)
-    return CompanyResponseSchema.parse(await this.copilot.createCompany({ requestBody }))
+    const assembly = await this.assemblyPromise
+    return CompanyResponseSchema.parse(await assembly.createCompany({ requestBody }))
   }
 
   async _getCompany(id: string): Promise<CompanyResponse> {
     console.info('CopilotAPI#_getCompany', this.token)
-    return CompanyResponseSchema.parse(await this.copilot.retrieveCompany({ id }))
+    const assembly = await this.assemblyPromise
+    return CompanyResponseSchema.parse(await assembly.retrieveCompany({ id }))
   }
 
   async _getCompanies(args: CopilotListArgs & { isPlaceholder?: boolean } = {}): Promise<CompaniesResponse> {
     console.info('CopilotAPI#_getCompanies', this.token)
-    return CompaniesResponseSchema.parse(await this.copilot.listCompanies(args))
+    const assembly = await this.assemblyPromise
+    return CompaniesResponseSchema.parse(await assembly.listCompanies(args))
   }
 
   async _getCompanyClients(companyId: string): Promise<ClientResponse[]> {
@@ -193,28 +213,33 @@ export class CopilotAPI {
 
   async _getCustomFields(): Promise<CustomFieldResponse> {
     console.info('CopilotAPI#_getCustomFields', this.token)
-    return CustomFieldResponseSchema.parse(await this.copilot.listCustomFields())
+    const assembly = await this.assemblyPromise
+    return CustomFieldResponseSchema.parse(await assembly.listCustomFields({}))
   }
 
   async _getInternalUsers(args: CopilotListArgs = {}): Promise<InternalUsersResponse> {
     console.info('CopilotAPI#_getInternalUsers', this.token)
-    return InternalUsersResponseSchema.parse(await this.copilot.listInternalUsers(args))
+    const assembly = await this.assemblyPromise
+    return InternalUsersResponseSchema.parse(await assembly.listInternalUsers(args))
   }
 
   async _getInternalUser(id: string): Promise<InternalUsers> {
     console.info('CopilotAPI#_getInternalUser', this.token)
-    return InternalUsersSchema.parse(await this.copilot.retrieveInternalUser({ id }))
+    const assembly = await this.assemblyPromise
+    return InternalUsersSchema.parse(await assembly.retrieveInternalUser({ id }))
   }
 
   async _createNotification(requestBody: NotificationRequestBody): Promise<NotificationCreatedResponse> {
     console.info('CopilotAPI#_createNotification', this.token)
-    const notification = await this.copilot.createNotification({ requestBody })
+    const assembly = await this.assemblyPromise
+    const notification = await assembly.createNotification({ requestBody })
     return NotificationCreatedResponseSchema.parse(notification)
   }
 
   async _markNotificationAsRead(id: string): Promise<void> {
     console.info('CopilotAPI#_markNotificationAsRead', this.token)
-    await this.copilot.markNotificationRead({ id })
+    const assembly = await this.assemblyPromise
+    await assembly.markNotificationRead({ id })
   }
 
   async _bulkMarkNotificationsAsRead(notificationIds: string[], shouldThrowError: boolean = true): Promise<void> {
@@ -247,7 +272,8 @@ export class CopilotAPI {
 
   async _deleteNotification(id: string): Promise<void> {
     console.info('CopilotAPI#_deleteNotification', this.token)
-    await this.copilot.deleteNotification({ id })
+    const assembly = await this.assemblyPromise
+    await assembly.deleteNotification({ id })
   }
 
   async _bulkDeleteNotifications(notificationIds: string[]): Promise<void> {
@@ -313,18 +339,11 @@ export class CopilotAPI {
 
   async dispatchWebhook(eventName: DISPATCHABLE_EVENT, { workspaceId, payload }: { workspaceId: string; payload?: object }) {
     console.info('CopilotAPI#dispatchWebhook', this.token)
-    const url = `${assemblyApiDomain}/v1/webhooks/${eventName}`
-    console.info('CopilotAPI#dispatchWebhook | Dispatching webhook to ', url, 'with payload', payload ?? null)
+    console.info('CopilotAPI#dispatchWebhook | Dispatching webhook', eventName, 'with payload', payload ?? null)
 
     try {
-      await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': `${workspaceId}/${apiKey}`,
-        },
-        body: payload ? JSON.stringify(payload) : null,
-      })
+      const assembly = await this.assemblyPromise
+      await assembly.sendWebhook(eventName, payload)
     } catch (e) {
       console.error(`Failed to dispatch webhook for event ${eventName}`, e)
     }

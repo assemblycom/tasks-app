@@ -1,5 +1,3 @@
-import z from 'zod'
-
 export const copilotAPIKey = process.env.COPILOT_API_KEY || ''
 export const tasksAppId = process.env.COPILOT_TASKS_APP_ID || ''
 
@@ -30,4 +28,4 @@ export const showQueries = (() => {
   return true
 })()
 
-export const assemblyApiDomain = z.string().url().parse(process.env.NEXT_PUBLIC_ASSEMBLY_API_DOMAIN)
+export const assemblyApiDomain = process.env.NEXT_PUBLIC_ASSEMBLY_API_DOMAIN ?? ''

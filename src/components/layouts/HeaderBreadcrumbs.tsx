@@ -17,12 +17,10 @@ export const HeaderBreadcrumbs = ({
   token,
   items,
   userType,
-  portalUrl,
 }: {
   token: string | undefined
   items: { label: string; href?: string }[]
   userType: UserType
-  portalUrl?: string
 }) => {
   const { previewMode } = useSelector(selectTaskBoard)
   const router = useRouter()
@@ -41,7 +39,6 @@ export const HeaderBreadcrumbs = ({
       label,
       onClick: index === items.length - 1 ? undefined : href ? () => router.push(href) : undefined,
     })),
-    { portalUrl },
   )
 
   if (!previewMode) {

@@ -160,12 +160,7 @@ export default async function TaskDetailPage(props: {
                 </StyledBox>
               ) : (
                 <>
-                  <HeaderBreadcrumbs
-                    token={token}
-                    items={breadcrumbItems}
-                    userType={params.user_type}
-                    portalUrl={workspace.portalUrl}
-                  />
+                  <HeaderBreadcrumbs token={token} items={breadcrumbItems} userType={params.user_type} />
                   <ArchiveWrapper taskId={task_id} userType={user_type} />
                 </>
               )}
@@ -249,7 +244,6 @@ export default async function TaskDetailPage(props: {
                 task_id={task_id}
                 selectedAssigneeId={task?.assigneeId}
                 userType={user_type}
-                portalUrl={workspace.portalUrl}
                 selectedWorkflowState={task?.workflowState}
                 updateWorkflowState={async (workflowState) => {
                   'use server'

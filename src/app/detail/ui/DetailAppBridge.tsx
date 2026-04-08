@@ -10,13 +10,12 @@ import store from '@/redux/store'
 interface DetailAppBridgeProps {
   isArchived: boolean
   handleToggleArchive: () => void
-  portalUrl?: string
 }
 
-export const DetailAppBridge = ({ isArchived, handleToggleArchive, portalUrl }: DetailAppBridgeProps) => {
+export const DetailAppBridge = ({ isArchived, handleToggleArchive }: DetailAppBridgeProps) => {
   const handleDelete = () => store.dispatch(setShowConfirmDeleteModal())
 
-  usePrimaryCta(null, { portalUrl })
+  usePrimaryCta(null)
   useSecondaryCta(
     isArchived
       ? {
@@ -25,7 +24,6 @@ export const DetailAppBridge = ({ isArchived, handleToggleArchive, portalUrl }: 
           onClick: handleToggleArchive,
         }
       : null,
-    { portalUrl },
   )
 
   const items: Clickable[] = [
@@ -44,7 +42,7 @@ export const DetailAppBridge = ({ isArchived, handleToggleArchive, portalUrl }: 
     })
   }
 
-  useActionsMenu(items, { portalUrl })
+  useActionsMenu(items)
 
   return <></>
 }

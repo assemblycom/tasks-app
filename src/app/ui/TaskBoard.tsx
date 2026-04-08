@@ -134,7 +134,7 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
     <>
       <TaskDataFetcher token={token} />
 
-      {mode == UserRole.IU && <TaskBoardAppBridge token={token} role={UserRole.IU} portalUrl={workspace?.portalUrl} />}
+      {mode == UserRole.IU && <TaskBoardAppBridge token={token} role={UserRole.IU} />}
 
       {/* Filterbars */}
       <FilterBar mode={mode} />

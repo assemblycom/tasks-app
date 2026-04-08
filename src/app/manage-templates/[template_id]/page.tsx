@@ -80,7 +80,7 @@ export default async function TaskDetailPage(props: {
                 <HeaderBreadcrumbs token={token} items={breadcrumbItems} userType={UserType.INTERNAL_USER} />
               )}
             </StyledBox>
-            <ManageTemplateDetailsAppBridge portalUrl={workspace.portalUrl} template={template} />
+            <ManageTemplateDetailsAppBridge template={template} />
             <TaskDetailsContainer
               sx={{
                 padding: { xs: '20px 16px ', sm: '30px 20px' },

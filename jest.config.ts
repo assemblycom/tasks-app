@@ -187,7 +187,7 @@ const config: Config = {
   // transform: undefined,
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
-  // transformIgnorePatterns: ['/node_modules/copilot-node-sdk/(.*)'],
+  // transformIgnorePatterns: ['/node_modules/@assembly-js/node-sdk/(.*)'],
 
   // An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them
   // unmockedModulePathPatterns: undefined,
