@@ -13,31 +13,24 @@ import { useRouter } from 'next/navigation'
 interface TaskBoardAppBridgeProps {
   token: string
   role: UserRole
-  portalUrl?: string
 }
 
-export const ManageTemplatesAppBridge = ({ token, role, portalUrl }: TaskBoardAppBridgeProps) => {
+export const ManageTemplatesAppBridge = ({ token, role }: TaskBoardAppBridgeProps) => {
   const handleTemplateCreate = () => {
     store.dispatch(setShowTemplateModal({ targetMethod: TargetMethod.POST }))
   }
 
-  usePrimaryCta(
+  usePrimaryCta({
+    label: 'Create template',
+    icon: Icons.PLUS,
+    onClick: handleTemplateCreate,
+  })
+  useActionsMenu([])
+  useBreadcrumbs([
     {
-      label: 'Create template',
-      icon: Icons.PLUS,
-      onClick: handleTemplateCreate,
+      label: 'Manage templates',
     },
-    { portalUrl },
-  )
-  useActionsMenu([], { portalUrl })
-  useBreadcrumbs(
-    [
-      {
-        label: 'Manage templates',
-      },
-    ],
-    { portalUrl },
-  )
+  ])
 
   return <></>
 }

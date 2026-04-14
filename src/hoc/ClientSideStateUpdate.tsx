@@ -1,5 +1,6 @@
 'use client'
 
+import { AssemblyBridge } from '@assembly-js/app-bridge'
 import { setTokenPayload, setWorkspace } from '@/redux/features/authDetailsSlice'
 import {
   selectTaskBoard,
@@ -87,6 +88,10 @@ export const ClientSideStateUpdate = ({
       store.dispatch(setToken(token))
     }
 
+    const unsubscribeTokenRefresh = AssemblyBridge.sessionToken.onTokenUpdate((data) => {
+      store.dispatch(setToken(data.token))
+    })
+
     if (assignee) {
       store.dispatch(setAssigneeList(assignee))
     }
@@ -152,6 +157,9 @@ export const ClientSideStateUpdate = ({
 
     if (workspace) {
       store.dispatch(setWorkspace(workspace))
+      if (workspace.portalUrl) {
+        AssemblyBridge.configure({ additionalOrigins: [workspace.portalUrl] })
+      }
     }
     if (template) {
       store.dispatch(setActiveTemplate(template))
@@ -159,6 +167,7 @@ export const ClientSideStateUpdate = ({
     return () => {
       store.dispatch(setActiveTask(undefined))
       store.dispatch(setActiveTemplate(null))
+      unsubscribeTokenRefresh()
     } //when component is unmounted, we need to clear the active task.
   }, [
     workflowStates,

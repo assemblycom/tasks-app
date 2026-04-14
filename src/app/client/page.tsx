@@ -104,7 +104,7 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
           <AllTasksFetcher token={token} />
         </Suspense>
 
-        <TaskBoardAppBridge token={token} role={UserRole.Client} portalUrl={workspace.portalUrl} />
+        <TaskBoardAppBridge token={token} role={UserRole.Client} />
         <RealTime tokenPayload={tokenPayload}>
           <DndWrapper>
             <TaskBoard mode={UserRole.Client} token={token} />

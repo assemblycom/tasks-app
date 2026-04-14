@@ -15,11 +15,10 @@ import { useCallback, useEffect, useState } from 'react'
 interface TaskBoardAppBridgeProps {
   token: string
   role: UserRole
-  portalUrl?: string
   isTaskBoardEmpty?: boolean
 }
 
-export const TaskBoardAppBridge = ({ token, role, portalUrl, isTaskBoardEmpty = false }: TaskBoardAppBridgeProps) => {
+export const TaskBoardAppBridge = ({ token, role, isTaskBoardEmpty = false }: TaskBoardAppBridgeProps) => {
   const router = useRouter()
   const awake = useAwake()
 
@@ -41,11 +40,10 @@ export const TaskBoardAppBridge = ({ token, role, portalUrl, isTaskBoardEmpty = 
           icon: Icons.PLUS,
           onClick: handleTaskCreate,
         },
-    { portalUrl },
   )
 
   // Unset "Unarchive" button from tasks details if redirected to board from an archived task
-  useSecondaryCta(null, { portalUrl })
+  useSecondaryCta(null)
 
   useActionsMenu(
     role == UserRole.Client
@@ -57,9 +55,8 @@ export const TaskBoardAppBridge = ({ token, role, portalUrl, isTaskBoardEmpty = 
             onClick: handleManageTemplatesClick,
           },
         ],
-    { portalUrl },
   )
-  useBreadcrumbs([], { portalUrl })
+  useBreadcrumbs([])
 
   return <></>
 }
