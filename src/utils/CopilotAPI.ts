@@ -323,7 +323,6 @@ export class CopilotAPI {
     console.info('CopilotAPI#dispatchWebhook', this.token)
     const url = `${assemblyApiDomain}/v1/webhooks/${eventName}`
     console.info('CopilotAPI#dispatchWebhook | Dispatching webhook to ', url, 'with payload', payload ?? null)
-    console.info('CopilotAPI#dispatchWebhook | Assembly metadata:', assemblyMetadata ?? null)
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -333,6 +332,8 @@ export class CopilotAPI {
     if (assemblyMetadata?.source) headers['X-Assembly-Source'] = assemblyMetadata.source
     if (assemblyMetadata?.clientIp) headers['X-Assembly-Client-IP'] = assemblyMetadata.clientIp
     if (assemblyMetadata?.userAgent) headers['X-Assembly-User-Agent'] = assemblyMetadata.userAgent
+
+    console.info('CopilotAPI#dispatchWebhook | Request headers:', headers)
 
     try {
       await fetch(url, {
