@@ -1,5 +1,5 @@
 import { UserRole } from '@api/core/types/user'
-import { Token } from '@/types/common'
+import { AssemblyMetadata, Token } from '@/types/common'
 
 /**
  * Faux model for Copilot Users (IU + Client)
@@ -12,6 +12,7 @@ class User {
   clientId?: string
   companyId?: string
   internalUserId?: string
+  assemblyMetadata?: AssemblyMetadata
 
   // Instantiate a User from a request token & decrypted payload
   constructor(token: string, tokenPayload: Token) {

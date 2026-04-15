@@ -37,6 +37,7 @@ export const queueTaskUpdatedBacklogWebhook = task({
     await copilot.dispatchWebhook(DISPATCHABLE_EVENT.TaskUpdated, {
       payload: await PublicTaskSerializer.serialize(task),
       workspaceId: payload.user.workspaceId,
+      assemblyMetadata: payload.user.assemblyMetadata,
     })
 
     // Hard delete processed backlogs

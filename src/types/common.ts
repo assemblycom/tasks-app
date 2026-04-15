@@ -15,6 +15,12 @@ export type CopilotListArgs = {
   nextToken?: string
 }
 
+export interface AssemblyMetadata {
+  source?: string
+  clientIp?: string
+  userAgent?: string
+}
+
 export const TokenSchema = z.object({
   clientId: z.string().optional(),
   companyId: z

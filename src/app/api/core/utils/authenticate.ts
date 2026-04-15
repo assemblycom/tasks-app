@@ -45,7 +45,18 @@ const authenticate = async (req: NextRequest) => {
   }
 
   // Parse token payload from valid token
-  return await authenticateWithToken(tokenParsed.data)
+  const user = await authenticateWithToken(tokenParsed.data)
+
+  console.info('HeadersCheck', req.headers)
+
+  // Capture assembly proxy metadata headers (if present)
+  user.assemblyMetadata = {
+    source: req.headers.get('x-assembly-source') ?? undefined,
+    clientIp: req.headers.get('x-assembly-client-ip') ?? undefined,
+    userAgent: req.headers.get('x-assembly-user-agent') ?? undefined,
+  }
+
+  return user
 }
 
 export default authenticate

@@ -3,6 +3,7 @@ import { withRetry } from '@/app/api/core/utils/withRetry'
 import { copilotAPIKey as apiKey, APP_ID, assemblyApiDomain } from '@/config'
 import { MAX_LIMIT_CLIENT_COUNT } from '@/constants/users'
 import {
+  AssemblyMetadata,
   ClientRequest,
   ClientResponse,
   ClientResponseSchema,
@@ -311,18 +312,31 @@ export class CopilotAPI {
       })
   }
 
-  async dispatchWebhook(eventName: DISPATCHABLE_EVENT, { workspaceId, payload }: { workspaceId: string; payload?: object }) {
+  async dispatchWebhook(
+    eventName: DISPATCHABLE_EVENT,
+    {
+      workspaceId,
+      payload,
+      assemblyMetadata,
+    }: { workspaceId: string; payload?: object; assemblyMetadata?: AssemblyMetadata },
+  ) {
     console.info('CopilotAPI#dispatchWebhook', this.token)
     const url = `${assemblyApiDomain}/v1/webhooks/${eventName}`
     console.info('CopilotAPI#dispatchWebhook | Dispatching webhook to ', url, 'with payload', payload ?? null)
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-api-key': `${workspaceId}/${apiKey}`,
+    }
+
+    if (assemblyMetadata?.source) headers['X-Assembly-Source'] = assemblyMetadata.source
+    if (assemblyMetadata?.clientIp) headers['X-Assembly-Client-IP'] = assemblyMetadata.clientIp
+    if (assemblyMetadata?.userAgent) headers['X-Assembly-User-Agent'] = assemblyMetadata.userAgent
+
     try {
       await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': `${workspaceId}/${apiKey}`,
-        },
+        headers,
         body: payload ? JSON.stringify(payload) : null,
       })
     } catch (e) {

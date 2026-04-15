@@ -120,6 +120,7 @@ export const dispatchUpdatedWebhookEvent = async (
     await copilot.dispatchWebhook(event, {
       workspaceId: user.workspaceId,
       payload: await PublicTaskSerializer.serialize(updatedTask),
+      assemblyMetadata: user.assemblyMetadata,
     })
   }
 }
