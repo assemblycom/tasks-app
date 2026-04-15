@@ -203,7 +203,7 @@ export class TasksService extends TasksSharedService {
         role: AssigneeType.internalUser,
       }) //hardcoding internalUser as role since task can only be created by IUs.
       console.info('TasksService#createTask | Activity log created for new task ID:', newTask.id)
-
+      console.info('TaskService#HeadersCheck', this.user)
       try {
         if (newTask.body) {
           const newBody = await this.updateTaskIdOfAttachmentsAfterCreation(newTask.body, newTask.id)
@@ -246,6 +246,7 @@ export class TasksService extends TasksSharedService {
       this.copilot.dispatchWebhook(DISPATCHABLE_EVENT.TaskCreated, {
         payload: await PublicTaskSerializer.serialize(newTask),
         workspaceId: this.user.workspaceId,
+        assemblyMetadata: this.user.assemblyMetadata,
       }),
     ])
 
@@ -485,6 +486,7 @@ export class TasksService extends TasksSharedService {
       this.copilot.dispatchWebhook(DISPATCHABLE_EVENT.TaskDeleted, {
         payload: await PublicTaskSerializer.serialize(updatedTask),
         workspaceId: this.user.workspaceId,
+        assemblyMetadata: this.user.assemblyMetadata,
       }),
     ])
 
