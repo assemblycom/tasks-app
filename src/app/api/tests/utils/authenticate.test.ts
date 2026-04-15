@@ -68,13 +68,26 @@ describe('authenticate util', () => {
     })
   })
 
-  it('handles missing assembly metadata headers gracefully', async () => {
-    const req = buildNextRequest('/?token=iu-token')
+  it('falls back to browser headers when assembly headers are missing', async () => {
+    const req = new NextRequest(
+      new Request(process.env.VERCEL_URL + '/?token=iu-token', {
+        headers: {
+          'user-agent': 'Mozilla/5.0 (Macintosh)',
+          'x-real-ip': '10.0.0.1',
+        },
+      }),
+    )
     const user = await authenticate(req)
     expect(user.assemblyMetadata).toEqual({
-      source: undefined,
-      clientIp: undefined,
-      userAgent: undefined,
+      source: 'web',
+      clientIp: '10.0.0.1',
+      userAgent: 'Mozilla/5.0 (Macintosh)',
     })
+  })
+
+  it('uses "public" as source fallback for public routes', async () => {
+    const req = new NextRequest(new Request(process.env.VERCEL_URL + '/api/tasks/public/?token=iu-token'))
+    const user = await authenticate(req)
+    expect(user.assemblyMetadata?.source).toBe('public')
   })
 })
