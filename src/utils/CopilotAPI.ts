@@ -323,6 +323,7 @@ export class CopilotAPI {
     console.info('CopilotAPI#dispatchWebhook', this.token)
     const url = `${assemblyApiDomain}/v1/webhooks/${eventName}`
     console.info('CopilotAPI#dispatchWebhook | Dispatching webhook to ', url, 'with payload', payload ?? null)
+    console.info('CopilotAPI#dispatchWebhook | Assembly metadata:', assemblyMetadata ?? null)
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
