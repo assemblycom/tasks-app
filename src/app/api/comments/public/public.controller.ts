@@ -6,6 +6,8 @@ import { getPaginationLimit } from '@/utils/pagination'
 import { getSearchParams } from '@/utils/request'
 import { decode, encode } from 'js-base64'
 import { NextRequest, NextResponse } from 'next/server'
+import { ValidateUuid } from '@api/core/utils/validateUuid'
+import { PublicResource } from '@api/core/types/public'
 
 type TaskAndCommentIdParams = {
   params: Promise<{ id: string }>
@@ -53,6 +55,7 @@ export const getAllCommentsPublic = async (req: NextRequest) => {
 
 export const getOneCommentPublic = async (req: NextRequest, { params }: TaskAndCommentIdParams) => {
   const { id } = await params
+  ValidateUuid(id, PublicResource.Comments)
   const user = await authenticate(req)
 
   const commentService = new CommentService(user)
@@ -66,6 +69,7 @@ export const getOneCommentPublic = async (req: NextRequest, { params }: TaskAndC
 
 export const deleteOneCommentPublic = async (req: NextRequest, { params }: TaskAndCommentIdParams) => {
   const { id } = await params
+  ValidateUuid(id, PublicResource.Comments)
   const user = await authenticate(req)
 
   const commentService = new CommentService(user)
