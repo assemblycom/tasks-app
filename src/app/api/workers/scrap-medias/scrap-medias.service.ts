@@ -92,11 +92,12 @@ export class ScrapMediaService {
       }
     }
 
-    if (!!scrapMediasToDeleteFromBucket.length)
+    if (!!scrapMediasToDeleteFromBucket.length) {
       await db.attachment.deleteMany({ where: { filePath: { in: scrapMediasToDeleteFromBucket } } })
-    console.info('ScrapMediaWorker#deleteFromBucket | Deleting these medias', scrapMediasToDeleteFromBucket)
-    // remove attachments from bucket
-    await supabase.removeAttachmentsFromBucket(scrapMediasToDeleteFromBucket)
+      console.info('ScrapMediaWorker#deleteFromBucket | Deleting these medias', scrapMediasToDeleteFromBucket)
+      // remove attachments from bucket
+      await supabase.removeAttachmentsFromBucket(scrapMediasToDeleteFromBucket)
+    }
 
     if (scrapMediasToDelete.length !== 0) {
       const idsToDelete = scrapMediasToDelete.map((id) => `'${id}'`).join(', ')
