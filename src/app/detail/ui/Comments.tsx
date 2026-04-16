@@ -1,6 +1,5 @@
 import { CopilotAvatar } from '@/components/atoms/CopilotAvatar'
 import { CommentCard } from '@/components/cards/CommentCard'
-import { TrashIcon2 } from '@/icons'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { CreateComment } from '@/types/dto/comment.dto'
 import { OptimisticUpdate } from '@/utils/optimisticCommentUtils'
@@ -8,6 +7,7 @@ import { LogResponse } from '@api/activity-logs/schemas/LogResponseSchema'
 import { Stack } from '@mui/material'
 import { useSelector } from 'react-redux'
 import { VerticalLine } from './styledComponent'
+import { Icon } from 'copilot-design-system'
 
 interface Prop {
   token: string
@@ -32,7 +32,7 @@ export const Comments = ({ token, comment, createComment, deleteComment, task_id
           style={{
             marginTop: '8px',
           }}
-          icon={comment.details.deletedAt ? <TrashIcon2 /> : undefined}
+          icon={comment.details.deletedAt ? <Icon icon="Trash" width={10} height={10} /> : undefined}
         />
 
         <CommentCard
