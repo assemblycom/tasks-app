@@ -30,8 +30,10 @@ export default function useClickOutside<T extends HTMLElement>(
     const listener = (event: Event) => {
       const path = getEventPath(event)
 
-      if (path.some((el) => (el as HTMLElement)?.classList?.contains('MuiPickersPopper-root'))) {
-        return // don't close if the element has MUI classes. This prevent popper to not close when clicking on the date picker
+      if (
+        (event.target as HTMLElement)?.closest?.('.MuiPickersPopper-root, .MuiPickersLayout-root, .MuiDateCalendar-root')
+      ) {
+        return // don't close if the click is inside the MUI date picker (covers both desktop popper and mobile dialog)
       }
 
       for (const r of refArray) {

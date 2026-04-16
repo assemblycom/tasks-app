@@ -31,6 +31,7 @@ import {
   getSelectorAssignee,
   getSelectorAssigneeFromFilterOptions,
 } from '@/utils/selector'
+import { resolveAutofillTags, resolveDynamicFields } from '@/utils/dynamicFields'
 import { trimAllTags } from '@/utils/trimTags'
 import { Box, Stack, Typography } from '@mui/material'
 import dayjs from 'dayjs'
@@ -165,15 +166,16 @@ export const NewTaskCard = ({
         try {
           setIsEditorReadonly?.(true)
 
+          const resolvedTitle = resolveDynamicFields(templateTitle)
           if (!subTaskFields.title.trim()) {
             setSubTaskFields((prev) => ({
               ...prev,
-              title: templateTitle,
+              title: resolvedTitle,
             }))
           } else {
             setSubTaskFields((prev) => ({
               ...prev,
-              title: prev.title + ' ' + templateTitle,
+              title: prev.title + ' ' + resolvedTitle,
             }))
           }
           const resp = await fetch(`/api/tasks/templates/${id}/apply?token=${token}`, {
@@ -187,17 +189,17 @@ export const NewTaskCard = ({
             ...prev,
             workflowStateId: template.workflowStateId,
           }))
-          const trimmedAppliedDescription = template.description && trimAllTags(template.description)
+          const resolvedBody = resolveAutofillTags(template.body)
           const trimmedDescription = trimAllTags(subTaskFields.description)
-          if (trimmedAppliedDescription == trimmedDescription || trimmedDescription === '<p></p>') {
+          if (trimmedDescription === '<p></p>' || !trimmedDescription) {
             setSubTaskFields((prev) => ({
               ...prev,
-              description: template.body,
+              description: resolvedBody,
             }))
           } else {
             setSubTaskFields((prev) => ({
               ...prev,
-              description: prev.description + template.body,
+              description: prev.description + resolvedBody,
             }))
           }
         } catch (error) {

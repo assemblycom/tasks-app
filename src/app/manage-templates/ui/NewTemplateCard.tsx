@@ -5,7 +5,7 @@ import { PrimaryBtn } from '@/components/buttons/PrimaryBtn'
 import { SecondaryBtn } from '@/components/buttons/SecondaryBtn'
 import { SelectorType } from '@/components/inputs/Selector'
 import { WorkflowStateSelector } from '@/components/inputs/Selector-WorkflowState'
-import { StyledTextField } from '@/components/inputs/TextField'
+import { TitleEditor } from '@/components/inputs/tiptap/TitleEditor'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
 import { useHandleSelectorComponent } from '@/hooks/useHandleSelectorComponent'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
@@ -16,8 +16,13 @@ import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { AttachmentTypes } from '@/types/interfaces'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
+import {
+  TapwriteDynamicFieldDropdown,
+  TapwriteDynamicFieldTemplate,
+  tapwriteDynamicFields,
+} from '@/components/inputs/TapwriteDynamicFieldDropdown'
 import { Box, Stack, Typography } from '@mui/material'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Tapwrite } from 'tapwrite'
 
@@ -43,7 +48,6 @@ export const NewTemplateCard = ({
     description: '',
     workflowStateId: '',
   })
-  const inputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
 
   const clearSubTaskFields = () => {
@@ -114,41 +118,17 @@ export const NewTemplateCard = ({
         direction="column"
         sx={{ display: 'flex', padding: '0px 12px 12px', alignItems: 'center', gap: '4px', alignSelf: 'stretch' }}
       >
-        <Stack direction="row" sx={{ display: 'flex', alignItems: 'flex-end', gap: '4px', alignSelf: 'stretch' }}>
-          <StyledTextField
-            inputRef={inputRef}
-            type="text"
-            multiline
-            autoFocus={true}
-            borderLess
-            sx={{
-              width: '100%',
-              '& .MuiInputBase-input': {
-                fontSize: '16px',
-                lineHeight: '24px',
-                color: (theme) => theme.color.gray[600],
-                fontWeight: 500,
-              },
-              '& .MuiInputBase-input.Mui-disabled': {
-                WebkitTextFillColor: (theme) => theme.color.gray[600],
-              },
-              '& .MuiInputBase-root': {
-                padding: '0px 0px',
-              },
-            }}
-            placeholder="Task name"
+        <Box sx={{ padding: '0px', width: '100%' }}>
+          <TitleEditor
             value={subtemplateFields.title}
-            onChange={(event) => {
-              handleFieldChange('title', event.target.value)
-            }}
-            inputProps={{ maxLength: 255 }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault() //prevent users from breaking line
-              }
-            }}
+            onChange={(value) => handleFieldChange('title', value)}
+            placeholder="Task name"
+            autoFocus
+            fontSize="16px"
+            lineHeight="24px"
+            fontWeight={500}
           />
-        </Stack>
+        </Box>
         <Box sx={{ height: '100%', width: '100%' }}>
           <Tapwrite
             content={subtemplateFields.description}
@@ -162,6 +142,11 @@ export const NewTemplateCard = ({
             )}
             maxUploadLimit={MAX_UPLOAD_LIMIT}
             parentContainerStyle={{ gap: '0px' }}
+            dynamicFieldConfig={{
+              fields: tapwriteDynamicFields,
+              dropdownComponent: TapwriteDynamicFieldDropdown,
+              templateComponent: TapwriteDynamicFieldTemplate,
+            }}
           />
         </Box>
       </Stack>
