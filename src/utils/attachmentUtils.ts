@@ -55,15 +55,19 @@ export const uploadAttachmentHandler = async (
 export const deleteEditorAttachmentsHandler = async (
   url: string,
   token: string,
-  task_id: string | null,
-  template_id: string | null,
+  entityType: AttachmentTypes,
+  entityId?: string,
+  customFilePath?: string, //used only for comments and replies. Because newly created comments and replies have mismatched urls. And the url doesnt refresh without a page refresh.
 ) => {
   const filePath = getFilePathFromUrl(url)
   if (filePath) {
     const payload: ScrapMediaRequest = {
-      filePath: filePath,
-      taskId: task_id,
-      templateId: template_id,
+      filePath: customFilePath ?? filePath,
+      ...(entityType === AttachmentTypes.TASK
+        ? { taskId: entityId }
+        : entityType === AttachmentTypes.TEMPLATE
+          ? { templateId: entityId }
+          : { commentId: entityId }),
     }
     postScrapMedia(token, payload)
   }
@@ -91,4 +95,13 @@ export const getAttachmentPayload = (
 export const getFileNameFromPath = (path: string): string => {
   const segments = path.split('/').filter(Boolean)
   return segments[segments.length - 1] || ''
+}
+
+export const getCustomFilePath = (workspaceId: string, task_id: string, commentId: string, url: string) => {
+  const filePath = getFilePathFromUrl(url)
+  if (!filePath) {
+    return undefined
+  }
+  const fileName = getFileNameFromPath(filePath)
+  return `${workspaceId}/${task_id}/comments/${commentId}/${fileName}`
 }

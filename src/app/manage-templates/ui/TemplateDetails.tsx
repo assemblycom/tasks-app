@@ -281,7 +281,9 @@ export default function TemplateDetails({
           placeholder="Add description..."
           uploadFn={uploadFn}
           handleImageDoubleClick={handleImagePreview}
-          deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', template_id, null)}
+          deleteEditorAttachments={(url) =>
+            deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TEMPLATE, template_id)
+          }
           attachmentLayout={(props) => <AttachmentLayout {...props} />}
           addAttachmentButton
           maxUploadLimit={MAX_UPLOAD_LIMIT}
