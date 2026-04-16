@@ -10,6 +10,7 @@ import { getSelectedUserIds } from '@/utils/selector'
 import { Box } from '@mui/material'
 import { Dispatch, SetStateAction } from 'react'
 import { useSelector } from 'react-redux'
+import { userCompanySelectorStyles } from '../UserCompanySelectorStyles'
 
 interface FilterAssigneeSectionProps {
   filterMode: FilterType
@@ -59,6 +60,7 @@ export const FilterAssigneeSection = ({ filterMode, setAnchorEl }: FilterAssigne
         grouped={true}
         limitSelectedOptions={1}
         customLabels={getWorkspaceLabels(workspace, true)}
+        styles={userCompanySelectorStyles}
       />
     </Box>
   )

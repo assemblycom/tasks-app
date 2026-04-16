@@ -8,6 +8,7 @@ import { parseAssigneeToSelectorOption } from '@/utils/addTypeToAssignee'
 import { parseAssigneeToSelectorOptions } from '@/utils/assignee'
 import { getWorkspaceLabels } from '@/utils/getWorkspaceLabels'
 import { selectorOptionsToInputValue } from '@/utils/selector'
+import { userCompanySelectorStyles } from './UserCompanySelectorStyles'
 import { Box, ClickAwayListener, Popper, Stack } from '@mui/material'
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
@@ -55,6 +56,7 @@ export const CopilotSelector = ({
       grouped={true}
       limitSelectedOptions={1}
       customLabels={getWorkspaceLabels(workspace, true)}
+      styles={userCompanySelectorStyles}
     />
   )
 }
