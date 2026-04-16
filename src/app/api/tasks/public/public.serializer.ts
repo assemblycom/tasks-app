@@ -7,9 +7,10 @@ import {
   CreateTaskRequestSchema,
   UpdateTaskRequest,
   UpdateTaskRequestSchema,
-  ViewersSchema,
+  AssociationsSchema,
 } from '@/types/dto/tasks.dto'
 import { rfc3339ToDateString, toRFC3339 } from '@/utils/dateHelper'
+import { resolveAutofillTags, resolveDynamicFields } from '@/utils/dynamicFields'
 import { sanitizeHtml } from '@/utils/santizeContents'
 import { copyTemplateMediaToTask } from '@/utils/signedTemplateUrlReplacer'
 import { replaceImageSrc } from '@/utils/signedUrlReplacer'
@@ -63,12 +64,14 @@ export class PublicTaskSerializer {
       internalUserId: task.internalUserId,
       clientId: task.clientId,
       companyId: task.companyId,
-      viewers: ViewersSchema.parse(task.viewers),
+      association: AssociationsSchema.parse(task.associations),
+      viewers: task.isShared ? AssociationsSchema.parse(task.associations) : [],
       attachments: await PublicAttachmentSerializer.serializeAttachments({
         attachments: task.attachments,
         uploadedByUserType: 'internalUser', // task creator is always IU
         content: task.body,
       }),
+      isShared: task.isShared,
     }
   }
 
@@ -137,8 +140,8 @@ export class PublicTaskSerializer {
         body,
         workflowStateId,
       )
-      title = updated.title
-      body = updated.body
+      title = resolveDynamicFields(updated.title)
+      body = resolveAutofillTags(updated.body)
       workflowStateId = updated.workflowStateId
     }
 
@@ -153,7 +156,8 @@ export class PublicTaskSerializer {
       internalUserId: payload.internalUserId ?? null,
       clientId: payload.clientId ?? null,
       companyId: payload.companyId ?? null,
-      viewers: payload.viewers ?? [],
+      associations: payload.association ?? [],
+      isShared: payload.isShared,
     })
   }
 
@@ -168,7 +172,8 @@ export class PublicTaskSerializer {
       internalUserId: payload.internalUserId,
       clientId: payload.clientId,
       companyId: payload.companyId,
-      viewers: payload.viewers,
+      associations: payload.association,
+      isShared: payload.isShared,
     })
   }
 }

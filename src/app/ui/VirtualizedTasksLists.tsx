@@ -93,14 +93,14 @@ export function TasksRowVirtualizer({ rows, mode, token, subtasksByTaskId, workf
                   query: { token },
                 }}
                 style={{ width: 'fit-content' }}
-                draggable={!checkIfTaskViewer(rows[virtualRow.index].viewers, tokenPayload)}
+                draggable={!checkIfTaskViewer(rows[virtualRow.index].associations, tokenPayload)}
               >
                 <DragDropHandler
                   key={rows[virtualRow.index].id}
                   accept={'taskCard'}
                   index={virtualRow.index}
                   task={rows[virtualRow.index]}
-                  draggable={!checkIfTaskViewer(rows[virtualRow.index].viewers, tokenPayload)}
+                  draggable={!checkIfTaskViewer(rows[virtualRow.index].associations, tokenPayload)}
                 >
                   <Box>
                     <TaskCard
@@ -113,7 +113,7 @@ export function TasksRowVirtualizer({ rows, mode, token, subtasksByTaskId, workf
                       workflowState={workflowState}
                       mode={mode}
                       subtasks={showSubtasks ? (subtasksByTaskId[rows[virtualRow.index].id] ?? []) : []}
-                      workflowDisabled={checkIfTaskViewer(rows[virtualRow.index].viewers, tokenPayload)}
+                      workflowDisabled={checkIfTaskViewer(rows[virtualRow.index].associations, tokenPayload)}
                     />
                   </Box>
                 </DragDropHandler>
@@ -282,9 +282,9 @@ export function TasksListVirtualizer({
                               padding: '3px 0',
                               width: '100%',
                             }}
-                            draggable={!checkIfTaskViewer(item.task.viewers, tokenPayload)}
+                            draggable={!checkIfTaskViewer(item.task.associations, tokenPayload)}
                             onDragStart={(e) => {
-                              if (checkIfTaskViewer(item.task.viewers, tokenPayload)) {
+                              if (checkIfTaskViewer(item.task.associations, tokenPayload)) {
                                 e.preventDefault()
                               }
                             }}
@@ -294,7 +294,7 @@ export function TasksListVirtualizer({
                               accept={'taskCard'}
                               index={item.taskIndex}
                               task={item.task}
-                              draggable={!checkIfTaskViewer(item.task.viewers, tokenPayload)}
+                              draggable={!checkIfTaskViewer(item.task.associations, tokenPayload)}
                             >
                               <TaskCardList task={item.task} variant="task" workflowState={item.workflowState} mode={mode} />
                             </DragDropHandler>

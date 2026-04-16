@@ -2,7 +2,7 @@ import { RFC3339DateSchema } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { AssigneeType } from '@prisma/client'
 import { z } from 'zod'
-import { validateUserIds, ViewersSchema } from '@/types/dto/tasks.dto'
+import { validateUserIds, AssociationsSchema } from '@/types/dto/tasks.dto'
 import { PublicAttachmentDtoSchema } from '@/app/api/attachments/public/public.dto'
 
 export const TaskSourceSchema = z.enum(['web', 'api'])
@@ -41,10 +41,38 @@ export const PublicTaskDtoSchema = z.object({
   internalUserId: z.string().uuid().nullable(),
   clientId: z.string().uuid().nullable(),
   companyId: z.string().uuid().nullable(),
-  viewers: ViewersSchema,
+  association: AssociationsSchema,
+  viewers: AssociationsSchema,
   attachments: z.array(PublicAttachmentDtoSchema),
+  isShared: z.boolean().optional(),
 })
 export type PublicTaskDto = z.infer<typeof PublicTaskDtoSchema>
+
+const viewersAssociationExclusivitySchema = z
+  .object({
+    viewers: AssociationsSchema.optional(),
+    association: AssociationsSchema.optional(),
+    isShared: z.boolean().optional(),
+  })
+  .superRefine((val, ctx) => {
+    const hasViewers = val.viewers !== undefined
+    const hasAssociation = val.association !== undefined
+    const hasIsShared = val.isShared !== undefined
+
+    if (hasViewers && (hasAssociation || hasIsShared)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'viewers cannot be used together with association or isShared. Use either viewers alone, or association/isShared together.',
+        path: ['viewers'],
+      })
+    }
+  })
+  .transform(({ viewers, association, isShared, ...rest }) => ({
+    ...rest,
+    association: viewers ?? association,
+    isShared: viewers ? true : isShared,
+  }))
 
 export const publicTaskCreateDtoSchemaFactory = (token: string) => {
   return z
@@ -59,8 +87,8 @@ export const publicTaskCreateDtoSchemaFactory = (token: string) => {
       internalUserId: z.string().uuid().optional(),
       clientId: z.string().uuid().optional(),
       companyId: z.string().uuid().optional(),
-      viewers: ViewersSchema, //right now, we only need the feature to have max of 1 viewer per task
     })
+    .and(viewersAssociationExclusivitySchema)
     .superRefine(async (data, ctx) => {
       const { name, templateId, internalUserId, clientId, status } = data
       let { companyId } = data
@@ -116,14 +144,6 @@ export const publicTaskCreateDtoSchemaFactory = (token: string) => {
         }
       }
 
-      if (!internalUserId && !clientId && !companyId) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'At least one of internalUserId, clientId, or companyId is required',
-          path: ['internalUserId'],
-        })
-      }
-
       if (internalUserId && (clientId || companyId)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -153,8 +173,8 @@ export const PublicTaskUpdateDtoSchema = z
     internalUserId: z.string().uuid().nullish(),
     clientId: z.string().uuid().nullish(),
     companyId: z.string().uuid().nullish(),
-    viewers: ViewersSchema,
   })
+  .and(viewersAssociationExclusivitySchema)
   .superRefine(validateUserIds)
 
 export type PublicTaskUpdateDto = z.infer<typeof PublicTaskUpdateDtoSchema>

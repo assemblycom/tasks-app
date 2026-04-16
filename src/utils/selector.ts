@@ -5,7 +5,7 @@
 import { IAssigneeCombined, InputValue, ISelectorOption, UserIds } from '@/types/interfaces'
 import { userIdFieldMap } from '@/types/objectMaps'
 import { UserIdsType } from './assignee'
-import { TaskResponse, Viewers } from '@/types/dto/tasks.dto'
+import { TaskResponse, Associations } from '@/types/dto/tasks.dto'
 import { UserRole } from '@/app/api/core/types/user'
 import { z } from 'zod'
 
@@ -58,12 +58,12 @@ export const getSelectorAssigneeFromTask = (assignee: IAssigneeCombined[], task:
   )
 } //util to get initial assignee from task for selector.
 
-export const getSelectorViewerFromTask = (assignee: IAssigneeCombined[], task: TaskResponse) => {
+export const getSelectorAssociationFromTask = (assignee: IAssigneeCombined[], task: TaskResponse) => {
   if (!task) return undefined
   return assignee.find(
     (assignee) =>
-      (task.viewers?.[0]?.clientId == assignee.id && task.viewers?.[0]?.companyId == assignee.companyId) ||
-      task.viewers?.[0]?.companyId == assignee.id,
+      (task.associations?.[0]?.clientId == assignee.id && task.associations?.[0]?.companyId == assignee.companyId) ||
+      task.associations?.[0]?.companyId == assignee.id,
   )
 }
 
@@ -81,7 +81,7 @@ export const getSelectorAssigneeFromFilterOptions = (
   )
 } //util to get initial assignee from filterOptions for selector.
 
-export const getSelectedViewerIds = (inputValue: InputValue[]): Viewers => {
+export const getSelectedViewerIds = (inputValue: InputValue[]): Associations => {
   if (!inputValue?.length || inputValue[0].object === UserRole.IU) return [] // when no user is selected.
 
   if (inputValue[0].object === UserRole.Client)

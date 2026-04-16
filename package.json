@@ -11,6 +11,15 @@
     "@sentry/nextjs": "^8",
     "@supabase/supabase-js": "^2.47.5",
     "@tanstack/react-virtual": "^3.13.12",
+    "@tiptap/core": "^3.20.5",
+    "@tiptap/extension-document": "^3.20.5",
+    "@tiptap/extension-history": "^3.20.5",
+    "@tiptap/extension-paragraph": "^3.20.5",
+    "@tiptap/extension-placeholder": "^3.20.5",
+    "@tiptap/extension-text": "^3.20.5",
+    "@tiptap/extensions": "^3.20.5",
+    "@tiptap/pm": "^3.20.5",
+    "@tiptap/react": "^3.20.5",
     "@trigger.dev/sdk": "4.3.1",
     "@types/date-fns": "^2.6.0",
     "@types/deep-equal": "^1.0.4",
@@ -19,7 +28,7 @@
     "bottleneck": "^2.19.5",
     "clsx": "^2.1.1",
     "copilot-design-system": "^2.3.4",
-    "copilot-node-sdk": "^3.16.0",
+    "copilot-node-sdk": "~3.16.0",
     "dayjs": "^1.11.10",
     "deep-equal": "^2.2.3",
     "fetch-retry": "^6.0.0",
@@ -44,7 +53,7 @@
     "server-only": "^0.0.1",
     "supabase": "^2.1.1",
     "swr": "^2.2.5",
-    "tapwrite": "1.1.94",
+    "tapwrite": "1.1.98",
     "uuid": "^11.1.0",
     "zod": "^3.23.8"
   },
@@ -70,6 +79,7 @@
     "nodemon": "^3.1.9",
     "open": "^10.1.0",
     "prettier": "^3.1.1",
+    "tailwind-merge": "^3.4.0",
     "tailwindcss": "^3.3.0",
     "text-table": "^0.2.0",
     "tsx": "^4.16.5",
@@ -132,7 +142,8 @@
     "test": "jest",
     "trigger": "npx trigger.dev@latest",
     "trigger:deploy-staging": "yarn trigger deploy -e staging",
-    "vercel-build": "prisma generate && next build"
+    "vercel-build": "prisma generate && next build",
+    "patch-copilot-node-sdk": "cp ./src/lib/patch-copilot-node-sdk.js ./node_modules/copilot-node-sdk/dist/api/init.js"
   },
   "version": "0.1.0"
 }

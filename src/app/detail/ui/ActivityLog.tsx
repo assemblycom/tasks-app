@@ -146,17 +146,15 @@ export const ActivityLog = ({ log }: Prop) => {
     [ActivityType.COMMENT_ADDED]: () => null,
     [ActivityType.VIEWER_ADDED]: (_from: string, to: string) => (
       <>
-        <StyledTypography> added </StyledTypography>
+        <StyledTypography> shared the task with </StyledTypography>
         <BoldTypography>{to}</BoldTypography>
-        <StyledTypography> as a viewer </StyledTypography>
         <DotSeparator />
       </>
     ),
     [ActivityType.VIEWER_REMOVED]: (from: string) => (
       <>
-        <StyledTypography> removed </StyledTypography>
+        <StyledTypography> stopped sharing the task with </StyledTypography>
         <BoldTypography>{from}</BoldTypography>
-        <StyledTypography> as a viewer </StyledTypography>
         <DotSeparator />
       </>
     ),

@@ -11,13 +11,22 @@ interface FilterTypeSectionProps {
   filterModes: FilterType[]
 }
 
+type FilterSetType = (typeof FilterType)[keyof typeof FilterType]
+
 export const FilterTypeSection = ({ setFilterMode, filterModes }: FilterTypeSectionProps) => {
   const {
     filterOptions: { type },
   } = useSelector(selectTaskBoard)
 
-  const disabled = type === FilterOptionsKeywords.CLIENTS ? [FilterType.Visibility] : []
-  const removed = type.length > 20 ? [FilterType.Assignee] : []
+  const disabledFilter = new Set<FilterSetType>()
+  if (type === FilterOptionsKeywords.CLIENTS) {
+    disabledFilter.add(FilterType.Association)
+  }
+
+  const removedFilter = new Set<FilterSetType>()
+  if (type.length > 20) {
+    removedFilter.add(FilterType.Assignee)
+  }
 
   return (
     <Stack
@@ -31,8 +40,8 @@ export const FilterTypeSection = ({ setFilterMode, filterModes }: FilterTypeSect
       rowGap={'2px'}
     >
       {filterModes.map((filterMode) => {
-        const isDisabled = disabled.includes(filterMode)
-        const isRemoved = removed.includes(filterMode)
+        const isDisabled = disabledFilter.has(filterMode)
+        const isRemoved = removedFilter.has(filterMode)
         if (isRemoved) return null
 
         return (
@@ -67,11 +76,11 @@ export const FilterTypeSection = ({ setFilterMode, filterModes }: FilterTypeSect
               <Box>
                 <CopilotTooltip
                   content={
-                    <div>
-                      <div>Client visibility is only available</div>
-                      <div>for tasks assigned to internal users.</div>
-                    </div>
+                    <>
+                      <strong>Related to</strong> is only available for unassigned tasks or tasks assigned to internal users.
+                    </>
                   }
+                  allowMaxWidth
                 >
                   <InfoIcon />
                 </CopilotTooltip>

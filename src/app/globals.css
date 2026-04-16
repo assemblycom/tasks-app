@@ -1,3 +1,7 @@
+:root {
+  --text-secondary: #6b6f76;
+}
+
 * {
   padding: 0;
   margin: 0;
@@ -90,6 +94,20 @@ a {
 
 .highlight-fade {
   animation: fadeHighlight 1s forwards;
+}
+
+/* Custom toggle wrapper to override design system styles */
+.copilot-toggle-wrapper {
+  & .cop-font-medium {
+    font-weight: 400;
+    color: var(--text-secondary);
+  }
+  & .cop-leading-tight {
+    line-height: 22px;
+  }
+  & .cop-flex {
+    align-items: center;
+  }
 }
 
 .overlapping-avatar {

@@ -33,8 +33,14 @@ export const CopilotAvatar = ({ currentAssignee, alt, size = 'sm', icon, classNa
   }, [currentAssignee?.name, currentAssignee?.familyName, currentAssignee?.givenName])
 
   if (icon) {
+    const sizeMap: Record<string, number> = { '3xs': 12, '2xs': 16, xs: 20 }
+    const dimension = sizeMap[size]
     return (
-      <Avatar sx={avatarSx} variant={avatarVariant}>
+      <Avatar
+        sx={{ ...avatarSx, ...(dimension ? { width: dimension, height: dimension } : {}) }}
+        variant={avatarVariant}
+        style={style}
+      >
         {icon}
       </Avatar>
     )

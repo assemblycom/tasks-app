@@ -9,6 +9,7 @@ import { CopilotPopSelector } from '@/components/inputs/CopilotSelector'
 import { DatePickerComponent } from '@/components/inputs/DatePickerComponent'
 import Selector, { SelectorType } from '@/components/inputs/Selector'
 import { WorkflowStateSelector } from '@/components/inputs/Selector-WorkflowState'
+import { CopilotToggle } from '@/components/inputs/CopilotToggle'
 import { StyledTextField } from '@/components/inputs/TextField'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
 import { useHandleSelectorComponent } from '@/hooks/useHandleSelectorComponent'
@@ -18,7 +19,7 @@ import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { selectTaskDetails } from '@/redux/features/taskDetailsSlice'
 import { selectCreateTemplate } from '@/redux/features/templateSlice'
 import { DateString } from '@/types/date'
-import { CreateTaskRequest, Viewers } from '@/types/dto/tasks.dto'
+import { CreateTaskRequest, Associations } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { FilterByOptions, IAssigneeCombined, InputValue, ITemplate, UserIds } from '@/types/interfaces'
 import { getAssigneeName, UserIdsType } from '@/utils/assignee'
@@ -30,12 +31,14 @@ import {
   getSelectorAssignee,
   getSelectorAssigneeFromFilterOptions,
 } from '@/utils/selector'
+import { resolveAutofillTags, resolveDynamicFields } from '@/utils/dynamicFields'
 import { trimAllTags } from '@/utils/trimTags'
 import { Box, Stack, Typography } from '@mui/material'
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Tapwrite } from 'tapwrite'
+import { useAssociationLabelForWorkspace } from '@/hooks/useWorkspaceLabel'
 
 interface SubTaskFields {
   title: string
@@ -43,7 +46,8 @@ interface SubTaskFields {
   workflowStateId: string
   userIds: UserIdsType
   dueDate: DateString | null
-  viewers?: Viewers
+  associations?: Associations
+  isShared?: boolean
 }
 
 export const NewTaskCard = ({
@@ -70,7 +74,7 @@ export const NewTaskCard = ({
         [UserIds.COMPANY_ID]: null,
       }
 
-  const { tokenPayload } = useSelector(selectAuthDetails)
+  const { tokenPayload, workspace } = useSelector(selectAuthDetails)
   const [subTaskFields, setSubTaskFields] = useState<SubTaskFields>({
     title: '',
     description: '',
@@ -91,13 +95,17 @@ export const NewTaskCard = ({
       workflowStateId: todoWorkflowState.id,
       userIds: assigneeIds,
       dueDate: null,
-      viewers: [],
+      associations: [],
+      isShared: false,
     }))
     updateStatusValue(todoWorkflowState)
     setAssigneeValue(null)
   }
 
-  const handleFieldChange = (field: keyof SubTaskFields, value: string | DateString | null | UserIdsType | Viewers) => {
+  const handleFieldChange = (
+    field: keyof SubTaskFields,
+    value: string | DateString | null | UserIdsType | Associations | boolean,
+  ) => {
     setSubTaskFields((prev) => ({
       ...prev,
       [field]: value,
@@ -139,14 +147,16 @@ export const NewTaskCard = ({
       ? (getSelectorAssigneeFromFilterOptions(assignee, { internalUserId: null, ...previewClientCompany }) ?? null) // if preview mode, default select the respective client/company as assignee
       : null,
   )
-  const [taskViewerValue, setTaskViewerValue] = useState<IAssigneeCombined | null>(
-    !!previewMode
-      ? (getSelectorAssigneeFromFilterOptions(
-          assignee,
-          { internalUserId: null, ...previewClientCompany }, // if preview mode, default select the respective client/company as viewer
-        ) ?? null)
-      : null,
-  )
+  const previewTaskAssociation = !!previewMode
+    ? (getSelectorAssigneeFromFilterOptions(
+        assignee,
+        { internalUserId: null, ...previewClientCompany }, // if preview mode, default select the respective client/company as viewer
+      ) ?? null)
+    : null
+  const [taskAssociationValue, setTaskAssociationValue] = useState<IAssigneeCombined | null>(previewTaskAssociation)
+  const [isShared, setIsShared] = useState(!!previewTaskAssociation)
+
+  const { associationLabel } = useAssociationLabelForWorkspace({ workspace, associationValue: taskAssociationValue })
 
   const applyTemplate = useCallback(
     (id: string, templateTitle: string) => {
@@ -156,15 +166,16 @@ export const NewTaskCard = ({
         try {
           setIsEditorReadonly?.(true)
 
+          const resolvedTitle = resolveDynamicFields(templateTitle)
           if (!subTaskFields.title.trim()) {
             setSubTaskFields((prev) => ({
               ...prev,
-              title: templateTitle,
+              title: resolvedTitle,
             }))
           } else {
             setSubTaskFields((prev) => ({
               ...prev,
-              title: prev.title + ' ' + templateTitle,
+              title: prev.title + ' ' + resolvedTitle,
             }))
           }
           const resp = await fetch(`/api/tasks/templates/${id}/apply?token=${token}`, {
@@ -178,17 +189,17 @@ export const NewTaskCard = ({
             ...prev,
             workflowStateId: template.workflowStateId,
           }))
-          const trimmedAppliedDescription = template.description && trimAllTags(template.description)
+          const resolvedBody = resolveAutofillTags(template.body)
           const trimmedDescription = trimAllTags(subTaskFields.description)
-          if (trimmedAppliedDescription == trimmedDescription || trimmedDescription === '<p></p>') {
+          if (trimmedDescription === '<p></p>' || !trimmedDescription) {
             setSubTaskFields((prev) => ({
               ...prev,
-              description: template.body,
+              description: resolvedBody,
             }))
           } else {
             setSubTaskFields((prev) => ({
               ...prev,
-              description: prev.description + template.body,
+              description: prev.description + resolvedBody,
             }))
           }
         } catch (error) {
@@ -224,7 +235,9 @@ export const NewTaskCard = ({
       companyId: subTaskFields.userIds[UserIds.COMPANY_ID],
       dueDate: formattedDueDate,
       parentId: activeTask?.id,
-      ...(subTaskFields?.viewers && subTaskFields.viewers.length > 0 && { viewers: subTaskFields.viewers }),
+      ...(subTaskFields.associations &&
+        subTaskFields.associations.length > 0 && { associations: subTaskFields.associations }),
+      isShared: subTaskFields.isShared,
     }
 
     handleSubTaskCreation(payload)
@@ -233,27 +246,46 @@ export const NewTaskCard = ({
   }
 
   const handleAssigneeChange = (inputValue: InputValue[]) => {
-    if (inputValue.length === 0 || inputValue[0].object !== UserRole.IU) {
-      setTaskViewerValue(null)
-      handleFieldChange('viewers', [])
+    if (inputValue.length && inputValue[0].object !== UserRole.IU) {
+      setTaskAssociationValue(null)
+      handleFieldChange('associations', [])
     }
+    if (inputValue.length) {
+      setIsShared(false)
+      handleFieldChange('isShared', false)
+    }
+
     if (!!previewMode && inputValue.length && inputValue[0].object === UserRole.IU && previewClientCompany.companyId) {
-      if (!taskViewerValue)
-        setTaskViewerValue(
+      if (!taskAssociationValue) {
+        const viewerValue =
           getSelectorAssigneeFromFilterOptions(
             assignee,
             { internalUserId: null, ...previewClientCompany }, // if preview mode, default select the respective client/company as viewer
-          ) ?? null,
-        )
-      handleFieldChange('viewers', [
+          ) ?? null
+        setTaskAssociationValue(viewerValue)
+        setIsShared(!!viewerValue)
+      }
+      handleFieldChange('associations', [
         { clientId: previewClientCompany.clientId || undefined, companyId: previewClientCompany.companyId },
       ])
+      handleFieldChange('isShared', true)
     }
     const newUserIds = getSelectedUserIds(inputValue)
     const selectedAssignee = getSelectorAssignee(assignee, inputValue)
     setAssigneeValue(selectedAssignee || null)
     handleFieldChange('userIds', newUserIds)
   }
+
+  const handleAssociationChange = (inputValue: InputValue[]) => {
+    const newUserIds = getSelectedViewerIds(inputValue)
+    const selectedAssignee = getSelectorAssignee(assignee, inputValue)
+    setTaskAssociationValue(selectedAssignee || null)
+    handleFieldChange('associations', newUserIds)
+  }
+
+  const baseAssociationCondition = assigneeValue && assigneeValue.type === FilterByOptions.IUS
+  const showShareToggle = baseAssociationCondition && taskAssociationValue
+  const showAssociation = !assigneeValue || baseAssociationCondition
 
   return (
     <Stack
@@ -421,18 +453,13 @@ export const NewTaskCard = ({
               />
             }
           />
-          {assigneeValue && assigneeValue.type === FilterByOptions.IUS && (
+          {showAssociation && (
             <CopilotPopSelector
               hideIusList
               disabled={!!previewMode}
-              name="Set client visibility"
-              onChange={(inputValue) => {
-                const newUserIds = getSelectedViewerIds(inputValue)
-                const selectedAssignee = getSelectorAssignee(assignee, inputValue)
-                setTaskViewerValue(selectedAssignee || null)
-                handleFieldChange('viewers', newUserIds)
-              }}
-              initialValue={taskViewerValue || undefined}
+              name="Set related to"
+              onChange={handleAssociationChange}
+              initialValue={taskAssociationValue || undefined}
               buttonContent={
                 <SelectorButton
                   disabled={!!previewMode}
@@ -440,11 +467,11 @@ export const NewTaskCard = ({
                   height="28px"
                   buttonContent={
                     <Stack direction="row" alignItems={'center'} columnGap={'6px'} height="26px">
-                      {taskViewerValue ? <CopilotAvatar currentAssignee={taskViewerValue} /> : <PersonIconSmall />}
+                      {taskAssociationValue ? <CopilotAvatar currentAssignee={taskAssociationValue} /> : <PersonIconSmall />}
                       <Typography
                         variant="bodySm"
                         sx={{
-                          color: (theme) => (taskViewerValue ? theme.color.gray[600] : theme.color.text.textDisabled),
+                          color: (theme) => (taskAssociationValue ? theme.color.gray[600] : theme.color.text.textDisabled),
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
                           lineHeight: '22px',
@@ -453,7 +480,7 @@ export const NewTaskCard = ({
                           maxWidth: '120px',
                         }}
                       >
-                        {getAssigneeName(taskViewerValue as IAssigneeCombined, 'Client visibility')}
+                        {getAssigneeName(taskAssociationValue as IAssigneeCombined, 'Related to')}
                       </Typography>
                     </Stack>
                   }
@@ -462,6 +489,16 @@ export const NewTaskCard = ({
             />
           )}
         </Stack>
+        {showShareToggle && (
+          <CopilotToggle
+            label={`Share with ${associationLabel}`}
+            onChange={() => {
+              setIsShared(!isShared)
+              handleFieldChange('isShared', !isShared)
+            }}
+            checked={isShared}
+          />
+        )}
         <Stack
           direction="row"
           sx={{

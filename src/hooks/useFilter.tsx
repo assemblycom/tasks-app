@@ -19,7 +19,7 @@ interface KeywordMatchable {
 const FilterFunctions = {
   [FilterOptions.ASSIGNEE]: filterByAssignee,
   [FilterOptions.CREATOR]: filterByCreator,
-  [FilterOptions.VISIBILITY]: filterByClientVisibility,
+  [FilterOptions.ASSOCIATION]: filterByClientAssociation,
   [FilterOptions.KEYWORD]: filterByKeyword,
   [FilterOptions.TYPE]: filterByType,
 }
@@ -50,7 +50,7 @@ function filterByAssignee(filteredTasks: TaskResponse[], filterValue: UserIdsTyp
   return filteredTasks
 }
 
-function filterByClientVisibility(filteredTasks: TaskResponse[], filterValue: UserIdsType): TaskResponse[] {
+function filterByClientAssociation(filteredTasks: TaskResponse[], filterValue: UserIdsType): TaskResponse[] {
   const assigneeUserIds = filterValue
 
   if (checkEmptyAssignee(assigneeUserIds)) {
@@ -59,11 +59,13 @@ function filterByClientVisibility(filteredTasks: TaskResponse[], filterValue: Us
   const { [UserIds.CLIENT_ID]: clientId, [UserIds.COMPANY_ID]: companyId } = assigneeUserIds
 
   if (clientId) {
-    filteredTasks = filteredTasks.filter(
-      (task) => task.viewers?.[0]?.clientId === clientId && task.viewers?.[0]?.companyId === companyId,
-    )
+    filteredTasks = filteredTasks.filter((task) => {
+      return task.associations?.[0]?.clientId === clientId && task.associations?.[0]?.companyId === companyId
+    })
   } else if (companyId && !clientId) {
-    filteredTasks = filteredTasks.filter((task) => task.viewers?.[0]?.companyId === companyId && !task.viewers?.[0].clientId)
+    filteredTasks = filteredTasks.filter((task) => {
+      return task.associations?.[0]?.companyId === companyId && !task.associations?.[0].clientId
+    })
   }
 
   return filteredTasks
@@ -129,11 +131,14 @@ function filterByType(filteredTasks: TaskResponse[], filterValue: string): TaskR
     case FilterOptionsKeywords.CLIENT_WITH_VIEWERS:
       return filteredTasks.filter(
         (task) =>
-          !!task?.viewers?.length || task?.assigneeType?.includes('client') || task?.assigneeType?.includes('company'),
+          !!task?.associations?.length || task?.assigneeType?.includes('client') || task?.assigneeType?.includes('company'),
       )
 
     case FilterOptionsKeywords.TEAM:
       return filteredTasks.filter((task) => task?.assigneeType?.includes('internalUser'))
+
+    case FilterOptionsKeywords.UNASSIGNED:
+      return filteredTasks.filter((task) => !task.assigneeId)
 
     default:
       return filteredTasks.filter((task) => task.assigneeId == assigneeType)
@@ -141,34 +146,52 @@ function filterByType(filteredTasks: TaskResponse[], filterValue: string): TaskR
 }
 
 export const useFilter = (filterOptions: IFilterOptions, isPreviewMode: boolean) => {
-  const { tasks, accessibleTasks, assignee } = useSelector(selectTaskBoard)
+  const { tasks, accessibleTasks, assignee, showArchived, showUnarchived } = useSelector(selectTaskBoard)
   const [_, startTransition] = useTransition()
 
-  function applyFilter(tasks: TaskResponse[], filterOptions: IFilterOptions) {
+  function applyFilters(tasks: TaskResponse[], filterOptions: IFilterOptions) {
     let filteredTasks = [...tasks]
     for (const [filterType, filterValue] of Object.entries(filterOptions)) {
       if (!filterValue) continue
-      if (filterType === FilterOptions.ASSIGNEE && !isPreviewMode) {
-        // there is no filter by assignee in preview mode
-        const assigneeFilterValue = UserIdsSchema.parse(filterValue)
-        filteredTasks = FilterFunctions[FilterOptions.ASSIGNEE](filteredTasks, assigneeFilterValue)
-      }
-      if (filterType === FilterOptions.CREATOR || filterType === FilterOptions.VISIBILITY) {
-        const assigneeFilterValue = UserIdsSchema.parse(filterValue)
-        filteredTasks = FilterFunctions[filterType](filteredTasks, assigneeFilterValue)
-      }
-      if (filterType === FilterOptions.KEYWORD) {
-        filteredTasks = FilterFunctions[FilterOptions.KEYWORD](
-          filteredTasks,
-          filterValue as string,
-          accessibleTasks,
-          assignee,
-        )
-      }
-      if (filterType === FilterOptions.TYPE) {
-        filteredTasks = FilterFunctions[FilterOptions.TYPE](filteredTasks, filterValue as string)
-      }
+      filteredTasks = applyOneFilter(filteredTasks, filterType, filterValue)
     }
+    return filteredTasks
+  }
+
+  function applyOneFilter(tasks: TaskResponse[], filterType: string, filterValue: unknown): TaskResponse[] {
+    if (filterType === FilterOptions.ASSIGNEE && !isPreviewMode) {
+      const assigneeFilterValue = UserIdsSchema.parse(filterValue)
+      return FilterFunctions[FilterOptions.ASSIGNEE](tasks, assigneeFilterValue)
+    }
+    if (filterType === FilterOptions.CREATOR || filterType === FilterOptions.ASSOCIATION) {
+      const assigneeFilterValue = UserIdsSchema.parse(filterValue)
+      return FilterFunctions[filterType](tasks, assigneeFilterValue)
+    }
+    if (filterType === FilterOptions.KEYWORD) {
+      return FilterFunctions[FilterOptions.KEYWORD](tasks, filterValue as string, accessibleTasks, assignee)
+    }
+    if (filterType === FilterOptions.TYPE) {
+      return FilterFunctions[FilterOptions.TYPE](tasks, filterValue as string)
+    }
+    return tasks
+  }
+
+  function applyFilter(tasks: TaskResponse[], filterOptions: IFilterOptions) {
+    const filteredParentTasks = applyFilters(tasks, filterOptions)
+    const filteredParentIds = new Set(filteredParentTasks.map((t) => t.id))
+
+    // Find subtasks that match all filters but whose parent didn't
+    const hasActiveFilter = Object.values(filterOptions).some((v) => !!v)
+    let standaloneSubtasks: TaskResponse[] = []
+
+    if (hasActiveFilter) {
+      const subtasks = accessibleTasks.filter((t) => !!t.parentId && (t.isArchived ? showArchived : showUnarchived))
+      const matchingSubtasks = applyFilters(subtasks, filterOptions)
+      standaloneSubtasks = matchingSubtasks.filter((t) => !filteredParentIds.has(t.parentId!))
+    }
+
+    const filteredTasks = [...filteredParentTasks, ...standaloneSubtasks]
+
     startTransition(() => {
       store.dispatch(setFilteredTasks(filteredTasks))
     })
@@ -176,7 +199,7 @@ export const useFilter = (filterOptions: IFilterOptions, isPreviewMode: boolean)
 
   useEffect(() => {
     applyFilter(tasks, filterOptions)
-  }, [tasks, filterOptions])
+  }, [tasks, accessibleTasks, filterOptions])
 
   useEffect(() => {
     if (assignee?.length) {

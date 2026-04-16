@@ -2,7 +2,7 @@
 
 import { PrimaryBtn } from '@/components/buttons/PrimaryBtn'
 import { SecondaryBtn } from '@/components/buttons/SecondaryBtn'
-import { StyledTextField } from '@/components/inputs/TextField'
+import { TitleEditor } from '@/components/inputs/tiptap/TitleEditor'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { AttachmentIcon } from '@/icons'
 import store from '@/redux/store'
@@ -29,6 +29,11 @@ import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils
 import AttachmentLayout from '@/components/AttachmentLayout'
 import { StyledModal } from '@/app/detail/ui/styledComponent'
 import { createUploadFn } from '@/utils/createUploadFn'
+import {
+  TapwriteDynamicFieldDropdown,
+  TapwriteDynamicFieldTemplate,
+  tapwriteDynamicFields,
+} from '@/components/inputs/TapwriteDynamicFieldDropdown'
 
 export const TemplateForm = ({ handleCreate }: { handleCreate: () => void }) => {
   const { workflowStates, assignee } = useSelector(selectTaskBoard)
@@ -82,7 +87,6 @@ const NewTemplateFormInputs = () => {
     useSelector(selectCreateTemplate)
   const { workflowStates, token } = useSelector(selectTaskBoard)
   const { tokenPayload } = useSelector(selectAuthDetails)
-
   const uploadFn = createUploadFn({
     token,
     workspaceId: tokenPayload?.workspaceId,
@@ -100,6 +104,11 @@ const NewTemplateFormInputs = () => {
   })
 
   const statusValue = _statusValue as WorkflowStateResponse //typecasting
+
+  const handleTitleChange = (newValue: string) => {
+    store.dispatch(setCreateTemplateFields({ targetField: 'taskName', value: newValue }))
+    store.dispatch(setErrors({ key: createTemplateErrors.TITLE, value: false }))
+  }
 
   const handleDescriptionChange = (content: string) => {
     store.dispatch(setCreateTemplateFields({ targetField: 'description', value: content }))
@@ -120,39 +129,22 @@ const NewTemplateFormInputs = () => {
           marginBottom: '12px',
         }}
       >
-        <StyledTextField
-          type="text"
-          padding="8px 0px 0px"
-          autoFocus={true}
-          value={taskName}
-          borderLess
-          onChange={(e) => {
-            store.dispatch(setCreateTemplateFields({ targetField: 'taskName', value: e.target.value }))
-            store.dispatch(setErrors({ key: createTemplateErrors.TITLE, value: false }))
-          }}
-          error={errors.title}
-          helperText={errors.title && 'Enter template name'}
-          inputProps={{
-            maxLength: 255,
-          }}
-          sx={{
-            width: '100%',
-            '& .MuiInputBase-input': {
-              fontSize: '16px',
-              lineHeight: '24px',
-              color: (theme) => theme.color.gray[600],
-              fontWeight: 500,
-            },
-            '& .MuiInputBase-input.Mui-disabled': {
-              WebkitTextFillColor: (theme) => theme.color.gray[600],
-            },
-            '& .MuiInputBase-root': {
-              padding: '0px 0px',
-            },
-          }}
-          placeholder="Template name"
-          multiline
-        />
+        <Box sx={{ padding: '8px 0px 0px', width: '100%' }}>
+          <TitleEditor
+            value={taskName}
+            onChange={handleTitleChange}
+            placeholder="Template name"
+            autoFocus
+            fontSize="16px"
+            lineHeight="24px"
+            fontWeight={500}
+          />
+        </Box>
+        {errors.title && (
+          <Typography variant="bodySm" sx={{ color: '#d32f2f', textAlign: 'right', width: '100%', fontSize: '12px' }}>
+            Enter template name
+          </Typography>
+        )}
         <Box sx={{ height: '100%', width: '100%', overflow: 'auto' }}>
           <Tapwrite
             content={description}
@@ -171,6 +163,11 @@ const NewTemplateFormInputs = () => {
             attachmentLayout={(props) => <AttachmentLayout {...props} />}
             maxUploadLimit={MAX_UPLOAD_LIMIT}
             parentContainerStyle={{ gap: '0px', minHeight: '60px' }}
+            dynamicFieldConfig={{
+              fields: tapwriteDynamicFields,
+              dropdownComponent: TapwriteDynamicFieldDropdown,
+              templateComponent: TapwriteDynamicFieldTemplate,
+            }}
           />
         </Box>
       </Stack>

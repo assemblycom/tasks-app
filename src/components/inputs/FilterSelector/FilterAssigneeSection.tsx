@@ -7,7 +7,6 @@ import { FilterOptions, FilterOptionsKeywords, InputValue } from '@/types/interf
 import { parseAssigneeToSelectorOption } from '@/utils/addTypeToAssignee'
 import { getWorkspaceLabels } from '@/utils/getWorkspaceLabels'
 import { getSelectedUserIds } from '@/utils/selector'
-import { Visibility } from '@mui/icons-material'
 import { Box } from '@mui/material'
 import { Dispatch, SetStateAction } from 'react'
 import { useSelector } from 'react-redux'
@@ -20,7 +19,7 @@ interface FilterAssigneeSectionProps {
 export const filterOptionsMap = {
   [FilterType.Assignee]: FilterOptions.ASSIGNEE,
   [FilterType.Creator]: FilterOptions.CREATOR,
-  [FilterType.Visibility]: FilterOptions.VISIBILITY,
+  [FilterType.Association]: FilterOptions.ASSOCIATION,
 }
 
 export const FilterAssigneeSection = ({ filterMode, setAnchorEl }: FilterAssigneeSectionProps) => {
@@ -36,7 +35,7 @@ export const FilterAssigneeSection = ({ filterMode, setAnchorEl }: FilterAssigne
   const hideClientsAndCompanies =
     filterMode === FilterType.Creator || (type === FilterOptionsKeywords.TEAM && filterMode === FilterType.Assignee)
   const hideIus =
-    filterMode === FilterType.Visibility || (type === FilterOptionsKeywords.CLIENTS && filterMode === FilterType.Assignee)
+    filterMode === FilterType.Association || (type === FilterOptionsKeywords.CLIENTS && filterMode === FilterType.Assignee)
 
   const handleChange = (inputValue: InputValue[]) => {
     const newUserIds = getSelectedUserIds(inputValue)

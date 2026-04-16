@@ -1,7 +1,7 @@
 import { RootState } from '@/redux/store'
 import { DateString } from '@/types/date'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
-import { Viewers } from '@/types/dto/tasks.dto'
+import { Associations } from '@/types/dto/tasks.dto'
 import { CreateTaskErrors, UserIds } from '@/types/interfaces'
 import { UserIdsType } from '@/utils/assignee'
 import { createSlice } from '@reduxjs/toolkit'
@@ -22,10 +22,13 @@ interface IInitialState {
   appliedDescription: string | null
   templateId: string | null
   userIds: UserIdsType
-  viewers: Viewers
+  associations: Associations
+  isShared: boolean
   parentId: string | null
   disableSubtaskTemplates: boolean
 }
+
+type CreateTaskFieldPayloadType = { targetField: keyof IInitialState; value: IInitialState[keyof IInitialState] }
 
 const initialState: IInitialState = {
   showModal: false,
@@ -45,7 +48,8 @@ const initialState: IInitialState = {
     [UserIds.CLIENT_ID]: null,
     [UserIds.COMPANY_ID]: null,
   },
-  viewers: [],
+  associations: [],
+  isShared: false,
   parentId: null,
   disableSubtaskTemplates: false,
 }
@@ -68,13 +72,17 @@ const createTaskSlice = createSlice({
       state.activeWorkflowStateId = action.payload
     },
 
-    setCreateTaskFields: (
-      state,
-      action: { payload: { targetField: keyof IInitialState; value: IInitialState[keyof IInitialState] } },
-    ) => {
+    setCreateTaskFields: (state, action: { payload: CreateTaskFieldPayloadType }) => {
       const { targetField, value } = action.payload
       //@ts-ignore
       state[targetField] = value
+    },
+
+    setMultipleCreateTaskFields: (state, action: { payload: CreateTaskFieldPayloadType[] }) => {
+      action.payload.forEach(({ targetField, value }) => {
+        // @ts-ignore
+        state[targetField] = value
+      })
     },
 
     // sets all the fields of the create task form
@@ -101,7 +109,8 @@ const createTaskSlice = createSlice({
           [UserIds.COMPANY_ID]: null,
         }
       }
-      state.viewers = []
+      state.associations = []
+      state.isShared = false
       state.dueDate = null
       state.errors = {
         [CreateTaskErrors.TITLE]: false,
@@ -133,6 +142,7 @@ export const {
   setShowModal,
   setActiveWorkflowStateId,
   setCreateTaskFields,
+  setMultipleCreateTaskFields,
   clearCreateTaskFields,
   setErrors,
   setAppliedDescription,

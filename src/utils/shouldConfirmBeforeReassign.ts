@@ -34,13 +34,14 @@ export const shouldConfirmBeforeReassignment = (
   }
 }
 
-export const shouldConfirmViewershipBeforeReassignment = (
-  viewer: IAssigneeCombined | null,
+export const shouldConfirmTaskSharedBeforeReassignment = (
+  association: IAssigneeCombined | null,
+  isTaskShared: boolean,
   currentAssignee?: IAssigneeCombined,
 ) => {
-  if (viewer) {
+  if (association && isTaskShared) {
     const assigneeType = currentAssignee && getAssigneeTypeCorrected(currentAssignee)
-    if (!assigneeType || (assigneeType !== AssigneeType.internalUser && currentAssignee.id !== viewer.id)) {
+    if (!assigneeType || (assigneeType !== AssigneeType.internalUser && currentAssignee.id !== association.id)) {
       //no assignee or assignee is a non-IU
       return true
     }
