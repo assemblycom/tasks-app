@@ -133,6 +133,11 @@ export const NewTaskCard = ({
 
   const todoWorkflowState = workflowStates.find((el) => el.key === 'todo') || workflowStates[0]
 
+  useEffect(() => {
+    if (!defaultWorkflowState?.id) return
+    handleFieldChange('workflowStateId', defaultWorkflowState.id)
+  }, [defaultWorkflowState?.id])
+
   const { renderingItem: _statusValue, updateRenderingItem: updateStatusValue } = useHandleSelectorComponent({
     item: defaultWorkflowState,
     type: SelectorType.STATUS_SELECTOR,
@@ -176,6 +181,17 @@ export const NewTaskCard = ({
     if (!activeTask || previewMode || !assignee.length) return
     setAssigneeValue(getSelectorAssigneeFromTask(assignee, activeTask) ?? null)
     setTaskAssociationValue(getSelectorAssociationFromTask(assignee, activeTask) ?? null)
+    setIsShared(!!activeTask.isShared)
+    setSubTaskFields((prev) => ({
+      ...prev,
+      userIds: {
+        [UserIds.INTERNAL_USER_ID]: activeTask.internalUserId || null,
+        [UserIds.CLIENT_ID]: activeTask.clientId || null,
+        [UserIds.COMPANY_ID]: activeTask.companyId || null,
+      },
+      associations: activeTask.associations || [],
+      isShared: !!activeTask.isShared,
+    }))
   }, [activeTask, assignee, previewMode])
 
   const applyTemplate = useCallback(
