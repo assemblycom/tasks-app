@@ -81,8 +81,7 @@ export const FilterBar = ({ mode }: FilterBarProps) => {
         previewMode
           ? { borderBottom: (theme) => `1px solid ${theme.color.borders.borderDisabled}` }
           : {
-              border: (theme) => `1px solid ${theme.color.borders.borderDisabled}`,
-              borderTop: 'none',
+              borderBottom: (theme) => `1px solid ${theme.color.borders.borderDisabled}`,
             }
       }
     >
