@@ -337,7 +337,7 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
-                  maxWidth: { xs: '102px', sm: 'none' },
+                  maxWidth: { xs: '150px', sm: 'none' },
                 }}
               >
                 <DatePickerComponent
