@@ -71,6 +71,7 @@ export const Sidebar = ({
   workflowDisabled = false,
   userType,
   portalUrl,
+  fromNotificationCenter: fromNotificationCenterProp,
 }: {
   task_id: string
   selectedWorkflowState: WorkflowStateResponse
@@ -82,6 +83,7 @@ export const Sidebar = ({
   workflowDisabled?: boolean
   userType: UserType
   portalUrl?: string
+  fromNotificationCenter?: boolean
 }) => {
   const { activeTask, workflowStates, assignee, previewMode } = useSelector(selectTaskBoard)
   const { showSidebar, showConfirmAssignModal, fromNotificationCenter } = useSelector(selectTaskDetails)
@@ -210,7 +212,7 @@ export const Sidebar = ({
     return match ?? undefined
   }
 
-  if (!activeTask || !isHydrated) return <SidebarSkeleton />
+  if (!activeTask || !isHydrated) return <SidebarSkeleton fromNotificationCenter={fromNotificationCenterProp} />
 
   const handleAssigneeChange = (inputValue: InputValue[]) => {
     setSelectorFieldType(SelectorFieldType.ASSIGNEE)
@@ -748,7 +750,7 @@ export const Sidebar = ({
   )
 }
 
-export const SidebarSkeleton = () => {
+export const SidebarSkeleton = ({ fromNotificationCenter }: { fromNotificationCenter?: boolean }) => {
   const { showSidebar } = useSelector(selectTaskDetails)
   const windowWidth = useWindowWidth()
   const isMobile = windowWidth < 800 && windowWidth !== 0
@@ -761,14 +763,20 @@ export const SidebarSkeleton = () => {
     }
   }, [isMobile])
 
-  if (isMobile) {
+  if (isMobile || fromNotificationCenter) {
     return (
       <Stack
         direction="row"
         columnGap={'8px'}
         rowGap={'8px'}
         position="relative"
-        sx={{ flexWrap: 'wrap', padding: '12px 18px' }}
+        sx={{
+          flexWrap: 'wrap',
+          padding: '12px 18px',
+          maxWidth: fromNotificationCenter ? '654px' : undefined,
+          width: fromNotificationCenter ? '654px' : 'auto',
+          margin: fromNotificationCenter ? '0 auto' : undefined,
+        }}
       >
         <Box sx={{ height: '30px', alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
           <Skeleton variant="rectangular" width={140} height={15} />
