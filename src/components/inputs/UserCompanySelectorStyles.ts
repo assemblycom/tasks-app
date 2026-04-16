@@ -14,24 +14,25 @@ interface UserCompanySelectorStyles {
 }
 
 export const userCompanySelectorStyles: UserCompanySelectorStyles = {
-  control: (base, state) => ({
+  control: (base) => ({
     ...base,
-    borderColor: state?.isFocused ? '#0C41BB' : '#EFF1F4',
+    borderColor: '#EFF1F4',
     backgroundColor: '#FFFFFF',
     boxShadow: 'none',
-    '&:hover': {
-      borderColor: state?.isFocused ? '#0C41BB' : '#EFF1F4',
+    '&:focus-within': {
+      borderColor: '#EFF1F4',
     },
   }),
   placeholder: (base) => ({
     ...base,
-    fontSize: '14px',
-    lineHeight: '22px',
+    fontSize: '13px',
+    lineHeight: '20px',
+    color: '#9B9FA3',
   }),
   input: (base) => ({
     ...base,
-    fontSize: '14px',
-    lineHeight: '22px',
+    fontSize: '13px',
+    lineHeight: '20px',
     margin: '0px',
     padding: '0px',
   }),

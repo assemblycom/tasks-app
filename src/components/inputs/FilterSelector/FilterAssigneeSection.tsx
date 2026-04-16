@@ -8,7 +8,7 @@ import { parseAssigneeToSelectorOption } from '@/utils/addTypeToAssignee'
 import { getWorkspaceLabels } from '@/utils/getWorkspaceLabels'
 import { getSelectedUserIds } from '@/utils/selector'
 import { Box } from '@mui/material'
-import { Dispatch, SetStateAction } from 'react'
+import { Dispatch, SetStateAction, useEffect, useRef } from 'react'
 import { useSelector } from 'react-redux'
 import { userCompanySelectorStyles } from '../UserCompanySelectorStyles'
 
@@ -44,8 +44,14 @@ export const FilterAssigneeSection = ({ filterMode, setAnchorEl }: FilterAssigne
     setAnchorEl(null)
   }
 
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const input = containerRef.current?.querySelector<HTMLInputElement>('input')
+    input?.focus({ preventScroll: true })
+  }, [])
+
   return (
-    <Box>
+    <Box ref={containerRef}>
       <StyledUserCompanySelector
         menuShouldScrollIntoView={false}
         menuIsOpen={true}
