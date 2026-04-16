@@ -14,6 +14,7 @@ import {
   postAttachment,
   updateAssignee,
   updateTaskDetail,
+  updateTaskTitle,
   updateWorkflowStateIdOfTask,
 } from '@/app/detail/[task_id]/[user_type]/actions'
 import { DetailStateUpdate } from '@/app/detail/[task_id]/[user_type]/DetailStateUpdate'
@@ -188,7 +189,7 @@ export default async function TaskDetailPage(props: {
                     }}
                     updateTaskTitle={async (title) => {
                       'use server'
-                      title.trim() != '' && (await updateTaskDetail({ token, taskId: task_id, payload: { title } }))
+                      title.trim() != '' && (await updateTaskTitle({ token, taskId: task_id, title }))
                     }}
                     deleteTask={async () => {
                       'use server'

@@ -34,7 +34,7 @@ interface TemplateDetailsProps {
   handleDeleteTemplate: (templateId: string) => void
   handleEditTemplate: (payload: CreateTemplateRequest, templateId: string) => void
   updateTemplateDetail: (detail: string) => void
-  updateTemplateTitle: (title: string) => void
+  updateTemplateTitle: (title: string) => Promise<void>
   token: string
 }
 
@@ -49,9 +49,13 @@ export default function TemplateDetails({
 }: TemplateDetailsProps) {
   const [updateTitle, setUpdateTitle] = useState('')
   const [updateDetail, setUpdateDetail] = useState('')
+  const [titleSaveError, setTitleSaveError] = useState<string | null>(null)
   const { activeTemplate, targetTemplateId, taskName } = useSelector(selectCreateTemplate)
   const [isUserTyping, setIsUserTyping] = useState(false)
   const [activeUploads, setActiveUploads] = useState(0)
+  const lastSavedTitleRef = useRef(template.title || '')
+  const queuedTitleRef = useRef<string | null>(null)
+  const isTitleSaveInFlightRef = useRef(false)
 
   const { showConfirmDeleteModal } = useSelector(selectTaskDetails)
 
@@ -64,14 +68,51 @@ export default function TemplateDetails({
     if (!isUserTyping && activeUploads === 0) {
       const currentTemplate = activeTemplate?.id === template_id ? activeTemplate : template
       if (currentTemplate) {
-        setUpdateTitle(currentTemplate.title || '')
+        if (!queuedTitleRef.current && !isTitleSaveInFlightRef.current) {
+          const syncedTitle = currentTemplate.title || ''
+          setUpdateTitle(syncedTitle)
+          lastSavedTitleRef.current = syncedTitle
+        }
         setUpdateDetail(currentTemplate.body ?? '')
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTemplate?.title, activeTemplate?.body, template_id, activeUploads, template])
 
-  const _titleUpdateDebounced = async (title: string) => updateTemplateTitle(title)
+  const flushQueuedTitleSave = useCallback(async () => {
+    if (isTitleSaveInFlightRef.current) return
+    if (!queuedTitleRef.current) return
+
+    isTitleSaveInFlightRef.current = true
+    while (queuedTitleRef.current) {
+      const nextTitle = queuedTitleRef.current
+      queuedTitleRef.current = null
+      try {
+        await updateTemplateTitle(nextTitle)
+        lastSavedTitleRef.current = nextTitle
+        setTitleSaveError(null)
+      } catch (error) {
+        const rollbackTitle = lastSavedTitleRef.current
+        queuedTitleRef.current = null
+        setUpdateTitle(rollbackTitle)
+        setIsUserTyping(false)
+        setTitleSaveError('Could not save title. Your latest edit was reverted.')
+        isTitleSaveInFlightRef.current = false
+        return
+      }
+    }
+    isTitleSaveInFlightRef.current = false
+  }, [updateTemplateTitle])
+
+  const queueTitleSave = useCallback(
+    (title: string) => {
+      queuedTitleRef.current = title
+      void flushQueuedTitleSave()
+    },
+    [flushQueuedTitleSave],
+  )
+
+  const _titleUpdateDebounced = (title: string) => queueTitleSave(title)
   const [titleUpdateDebounced, cancelTitleUpdateDebounced] = useDebounceWithCancel(_titleUpdateDebounced, 1500)
 
   const _detailsUpdateDebounced = async (details: string) => updateTemplateDetail(details)
@@ -86,6 +127,7 @@ export default function TemplateDetails({
 
   const handleTitleChange = (newTitle: string) => {
     setUpdateTitle(newTitle)
+    setTitleSaveError(null)
     if (newTitle.trim() == '') {
       cancelTitleUpdateDebounced()
       cancelDebouncedResetTypingFlagTitle()
@@ -94,6 +136,18 @@ export default function TemplateDetails({
     setIsUserTyping(true)
     titleUpdateDebounced(newTitle)
     debouncedResetTypingFlagTitle()
+  }
+
+  const handleTitleBlur = () => {
+    if (updateTitle.trim() == '') {
+      return
+    }
+
+    cancelTitleUpdateDebounced()
+    if (updateTitle !== lastSavedTitleRef.current) {
+      queueTitleSave(updateTitle)
+    }
+    setIsUserTyping(false)
   }
   const titleEditorRef = useRef<Editor | null>(null)
   const tapwriteEditorRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>
@@ -254,6 +308,8 @@ export default function TemplateDetails({
       <TitleEditor
         value={updateTitle}
         onChange={handleTitleChange}
+        onBlur={handleTitleBlur}
+        errorMessage={titleSaveError}
         onEditorReady={(editor) => {
           titleEditorRef.current = editor
           editor.on('focus', () => {

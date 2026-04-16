@@ -27,7 +27,7 @@ interface Prop {
   // attachment: AttachmentResponseSchema[]
   isEditable: boolean
   updateTaskDetail: (detail: string) => void
-  updateTaskTitle: (title: string) => void
+  updateTaskTitle: (title: string) => Promise<void>
   deleteTask: () => void
   postAttachment: (postAttachmentPayload: CreateAttachmentRequest) => void
   deleteAttachment: (id: string) => void
@@ -50,10 +50,14 @@ export const TaskEditor = ({
 }: Prop) => {
   const [updateTitle, setUpdateTitle] = useState('')
   const [updateDetail, setUpdateDetail] = useState('')
+  const [titleSaveError, setTitleSaveError] = useState<string | null>(null)
   const { showConfirmDeleteModal, openImage } = useSelector(selectTaskDetails)
   const { activeTask } = useSelector(selectTaskBoard)
   const [isUserTyping, setIsUserTyping] = useState(false)
   const [activeUploads, setActiveUploads] = useState(0)
+  const lastSavedTitleRef = useRef(task.title || '')
+  const queuedTitleRef = useRef<string | null>(null)
+  const isTitleSaveInFlightRef = useRef(false)
 
   const handleImagePreview = (e: MouseEvent<unknown>) => {
     store.dispatch(setOpenImage((e.target as HTMLImageElement).src))
@@ -79,13 +83,50 @@ export const TaskEditor = ({
     if (!isUserTyping && activeUploads === 0) {
       const currentTask = activeTask?.id === task_id ? activeTask : task
       if (currentTask) {
-        setUpdateTitle(currentTask.title || '')
+        if (!queuedTitleRef.current && !isTitleSaveInFlightRef.current) {
+          const syncedTitle = currentTask.title || ''
+          setUpdateTitle(syncedTitle)
+          lastSavedTitleRef.current = syncedTitle
+        }
         setUpdateDetail(currentTask.body ?? '')
       }
     }
   }, [activeTask?.title, activeTask?.body, task_id, activeUploads, task])
 
-  const _titleUpdateDebounced = async (title: string) => updateTaskTitle(title)
+  const flushQueuedTitleSave = useCallback(async () => {
+    if (isTitleSaveInFlightRef.current) return
+    if (!queuedTitleRef.current) return
+
+    isTitleSaveInFlightRef.current = true
+    while (queuedTitleRef.current) {
+      const nextTitle = queuedTitleRef.current
+      queuedTitleRef.current = null
+      try {
+        await updateTaskTitle(nextTitle)
+        lastSavedTitleRef.current = nextTitle
+        setTitleSaveError(null)
+      } catch (error) {
+        const rollbackTitle = lastSavedTitleRef.current
+        queuedTitleRef.current = null
+        setUpdateTitle(rollbackTitle)
+        setIsUserTyping(false)
+        setTitleSaveError('Could not save title. Your latest edit was reverted.')
+        isTitleSaveInFlightRef.current = false
+        return
+      }
+    }
+    isTitleSaveInFlightRef.current = false
+  }, [updateTaskTitle])
+
+  const queueTitleSave = useCallback(
+    (title: string) => {
+      queuedTitleRef.current = title
+      void flushQueuedTitleSave()
+    },
+    [flushQueuedTitleSave],
+  )
+
+  const _titleUpdateDebounced = (title: string) => queueTitleSave(title)
 
   const [titleUpdateDebounced, cancelTitleUpdateDebounced] = useDebounceWithCancel(_titleUpdateDebounced, 1500)
 
@@ -102,6 +143,7 @@ export const TaskEditor = ({
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value
     setUpdateTitle(newTitle)
+    setTitleSaveError(null)
     if (newTitle.trim() == '') {
       cancelTitleUpdateDebounced()
       cancelDebouncedResetTypingFlagTitle()
@@ -118,7 +160,14 @@ export const TaskEditor = ({
         const currentTask = activeTask
         setUpdateTitle(currentTask?.title ?? '')
       }, 300)
+      return
     }
+
+    cancelTitleUpdateDebounced()
+    if (updateTitle !== lastSavedTitleRef.current) {
+      queueTitleSave(updateTitle)
+    }
+    setIsUserTyping(false)
   }
 
   const handleDetailChange = (content: string) => {
@@ -175,6 +224,8 @@ export const TaskEditor = ({
         disabled={!isEditable}
         padding="0px"
         onBlur={handleTitleBlur}
+        error={!!titleSaveError}
+        helperText={titleSaveError}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault() //prevent users from breaking line

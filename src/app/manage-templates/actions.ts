@@ -32,3 +32,22 @@ export async function editTemplate(token: string, templateId: string, payload: U
     body: JSON.stringify(payload),
   })
 }
+
+export async function updateTemplateTitle({
+  token,
+  templateId,
+  title,
+}: {
+  token: string
+  templateId: string
+  title: string
+}) {
+  const response = await fetch(`${apiUrl}/api/tasks/templates/${templateId}?token=${token}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to save template title (${response.status})`)
+  }
+}

@@ -50,6 +50,7 @@ interface UseTitleEditorOptions {
   placeholder?: string
   autoFocus?: boolean
   onEditorReady?: (editor: Editor) => void
+  onBlur?: () => void
 }
 
 function extractTextFromDoc(doc: Node): string {
@@ -82,7 +83,14 @@ function createMaxLengthExtension(maxLength: number) {
   })
 }
 
-export function useTitleEditor({ value, onChange, placeholder = '', autoFocus, onEditorReady }: UseTitleEditorOptions) {
+export function useTitleEditor({
+  value,
+  onChange,
+  placeholder = '',
+  autoFocus,
+  onEditorReady,
+  onBlur,
+}: UseTitleEditorOptions) {
   const isInternalRef = useRef(false)
 
   const editor = useEditor({
@@ -113,6 +121,12 @@ export function useTitleEditor({ value, onChange, placeholder = '', autoFocus, o
     editorProps: {
       attributes: {
         class: 'tiptap-title-editor',
+      },
+      handleDOMEvents: {
+        blur: () => {
+          onBlur?.()
+          return false
+        },
       },
       handleKeyDown: (_view, event) => {
         if (event.key === 'Enter') {

@@ -7,7 +7,7 @@ import { ITemplate, UserType } from '@/types/interfaces'
 import EscapeHandler from '@/utils/escapeHandler'
 import { Box } from '@mui/material'
 import TemplateDetails from '@/app/manage-templates/ui/TemplateDetails'
-import { deleteTemplate, editTemplate } from '@/app/manage-templates/actions'
+import { deleteTemplate, editTemplate, updateTemplateTitle } from '@/app/manage-templates/actions'
 import { UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { StyledBox, StyledTiptapDescriptionWrapper, TaskDetailsContainer } from '@/app/detail/ui/styledComponent'
 import { DynamicFieldInsertProvider } from '@/context/provider/DynamicFieldInsertProvider'
@@ -106,7 +106,7 @@ export default async function TaskDetailPage(props: {
                     }}
                     updateTemplateTitle={async (title: string) => {
                       'use server'
-                      title.trim() != '' && (await editTemplate(token, template_id, { title }))
+                      title.trim() != '' && (await updateTemplateTitle({ token, templateId: template_id, title }))
                     }}
                     token={token}
                   />

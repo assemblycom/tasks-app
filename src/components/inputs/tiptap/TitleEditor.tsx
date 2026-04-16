@@ -13,6 +13,8 @@ interface TitleEditorProps {
   lineHeight?: string
   fontWeight?: number
   onEditorReady?: (editor: Editor) => void
+  onBlur?: () => void
+  errorMessage?: string | null
 }
 
 export const TitleEditor = ({
@@ -24,21 +26,26 @@ export const TitleEditor = ({
   lineHeight = '24px',
   fontWeight = 500,
   onEditorReady,
+  onBlur,
+  errorMessage,
 }: TitleEditorProps) => {
-  const editor = useTitleEditor({ value, onChange, placeholder, autoFocus, onEditorReady })
+  const editor = useTitleEditor({ value, onChange, placeholder, autoFocus, onEditorReady, onBlur })
 
   return (
-    <StyledEditorWrapper
-      sx={{
-        '& .tiptap-title-editor p': {
-          fontSize: `${fontSize} !important`,
-          lineHeight: `${lineHeight} !important`,
-          fontWeight: `${fontWeight} !important`,
-        },
-      }}
-    >
-      <EditorContent editor={editor} />
-    </StyledEditorWrapper>
+    <>
+      <StyledEditorWrapper
+        sx={{
+          '& .tiptap-title-editor p': {
+            fontSize: `${fontSize} !important`,
+            lineHeight: `${lineHeight} !important`,
+            fontWeight: `${fontWeight} !important`,
+          },
+        }}
+      >
+        <EditorContent editor={editor} />
+      </StyledEditorWrapper>
+      {errorMessage && <ErrorText role="alert">{errorMessage}</ErrorText>}
+    </>
   )
 }
 
@@ -65,4 +72,11 @@ const StyledEditorWrapper = styled(Box)(({ theme }) => ({
     outline: '1px solid #DFE1E4',
     outlineOffset: '-1px', // This pulls the outline inward so it sits exactly where the border was
   },
+}))
+
+const ErrorText = styled('p')(({ theme }) => ({
+  margin: '4px 0 0',
+  color: theme.palette.error.main,
+  fontSize: '12px',
+  lineHeight: '18px',
 }))

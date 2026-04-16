@@ -30,6 +30,25 @@ export const updateTaskDetail = async ({
   })
 }
 
+export const updateTaskTitle = async ({
+  token,
+  taskId,
+  title,
+}: {
+  token: string
+  taskId: string
+  title: string
+}) => {
+  const response = await fetch(`${apiUrl}/api/tasks/${taskId}?token=${token}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to save task title (${response.status})`)
+  }
+}
+
 /**
  * Use the new update task function instead. This will be completely removed in the upcoming PRs.
  */
