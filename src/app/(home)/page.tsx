@@ -10,7 +10,6 @@ import { TaskBoard } from '@/app/ui/TaskBoard'
 import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
-import { DndWrapper } from '@/hoc/DndWrapper'
 import { RealTime } from '@/hoc/RealTime'
 import { UrlActionParamsType, Token, TokenSchema, WorkspaceResponse } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
@@ -134,9 +133,7 @@ export default async function Main(props: {
 
         <RealTime tokenPayload={tokenPayload}>
           <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
-            <DndWrapper>
-              <TaskBoard mode={UserRole.IU} workspace={workspace} token={token} />
-            </DndWrapper>
+            <TaskBoard mode={UserRole.IU} workspace={workspace} token={token} />
             <ModalNewTaskForm
               handleCreateMultipleAttachments={async (attachments: CreateAttachmentRequest[]) => {
                 'use server'

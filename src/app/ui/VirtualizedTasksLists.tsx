@@ -3,7 +3,8 @@
 import { TaskCardList } from '@/app/detail/ui/TaskCardList'
 import { TaskCard } from '@/components/cards/TaskCard'
 import { CustomLink } from '@/hoc/CustomLink'
-import { DragDropHandler } from '@/hoc/DragDropHandler'
+import { TaskDraggable } from '@/hoc/TaskDraggable'
+import { TaskDropZone } from '@/hoc/TaskDropZone'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { TaskResponse } from '@/types/dto/tasks.dto'
@@ -27,10 +28,18 @@ interface TasksVirtualizerProps {
   token: string | null
   subtasksByTaskId: Record<string, TaskResponse[]>
   workflowState?: WorkflowStateResponse
+  toTaskDraggableId: (taskId: string) => string
 }
 
 // virtualization component used in board view
-export function TasksRowVirtualizer({ rows, mode, token, subtasksByTaskId, workflowState }: TasksVirtualizerProps) {
+export function TasksRowVirtualizer({
+  rows,
+  mode,
+  token,
+  subtasksByTaskId,
+  workflowState,
+  toTaskDraggableId,
+}: TasksVirtualizerProps) {
   const { showSubtasks } = useSelector(selectTaskBoard)
   const { tokenPayload } = useSelector(selectAuthDetails)
   const parentRef = useRef<HTMLDivElement>(null)
@@ -95,12 +104,9 @@ export function TasksRowVirtualizer({ rows, mode, token, subtasksByTaskId, workf
                 style={{ width: 'fit-content' }}
                 draggable={!checkIfTaskViewer(rows[virtualRow.index].associations, tokenPayload)}
               >
-                <DragDropHandler
-                  key={rows[virtualRow.index].id}
-                  accept={'taskCard'}
-                  index={virtualRow.index}
-                  task={rows[virtualRow.index]}
-                  draggable={!checkIfTaskViewer(rows[virtualRow.index].associations, tokenPayload)}
+                <TaskDraggable
+                  id={toTaskDraggableId(rows[virtualRow.index].id)}
+                  disabled={checkIfTaskViewer(rows[virtualRow.index].associations, tokenPayload)}
                 >
                   <Box>
                     <TaskCard
@@ -116,7 +122,7 @@ export function TasksRowVirtualizer({ rows, mode, token, subtasksByTaskId, workf
                       workflowDisabled={checkIfTaskViewer(rows[virtualRow.index].associations, tokenPayload)}
                     />
                   </Box>
-                </DragDropHandler>
+                </TaskDraggable>
               </CustomLink>
             </div>
           </div>
@@ -133,7 +139,8 @@ interface TasksListVirtualizerProps {
   filterTaskWithWorkflowStateId: (id: string) => TaskResponse[]
   taskCountForWorkflowStateId: (id: string) => string
   previewMode?: PreviewMode
-  onDropItem: (payload: { taskId: string; targetWorkflowStateId: string }) => void
+  toTaskDraggableId: (taskId: string) => string
+  toWorkflowDroppableId: (workflowStateId: string) => string
 }
 
 type VirtualItem =
@@ -141,7 +148,6 @@ type VirtualItem =
       type: 'task'
       task: TaskResponse
       workflowState: WorkflowStateResponse
-      taskIndex: number
     }
   | {
       type: 'subtask'
@@ -156,7 +162,8 @@ export function TasksListVirtualizer({
   filterTaskWithWorkflowStateId,
   taskCountForWorkflowStateId,
   previewMode,
-  onDropItem,
+  toTaskDraggableId,
+  toWorkflowDroppableId,
 }: TasksListVirtualizerProps) {
   const { showSubtasks } = useSelector(selectTaskBoard)
   const { tokenPayload } = useSelector(selectAuthDetails)
@@ -168,12 +175,11 @@ export function TasksListVirtualizer({
       const tasks = sortTaskByDescendingOrder<TaskResponse>(filterTaskWithWorkflowStateId(workflowState.id))
 
       const items: VirtualItem[] = []
-      tasks.forEach((task, taskIndex) => {
+      tasks.forEach((task) => {
         items.push({
           type: 'task',
           task,
           workflowState,
-          taskIndex,
         })
 
         if (showSubtasks) {
@@ -233,14 +239,7 @@ export function TasksListVirtualizer({
         const sectionItems = section.items
 
         return (
-          <DragDropHandler
-            key={section.workflowState.id}
-            accept={'taskCard'}
-            index={sectionIndex}
-            id={section.workflowState.id}
-            onDropItem={onDropItem}
-            droppable
-          >
+          <TaskDropZone key={section.workflowState.id} id={toWorkflowDroppableId(section.workflowState.id)}>
             <TaskRow
               mode={mode}
               workflowStateId={section.workflowState.id}
@@ -282,22 +281,13 @@ export function TasksListVirtualizer({
                               padding: '3px 0',
                               width: '100%',
                             }}
-                            draggable={!checkIfTaskViewer(item.task.associations, tokenPayload)}
-                            onDragStart={(e) => {
-                              if (checkIfTaskViewer(item.task.associations, tokenPayload)) {
-                                e.preventDefault()
-                              }
-                            }}
                           >
-                            <DragDropHandler
-                              key={item.task.id}
-                              accept={'taskCard'}
-                              index={item.taskIndex}
-                              task={item.task}
-                              draggable={!checkIfTaskViewer(item.task.associations, tokenPayload)}
+                            <TaskDraggable
+                              id={toTaskDraggableId(item.task.id)}
+                              disabled={checkIfTaskViewer(item.task.associations, tokenPayload)}
                             >
                               <TaskCardList task={item.task} variant="task" workflowState={item.workflowState} mode={mode} />
-                            </DragDropHandler>
+                            </TaskDraggable>
                           </div>
                         )}
 
@@ -319,7 +309,7 @@ export function TasksListVirtualizer({
                   })}
               </div>
             </TaskRow>
-          </DragDropHandler>
+          </TaskDropZone>
         )
       })}
     </div>
