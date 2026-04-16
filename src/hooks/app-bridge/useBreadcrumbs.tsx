@@ -35,6 +35,7 @@ export const useBreadcrumbs = (breadcrumbs: Clickable[], config?: Configurable) 
         callbackRefs[event.data.id]
       ) {
         callbackRefs[event.data.id]()
+        window.focus() // Reclaim focus from parent so keyboard events (e.g. Escape) fire in the iframe
       }
     }
 

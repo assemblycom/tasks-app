@@ -23,6 +23,7 @@ export const useSecondaryCta = (secondaryCta: Clickable | null, config?: Configu
     const handleMessage = (event: MessageEvent) => {
       if (event.data.type === 'header.secondaryCta.onClick' && typeof event.data.id === 'string' && secondaryCta?.onClick) {
         secondaryCta.onClick()
+        window.focus() // Reclaim focus from parent so keyboard events (e.g. Escape) fire in the iframe
       }
     }
 
