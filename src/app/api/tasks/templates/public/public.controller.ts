@@ -5,6 +5,8 @@ import { TemplatesService } from '@/app/api/tasks/templates/templates.service'
 import { defaultLimit } from '@/constants/public-api'
 import { getSearchParams } from '@/utils/request'
 import { encode, decode } from 'js-base64'
+import { ValidateUuid } from '@api/core/utils/validateUuid'
+import { PublicResource } from '@api/core/types/public'
 
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -24,6 +26,7 @@ export const getTaskTemplatesPublic = async (req: NextRequest) => {
 
 export const getTaskTemplatePublic = async (req: NextRequest, { params }: IdParams) => {
   const { id } = await params
+  ValidateUuid(id, PublicResource.Tasks)
   const user = await authenticate(req)
   const templatesService = new TemplatesService(user)
   const template = await templatesService.getOneTemplate(id)
