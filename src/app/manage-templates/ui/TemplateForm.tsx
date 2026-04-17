@@ -152,14 +152,7 @@ const NewTemplateFormInputs = () => {
             placeholder="Add description.."
             editorClass="tapwrite-description-h-full"
             uploadFn={uploadFn}
-            deleteEditorAttachments={(url) =>
-              deleteEditorAttachmentsHandler(
-                url,
-                token ?? '',
-                null,
-                targetMethod == TargetMethod.POST ? null : targetTemplateId,
-              )
-            }
+            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TEMPLATE)}
             attachmentLayout={(props) => <AttachmentLayout {...props} />}
             maxUploadLimit={MAX_UPLOAD_LIMIT}
             parentContainerStyle={{ gap: '0px', minHeight: '60px' }}

@@ -388,17 +388,17 @@ export class CommentService extends BaseService {
     for (const { originalSrc, newUrl } of replacements) {
       htmlString = htmlString.replace(originalSrc, newUrl)
     }
-    // const filePaths = newFilePaths.map(({ newFilePath }) => newFilePath)
-    // await this.db.scrapMedia.updateMany({
-    //   where: {
-    //     filePath: {
-    //       in: filePaths,
-    //     },
-    //   },
-    //   data: {
-    //     taskId: task_id,
-    //   },
-    // }) //todo: add support for commentId in scrapMedias.
+    const filePaths = newFilePaths.map(({ newFilePath }) => newFilePath)
+    await this.db.scrapMedia.updateMany({
+      where: {
+        filePath: {
+          in: filePaths,
+        },
+      },
+      data: {
+        commentId: commentId,
+      },
+    })
     return htmlString
   } //todo: make this resuable since this is highly similar to what we are doing on tasks.
 

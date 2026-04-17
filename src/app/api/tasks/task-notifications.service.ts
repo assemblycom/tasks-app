@@ -273,6 +273,9 @@ export class TaskNotificationsService extends BaseService {
       } catch (e: unknown) {
         console.error(`Failed to find ClientNotification for task ${updatedTask.id}`, e)
       }
+    } else if (updatedTask.assigneeType === AssigneeType.internalUser) {
+      shouldCreateNotification &&
+        (await this.notificationService.create(NotificationTaskActions.CompletedByIU, updatedTask, { disableEmail: true }))
     }
   }
 

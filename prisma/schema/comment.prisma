@@ -21,6 +21,10 @@ model Comment {
   updatedAt     DateTime      @updatedAt @db.Timestamptz()
   deletedAt     DateTime?     @db.Timestamptz()
 
+
+  scrapMedias ScrapMedia[]
+
+
   @@map("Comments")
   @@index([taskId, workspaceId, createdAt(sort: Desc)], name: "IX_Comments_taskId_workspaceId_createdAt")
 }

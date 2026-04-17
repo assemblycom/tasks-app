@@ -12,7 +12,7 @@ import { selectTaskDetails, setOpenImage, setShowConfirmDeleteModal } from '@/re
 import store from '@/redux/store'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
-import { UserType } from '@/types/interfaces'
+import { AttachmentTypes, UserType } from '@/types/interfaces'
 import { getDeleteMessage } from '@/utils/dialogMessages'
 import { deleteEditorAttachmentsHandler, getAttachmentPayload, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { Box } from '@mui/material'
@@ -195,7 +195,7 @@ export const TaskEditor = ({
           placeholder="Add description..."
           uploadFn={uploadFn}
           handleImageDoubleClick={handleImagePreview}
-          deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', task_id, null)}
+          deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TASK, task_id)}
           attachmentLayout={(props) => <AttachmentLayout {...props} />}
           addAttachmentButton
           maxUploadLimit={MAX_UPLOAD_LIMIT}
