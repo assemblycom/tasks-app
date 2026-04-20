@@ -311,7 +311,7 @@ export class PublicTasksService extends TasksSharedService {
 
     if (!prevTask) throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
 
-    const { completedBy, completedByUserType } = await this.getCompletionInfo(data?.workflowStateId)
+    const { completedBy, completedByUserType, workflowStateStatus } = await this.getCompletionInfo(data?.workflowStateId)
 
     const { internalUserId, clientId, companyId, ...dataWithoutUserIds } = data
 
@@ -354,6 +354,7 @@ export class PublicTasksService extends TasksSharedService {
       throw new APIError(httpStatus.BAD_REQUEST, 'Due date cannot be in the past')
     }
     const subtaskService = new SubtaskService(this.user)
+    let didCascadeCompleteSubtasks = false
 
     let updatedTask = await this.db.$transaction(async (tx) => {
       //generate new label if prevTask has no assignee but now assigned to someone
@@ -402,6 +403,20 @@ export class PublicTasksService extends TasksSharedService {
         await subtaskService.toggleArchiveForAllSubtasks(id, data.isArchived)
       }
 
+      // Cascade completion to subtasks when parent transitions into a completed state
+      if (
+        data.workflowStateId &&
+        workflowStateStatus === StateType.completed &&
+        prevTask.workflowState.type !== StateType.completed
+      ) {
+        await subtaskService.completeAllSubtasks(id, {
+          workflowStateId: data.workflowStateId,
+          completedBy,
+          completedByUserType,
+        })
+        didCascadeCompleteSubtasks = true
+      }
+
       return updatedTask
     })
 
@@ -411,6 +426,8 @@ export class PublicTasksService extends TasksSharedService {
       await Promise.all([
         activityLogger.logTaskUpdated(prevTask),
         this.setNewLastSubtaskUpdated(updatedTask.parentId),
+        // Bump this task's lastSubtaskUpdated so the detail page's Subtasks SWR cache revalidates
+        didCascadeCompleteSubtasks ? this.setNewLastSubtaskUpdated(id) : undefined,
         sendTaskUpdateNotifications.trigger({ prevTask, updatedTask, user: this.user }),
         dispatchUpdatedWebhookEvent(this.user, prevTask, updatedTask, true),
         isBodyChanged ? queueBodyUpdatedWebhook(this.user, updatedTask) : undefined,

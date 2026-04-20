@@ -5,6 +5,7 @@ import { buildLtreeNodeString } from '@/utils/ltree'
 import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { UserRole } from '@api/core/types/user'
+import { AssigneeType } from '@prisma/client'
 import { JsonValue } from '@prisma/client/runtime/library'
 import httpStatus from 'http-status'
 import { z } from 'zod'
@@ -85,6 +86,47 @@ export class SubtaskService extends BaseService {
           AND path @ '${buildLtreeNodeString(id)}'
       `,
       archive,
+      this.user.workspaceId,
+    )
+  }
+
+  /**
+   * Moves all subtasks of the given parent into the provided (completed-type) workflow state.
+   * Skips subtasks that are already in a completed-type state so their original
+   * completedAt / completedBy values are preserved.
+   */
+  async completeAllSubtasks(
+    id: string,
+    {
+      workflowStateId,
+      completedBy,
+      completedByUserType,
+    }: {
+      workflowStateId: string
+      completedBy: string | null
+      completedByUserType: AssigneeType | null
+    },
+  ) {
+    console.info('SubtasksService#completeAllSubtasks | Completing all subtasks for parent with id', id)
+    await this.db.$executeRawUnsafe(
+      `
+        UPDATE "Tasks" t
+        SET "workflowStateId" = $1::uuid,
+            "completedAt" = NOW(),
+            "completedBy" = $2::uuid,
+            "completedByUserType" = $3::"AssigneeType"
+        WHERE t."deletedAt" IS NULL
+          AND t."workspaceId" = $4
+          AND t.path @ '${buildLtreeNodeString(id)}'
+          AND EXISTS (
+            SELECT 1 FROM "WorkflowStates" ws
+            WHERE ws.id = t."workflowStateId"
+              AND ws.type <> 'completed'::"StateType"
+          )
+      `,
+      workflowStateId,
+      completedBy,
+      completedByUserType,
       this.user.workspaceId,
     )
   }
