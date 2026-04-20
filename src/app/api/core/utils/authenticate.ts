@@ -45,7 +45,17 @@ const authenticate = async (req: NextRequest) => {
   }
 
   // Parse token payload from valid token
-  return await authenticateWithToken(tokenParsed.data)
+  const user = await authenticateWithToken(tokenParsed.data)
+
+  // Capture assembly proxy metadata headers, falling back to browser headers
+  // const isPublicRoute = req.nextUrl.pathname.includes('/public/')
+  user.assemblyMetadata = {
+    source: req.headers.get('x-assembly-source') ?? 'platform', //hardcode platform for now.
+    clientIp: req.headers.get('x-assembly-client-ip') ?? req.headers.get('x-real-ip') ?? undefined,
+    userAgent: req.headers.get('x-assembly-user-agent') ?? req.headers.get('user-agent') ?? undefined,
+  }
+
+  return user
 }
 
 export default authenticate
