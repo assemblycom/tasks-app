@@ -253,6 +253,7 @@ export class PublicTasksService extends TasksSharedService {
       this.copilot.dispatchWebhook(DISPATCHABLE_EVENT.TaskCreated, {
         payload: await PublicTaskSerializer.serialize(newTask),
         workspaceId: this.user.workspaceId,
+        assemblyMetadata: this.user.assemblyMetadata,
       }),
     ])
 
@@ -469,6 +470,7 @@ export class PublicTasksService extends TasksSharedService {
       this.copilot.dispatchWebhook(DISPATCHABLE_EVENT.TaskDeleted, {
         payload: await PublicTaskSerializer.serialize(updatedTask),
         workspaceId: this.user.workspaceId,
+        assemblyMetadata: this.user.assemblyMetadata,
       }),
     ])
 
