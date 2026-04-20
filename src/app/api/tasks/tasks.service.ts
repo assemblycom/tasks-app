@@ -327,7 +327,7 @@ export class TasksService extends TasksSharedService {
     })
     if (!prevTask) throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
 
-    const { completedBy, completedByUserType } = await this.getCompletionInfo(data?.workflowStateId)
+    const { completedBy, completedByUserType, workflowStateStatus } = await this.getCompletionInfo(data?.workflowStateId)
     const { internalUserId, clientId, companyId, ...dataWithoutUserIds } = data
 
     const shouldUpdateUserIds =
@@ -369,6 +369,7 @@ export class TasksService extends TasksSharedService {
     }
 
     const subtaskService = new SubtaskService(this.user)
+    let didCascadeCompleteSubtasks = false
 
     let updatedTask = await this.db.$transaction(async (tx) => {
       //generate new label if prevTask has no assignee but now assigned to someone
@@ -417,6 +418,20 @@ export class TasksService extends TasksSharedService {
         await subtaskService.toggleArchiveForAllSubtasks(id, data.isArchived)
       }
 
+      // Cascade completion to subtasks when parent transitions into a completed state
+      if (
+        data.workflowStateId &&
+        workflowStateStatus === StateType.completed &&
+        prevTask.workflowState.type !== StateType.completed
+      ) {
+        await subtaskService.completeAllSubtasks(id, {
+          workflowStateId: data.workflowStateId,
+          completedBy,
+          completedByUserType,
+        })
+        didCascadeCompleteSubtasks = true
+      }
+
       return updatedTask
     })
 
@@ -426,6 +441,8 @@ export class TasksService extends TasksSharedService {
       await Promise.all([
         activityLogger.logTaskUpdated(prevTask),
         this.setNewLastSubtaskUpdated(updatedTask.parentId),
+        // Bump this task's lastSubtaskUpdated so the detail page's Subtasks SWR cache revalidates
+        didCascadeCompleteSubtasks ? this.setNewLastSubtaskUpdated(id) : undefined,
         sendTaskUpdateNotifications.trigger({ prevTask, updatedTask, user: this.user }),
         dispatchUpdatedWebhookEvent(this.user, prevTask, updatedTask, false),
       ])
@@ -604,19 +621,40 @@ export class TasksService extends TasksSharedService {
       },
     })
     const data = { workflowStateId: updatedWorkflowState?.id }
+    const subtaskService = new SubtaskService(this.user)
+    let didCascadeCompleteSubtasks = false
     // Get the updated task
-    const updatedTask = await this.db.task.update({
-      where: { id },
-      data: {
-        ...data,
-        completedBy,
-        completedByUserType,
-        ...(await getTaskTimestamps('update', this.user, data, prevTask)),
-      },
-      include: {
-        workflowState: true,
-        attachments: true,
-      },
+    const updatedTask = await this.db.$transaction(async (tx) => {
+      const updated = await tx.task.update({
+        where: { id },
+        data: {
+          ...data,
+          completedBy,
+          completedByUserType,
+          ...(await getTaskTimestamps('update', this.user, data, prevTask)),
+        },
+        include: {
+          workflowState: true,
+          attachments: true,
+        },
+      })
+
+      // Cascade completion to subtasks when parent transitions into a completed state
+      if (
+        updated.workflowStateId &&
+        updatedWorkflowState?.type === StateType.completed &&
+        prevTask.workflowState.type !== StateType.completed
+      ) {
+        subtaskService.setTransaction(tx as PrismaClient)
+        await subtaskService.completeAllSubtasks(id, {
+          workflowStateId: updated.workflowStateId,
+          completedBy,
+          completedByUserType,
+        })
+        didCascadeCompleteSubtasks = true
+      }
+
+      return updated
     })
 
     if (updatedTask) {
@@ -624,6 +662,8 @@ export class TasksService extends TasksSharedService {
       await Promise.all([
         activityLogger.logTaskUpdated(prevTask),
         this.setNewLastSubtaskUpdated(updatedTask.parentId),
+        // Bump this task's lastSubtaskUpdated so the detail page's Subtasks SWR cache revalidates
+        didCascadeCompleteSubtasks ? this.setNewLastSubtaskUpdated(id) : undefined,
         dispatchUpdatedWebhookEvent(this.user, prevTask, updatedTask, false),
       ])
     }
