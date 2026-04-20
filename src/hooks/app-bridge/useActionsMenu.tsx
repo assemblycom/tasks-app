@@ -1,7 +1,5 @@
 import { ActionsMenuPayload, Clickable, Configurable } from '@/hooks/app-bridge/types'
-import { ensureHttps } from '@/utils/https'
 import { useEffect, useMemo } from 'react'
-import { DASHBOARD_DOMAIN } from '@/constants/domains'
 import { postMessageParentDashboard } from './utils'
 const getActionMenuItemId = (idx: number) => `header.actionsMenu.${idx}`
 
@@ -24,10 +22,7 @@ export function useActionsMenu(actions: Clickable[], config?: Configurable) {
       })),
     }
 
-    postMessageParentDashboard(payload)
-    if (config?.portalUrl) {
-      window.parent.postMessage(payload, ensureHttps(config.portalUrl))
-    }
+    postMessageParentDashboard(payload, config?.portalUrl)
 
     const handleMessage = (event: MessageEvent) => {
       if (
@@ -48,7 +43,8 @@ export function useActionsMenu(actions: Clickable[], config?: Configurable) {
 
   useEffect(() => {
     const handleUnload = () => {
-      postMessageParentDashboard({ type: 'header.actionsMenu', items: [] })
+      const payload: ActionsMenuPayload = { type: 'header.actionsMenu', items: [] }
+      postMessageParentDashboard(payload)
     }
     addEventListener('beforeunload', handleUnload)
     return () => {
