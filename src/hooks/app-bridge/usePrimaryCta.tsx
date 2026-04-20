@@ -1,7 +1,5 @@
 import { Clickable, Configurable, PrimaryCtaPayload } from '@/hooks/app-bridge/types'
-import { ensureHttps } from '@/utils/https'
 import { useEffect } from 'react'
-import { DASHBOARD_DOMAIN } from '@/constants/domains'
 import { postMessageParentDashboard } from './utils'
 
 export const usePrimaryCta = (primaryCta: Clickable | null, config?: Configurable) => {
@@ -15,10 +13,7 @@ export const usePrimaryCta = (primaryCta: Clickable | null, config?: Configurabl
           type: 'header.primaryCta',
         }
 
-    postMessageParentDashboard(payload)
-    if (config?.portalUrl) {
-      window.parent.postMessage(payload, ensureHttps(config.portalUrl))
-    }
+    postMessageParentDashboard(payload, config?.portalUrl)
 
     const handleMessage = (event: MessageEvent) => {
       if (event.data.type === 'header.primaryCta.onClick' && typeof event.data.id === 'string' && primaryCta?.onClick) {
@@ -35,10 +30,7 @@ export const usePrimaryCta = (primaryCta: Clickable | null, config?: Configurabl
 
   useEffect(() => {
     const handleUnload = () => {
-      postMessageParentDashboard({ type: 'header.primaryCta' })
-      if (config?.portalUrl) {
-        window.parent.postMessage({ type: 'header.primaryCta' }, ensureHttps(config.portalUrl))
-      }
+      postMessageParentDashboard({ type: 'header.primaryCta' }, config?.portalUrl)
     }
     addEventListener('beforeunload', handleUnload)
     return () => {
