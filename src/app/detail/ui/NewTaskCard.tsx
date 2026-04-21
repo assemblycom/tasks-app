@@ -265,7 +265,7 @@ export const NewTaskCard = ({
   const handleAssigneeChange = (inputValue: InputValue[]) => {
     const isIU = inputValue.length > 0 && inputValue[0].object === UserRole.IU
 
-    if (!isIU) {
+    if (inputValue.length && !isIU) {
       setTaskAssociationValue(null)
       handleFieldChange('associations', [])
     }
