@@ -30,12 +30,14 @@ import {
   getSelectedViewerIds,
   getSelectorAssignee,
   getSelectorAssigneeFromFilterOptions,
+  getSelectorAssigneeFromTask,
+  getSelectorAssociationFromTask,
 } from '@/utils/selector'
 import { resolveAutofillTags, resolveDynamicFields } from '@/utils/dynamicFields'
 import { trimAllTags } from '@/utils/trimTags'
 import { Box, Stack, Typography } from '@mui/material'
 import dayjs from 'dayjs'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Tapwrite } from 'tapwrite'
 import { useAssociationLabelForWorkspace } from '@/hooks/useWorkspaceLabel'
@@ -74,13 +76,28 @@ export const NewTaskCard = ({
         [UserIds.COMPANY_ID]: null,
       }
 
+  const inheritedAssigneeIds: UserIdsType = previewMode
+    ? assigneeIds
+    : {
+        [UserIds.INTERNAL_USER_ID]: activeTask?.internalUserId || null,
+        [UserIds.CLIENT_ID]: activeTask?.clientId || null,
+        [UserIds.COMPANY_ID]: activeTask?.companyId || null,
+      }
+
+  const [defaultWorkflowState] = useState<WorkflowStateResponse | undefined>(() => {
+    const inherited = !previewMode ? workflowStates.find((state) => state.id === activeTask?.workflowStateId) : undefined
+    return inherited || workflowStates.find((el) => el.key === 'todo') || workflowStates[0]
+  })
+
   const { tokenPayload, workspace } = useSelector(selectAuthDetails)
   const [subTaskFields, setSubTaskFields] = useState<SubTaskFields>({
     title: '',
     description: '',
-    workflowStateId: '',
-    userIds: assigneeIds,
+    workflowStateId: defaultWorkflowState?.id || '',
+    userIds: inheritedAssigneeIds,
     dueDate: null,
+    associations: !previewMode ? activeTask?.associations || [] : undefined,
+    isShared: !previewMode ? !!activeTask?.isShared : undefined,
   })
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -119,12 +136,8 @@ export const NewTaskCard = ({
 
   const todoWorkflowState = workflowStates.find((el) => el.key === 'todo') || workflowStates[0]
 
-  useEffect(() => {
-    handleFieldChange('workflowStateId', todoWorkflowState.id)
-  }, [todoWorkflowState])
-
   const { renderingItem: _statusValue, updateRenderingItem: updateStatusValue } = useHandleSelectorComponent({
-    item: todoWorkflowState,
+    item: defaultWorkflowState,
     type: SelectorType.STATUS_SELECTOR,
   })
 
@@ -145,7 +158,9 @@ export const NewTaskCard = ({
   const [assigneeValue, setAssigneeValue] = useState<IAssigneeCombined | null>(
     previewMode
       ? (getSelectorAssigneeFromFilterOptions(assignee, { internalUserId: null, ...previewClientCompany }) ?? null) // if preview mode, default select the respective client/company as assignee
-      : null,
+      : activeTask
+        ? (getSelectorAssigneeFromTask(assignee, activeTask) ?? null)
+        : null,
   )
   const previewTaskAssociation = !!previewMode
     ? (getSelectorAssigneeFromFilterOptions(
@@ -153,8 +168,11 @@ export const NewTaskCard = ({
         { internalUserId: null, ...previewClientCompany }, // if preview mode, default select the respective client/company as viewer
       ) ?? null)
     : null
-  const [taskAssociationValue, setTaskAssociationValue] = useState<IAssigneeCombined | null>(previewTaskAssociation)
-  const [isShared, setIsShared] = useState(!!previewTaskAssociation)
+  const [taskAssociationValue, setTaskAssociationValue] = useState<IAssigneeCombined | null>(
+    previewTaskAssociation ||
+      (!previewMode && activeTask ? (getSelectorAssociationFromTask(assignee, activeTask) ?? null) : null),
+  )
+  const [isShared, setIsShared] = useState(previewTaskAssociation ? true : !previewMode && !!activeTask?.isShared)
 
   const { associationLabel } = useAssociationLabelForWorkspace({ workspace, associationValue: taskAssociationValue })
 
