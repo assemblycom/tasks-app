@@ -6,7 +6,7 @@ import AttachmentLayout from '@/components/AttachmentLayout'
 import { StyledTextField } from '@/components/inputs/TextField'
 import { ConfirmDeleteUI } from '@/components/layouts/ConfirmDeleteUI'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
-import { useDebounce, useDebounceWithCancel } from '@/hooks/useDebounce'
+import { useDebounceWithCancel } from '@/hooks/useDebounce'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { selectTaskDetails, setOpenImage, setShowConfirmDeleteModal } from '@/redux/features/taskDetailsSlice'
 import store from '@/redux/store'
@@ -87,10 +87,13 @@ export const TaskEditor = ({
 
   const _titleUpdateDebounced = async (title: string) => updateTaskTitle(title)
 
-  const [titleUpdateDebounced, cancelTitleUpdateDebounced] = useDebounceWithCancel(_titleUpdateDebounced, 1500)
+  const [titleUpdateDebounced, cancelTitleUpdateDebounced, flushTitleUpdateDebounced] = useDebounceWithCancel(
+    _titleUpdateDebounced,
+    1500,
+  )
 
   const _detailsUpdateDebounced = async (details: string) => updateTaskDetail(details)
-  const detailsUpdateDebounced = useDebounce(_detailsUpdateDebounced)
+  const [detailsUpdateDebounced, , flushDetailsUpdateDebounced] = useDebounceWithCancel(_detailsUpdateDebounced)
 
   const resetTypingFlag = useCallback(() => {
     setIsUserTyping(false)
@@ -118,8 +121,28 @@ export const TaskEditor = ({
         const currentTask = activeTask
         setUpdateTitle(currentTask?.title ?? '')
       }, 300)
+      return
     }
+    flushTitleUpdateDebounced()
   }
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      flushTitleUpdateDebounced()
+      flushDetailsUpdateDebounced()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [flushTitleUpdateDebounced, flushDetailsUpdateDebounced])
+
+  useEffect(() => {
+    return () => {
+      flushTitleUpdateDebounced()
+      flushDetailsUpdateDebounced()
+    }
+    // Flushes the *previous* task's pending saves before props settle for the new one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task_id])
 
   const handleDetailChange = (content: string) => {
     if (!didMount.current) {
@@ -190,6 +213,7 @@ export const TaskEditor = ({
               handleDetailChange(content)
             }
           }}
+          onBlur={flushDetailsUpdateDebounced}
           readonly={!isEditable}
           editorClass="tapwrite-task-editor"
           placeholder="Add description..."

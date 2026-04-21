@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 
 type Timer = ReturnType<typeof setTimeout>
 type SomeFunction = (...args: any[]) => void
@@ -11,19 +11,37 @@ type SomeFunction = (...args: any[]) => void
 
 export function useDebounce<Func extends SomeFunction>(func: Func, delay = 500) {
   const timer = useRef<Timer | null>(null)
+  const pendingArgs = useRef<Parameters<Func> | null>(null)
+  // Captured at call time — not via a ref that follows every render — so a pending
+  // save always fires against the callback that was live when the user typed.
+  const pendingFunc = useRef<Func | null>(null)
+
   useEffect(() => {
     return () => {
-      if (!timer.current) return
-      clearTimeout(timer.current)
+      if (timer.current) {
+        clearTimeout(timer.current)
+        timer.current = null
+      }
+      const fn = pendingFunc.current
+      const args = pendingArgs.current
+      pendingFunc.current = null
+      pendingArgs.current = null
+      if (fn && args) fn(...args)
     }
   }, [])
 
   const debouncedFunction = ((...args: Parameters<Func>) => {
-    const newTimer = setTimeout(() => {
-      func(...args)
+    pendingArgs.current = args
+    pendingFunc.current = func
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => {
+      timer.current = null
+      const fn = pendingFunc.current
+      const a = pendingArgs.current
+      pendingFunc.current = null
+      pendingArgs.current = null
+      if (fn && a) fn(...a)
     }, delay)
-    timer.current && clearTimeout(timer.current)
-    timer.current = newTimer
   }) as Func
 
   return debouncedFunction
@@ -31,27 +49,47 @@ export function useDebounce<Func extends SomeFunction>(func: Func, delay = 500) 
 
 export function useDebounceWithCancel<Func extends SomeFunction>(func: Func, delay = 500) {
   const timer = useRef<Timer | null>(null)
-  useEffect(() => {
-    return () => {
-      if (!timer.current) return
-      clearTimeout(timer.current)
-    }
-  }, [])
+  const pendingArgs = useRef<Parameters<Func> | null>(null)
+  const pendingFunc = useRef<Func | null>(null)
 
-  const debouncedFunction = ((...args: Parameters<Func>) => {
-    const newTimer = setTimeout(() => {
-      func(...args)
-    }, delay)
-    timer.current && clearTimeout(timer.current)
-    timer.current = newTimer
-  }) as Func
-
-  const cancel = () => {
+  const flush = useCallback(() => {
     if (timer.current) {
       clearTimeout(timer.current)
       timer.current = null
     }
-  }
+    const fn = pendingFunc.current
+    const args = pendingArgs.current
+    pendingFunc.current = null
+    pendingArgs.current = null
+    if (fn && args) fn(...args)
+  }, [])
 
-  return [debouncedFunction, cancel] as const
+  const cancel = useCallback(() => {
+    if (timer.current) {
+      clearTimeout(timer.current)
+      timer.current = null
+    }
+    pendingFunc.current = null
+    pendingArgs.current = null
+  }, [])
+
+  useEffect(() => {
+    return flush
+  }, [flush])
+
+  const debouncedFunction = ((...args: Parameters<Func>) => {
+    pendingArgs.current = args
+    pendingFunc.current = func
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => {
+      timer.current = null
+      const fn = pendingFunc.current
+      const a = pendingArgs.current
+      pendingFunc.current = null
+      pendingArgs.current = null
+      if (fn && a) fn(...a)
+    }, delay)
+  }) as Func
+
+  return [debouncedFunction, cancel, flush] as const
 }
