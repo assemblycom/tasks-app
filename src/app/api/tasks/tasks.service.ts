@@ -21,7 +21,7 @@ import { Resource } from '@api/core/types/api'
 import { UserAction, UserRole } from '@api/core/types/user'
 import { LabelMappingService } from '@api/label-mapping/label-mapping.service'
 import { PublicTaskSerializer } from '@api/tasks/public/public.serializer'
-import { SubtaskService } from '@api/tasks/subtasks.service'
+import { SubtaskCascadePair, SubtaskService } from '@api/tasks/subtasks.service'
 import { dispatchUpdatedWebhookEvent, getArchivedStatus, getTaskTimestamps } from '@api/tasks/tasks.helpers'
 import { TasksActivityLogger } from '@api/tasks/tasks.logger'
 import { TasksSharedService } from '@/app/api/tasks/tasksShared.service'
@@ -369,7 +369,7 @@ export class TasksService extends TasksSharedService {
     }
 
     const subtaskService = new SubtaskService(this.user)
-    let didCascadeCompleteSubtasks = false
+    let cascadedSubtasks: SubtaskCascadePair[] = []
 
     let updatedTask = await this.db.$transaction(async (tx) => {
       //generate new label if prevTask has no assignee but now assigned to someone
@@ -418,18 +418,19 @@ export class TasksService extends TasksSharedService {
         await subtaskService.toggleArchiveForAllSubtasks(id, data.isArchived)
       }
 
-      // Cascade completion to subtasks when parent transitions into a completed state
-      if (
-        data.workflowStateId &&
-        workflowStateStatus === StateType.completed &&
-        prevTask.workflowState.type !== StateType.completed
-      ) {
-        await subtaskService.completeAllSubtasks(id, {
-          workflowStateId: data.workflowStateId,
-          completedBy,
-          completedByUserType,
-        })
-        didCascadeCompleteSubtasks = true
+      // Cascade workflowState to subtasks when parent transitions in/out of a completed state
+      if (data.workflowStateId) {
+        const prevWasCompleted = prevTask.workflowState.type === StateType.completed
+        const newIsCompleted = workflowStateStatus === StateType.completed
+        if (!prevWasCompleted && newIsCompleted) {
+          cascadedSubtasks = await subtaskService.completeAllSubtasks(id, {
+            workflowStateId: data.workflowStateId,
+            completedBy,
+            completedByUserType,
+          })
+        } else if (prevWasCompleted && !newIsCompleted) {
+          cascadedSubtasks = await subtaskService.uncompleteAllSubtasks(id, { workflowStateId: data.workflowStateId })
+        }
       }
 
       return updatedTask
@@ -442,9 +443,11 @@ export class TasksService extends TasksSharedService {
         activityLogger.logTaskUpdated(prevTask),
         this.setNewLastSubtaskUpdated(updatedTask.parentId),
         // Bump this task's lastSubtaskUpdated so the detail page's Subtasks SWR cache revalidates
-        didCascadeCompleteSubtasks ? this.setNewLastSubtaskUpdated(id) : undefined,
+        cascadedSubtasks.length > 0 ? this.setNewLastSubtaskUpdated(id) : undefined,
         sendTaskUpdateNotifications.trigger({ prevTask, updatedTask, user: this.user }),
         dispatchUpdatedWebhookEvent(this.user, prevTask, updatedTask, false),
+        // Dispatch per-subtask webhooks for cascaded state changes
+        ...cascadedSubtasks.map(({ prev, updated }) => dispatchUpdatedWebhookEvent(this.user, prev, updated, false)),
       ])
     }
 
@@ -622,7 +625,7 @@ export class TasksService extends TasksSharedService {
     })
     const data = { workflowStateId: updatedWorkflowState?.id }
     const subtaskService = new SubtaskService(this.user)
-    let didCascadeCompleteSubtasks = false
+    let cascadedSubtasks: SubtaskCascadePair[] = []
     // Get the updated task
     const updatedTask = await this.db.$transaction(async (tx) => {
       const updated = await tx.task.update({
@@ -639,19 +642,21 @@ export class TasksService extends TasksSharedService {
         },
       })
 
-      // Cascade completion to subtasks when parent transitions into a completed state
-      if (
-        updated.workflowStateId &&
-        updatedWorkflowState?.type === StateType.completed &&
-        prevTask.workflowState.type !== StateType.completed
-      ) {
-        subtaskService.setTransaction(tx as PrismaClient)
-        await subtaskService.completeAllSubtasks(id, {
-          workflowStateId: updated.workflowStateId,
-          completedBy,
-          completedByUserType,
-        })
-        didCascadeCompleteSubtasks = true
+      // Cascade workflowState to subtasks when parent transitions in/out of a completed state
+      if (updated.workflowStateId) {
+        const prevWasCompleted = prevTask.workflowState.type === StateType.completed
+        const newIsCompleted = updatedWorkflowState?.type === StateType.completed
+        if (!prevWasCompleted && newIsCompleted) {
+          subtaskService.setTransaction(tx as PrismaClient)
+          cascadedSubtasks = await subtaskService.completeAllSubtasks(id, {
+            workflowStateId: updated.workflowStateId,
+            completedBy,
+            completedByUserType,
+          })
+        } else if (prevWasCompleted && !newIsCompleted) {
+          subtaskService.setTransaction(tx as PrismaClient)
+          cascadedSubtasks = await subtaskService.uncompleteAllSubtasks(id, { workflowStateId: updated.workflowStateId })
+        }
       }
 
       return updated
@@ -663,8 +668,10 @@ export class TasksService extends TasksSharedService {
         activityLogger.logTaskUpdated(prevTask),
         this.setNewLastSubtaskUpdated(updatedTask.parentId),
         // Bump this task's lastSubtaskUpdated so the detail page's Subtasks SWR cache revalidates
-        didCascadeCompleteSubtasks ? this.setNewLastSubtaskUpdated(id) : undefined,
+        cascadedSubtasks.length > 0 ? this.setNewLastSubtaskUpdated(id) : undefined,
         dispatchUpdatedWebhookEvent(this.user, prevTask, updatedTask, false),
+        // Dispatch per-subtask webhooks for cascaded state changes
+        ...cascadedSubtasks.map(({ prev, updated }) => dispatchUpdatedWebhookEvent(this.user, prev, updated, false)),
       ])
     }
 
