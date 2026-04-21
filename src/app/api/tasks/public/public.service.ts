@@ -431,8 +431,12 @@ export class PublicTasksService extends TasksSharedService {
         cascadedSubtasks.length > 0 ? this.setNewLastSubtaskUpdated(id) : undefined,
         sendTaskUpdateNotifications.trigger({ prevTask, updatedTask, user: this.user }),
         dispatchUpdatedWebhookEvent(this.user, prevTask, updatedTask, true),
-        // Dispatch per-subtask webhooks for cascaded state changes
-        ...cascadedSubtasks.map(({ prev, updated }) => dispatchUpdatedWebhookEvent(this.user, prev, updated, true)),
+        // Dispatch activity logs, notifications, and webhooks for each cascaded subtask
+        ...cascadedSubtasks.flatMap(({ prev, updated }) => [
+          new TasksActivityLogger(this.user, updated).logTaskUpdated(prev),
+          sendTaskUpdateNotifications.trigger({ prevTask: prev, updatedTask: updated, user: this.user }),
+          dispatchUpdatedWebhookEvent(this.user, prev, updated, true),
+        ]),
         isBodyChanged ? queueBodyUpdatedWebhook(this.user, updatedTask) : undefined,
       ])
     }
