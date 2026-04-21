@@ -263,16 +263,16 @@ export const NewTaskCard = ({
   }
 
   const handleAssigneeChange = (inputValue: InputValue[]) => {
-    if (inputValue.length && inputValue[0].object !== UserRole.IU) {
+    const isIU = inputValue.length > 0 && inputValue[0].object === UserRole.IU
+
+    if (!isIU) {
       setTaskAssociationValue(null)
       handleFieldChange('associations', [])
     }
-    if (inputValue.length) {
-      setIsShared(false)
-      handleFieldChange('isShared', false)
-    }
+    setIsShared(false)
+    handleFieldChange('isShared', false)
 
-    if (!!previewMode && inputValue.length && inputValue[0].object === UserRole.IU && previewClientCompany.companyId) {
+    if (!!previewMode && isIU && previewClientCompany.companyId) {
       if (!taskAssociationValue) {
         const viewerValue =
           getSelectorAssigneeFromFilterOptions(
