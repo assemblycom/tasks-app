@@ -72,20 +72,25 @@ export default function TemplateDetails({
   }, [activeTemplate?.title, activeTemplate?.body, template_id, activeUploads, template])
 
   const _titleUpdateDebounced = async (title: string) => updateTemplateTitle(title)
-  const [titleUpdateDebounced, cancelTitleUpdateDebounced, flushTitleUpdateDebounced] = useDebounceWithCancel(
-    _titleUpdateDebounced,
-    1500,
-  )
+  const {
+    debounced: titleUpdateDebounced,
+    cancel: cancelTitleUpdateDebounced,
+    flush: flushTitleUpdateDebounced,
+  } = useDebounceWithCancel(_titleUpdateDebounced, 1500)
 
   const _detailsUpdateDebounced = async (details: string) => updateTemplateDetail(details)
-  const [detailsUpdateDebounced, , flushDetailsUpdateDebounced] = useDebounceWithCancel(_detailsUpdateDebounced)
+  const { debounced: detailsUpdateDebounced, flush: flushDetailsUpdateDebounced } =
+    useDebounceWithCancel(_detailsUpdateDebounced)
 
   const resetTypingFlag = useCallback(() => {
     setIsUserTyping(false)
   }, [])
 
-  const [debouncedResetTypingFlag, _cancelDebouncedResetTypingFlag] = useDebounceWithCancel(resetTypingFlag, 1500)
-  const [debouncedResetTypingFlagTitle, cancelDebouncedResetTypingFlagTitle] = useDebounceWithCancel(resetTypingFlag, 2500)
+  const { debounced: debouncedResetTypingFlag } = useDebounceWithCancel(resetTypingFlag, 1500)
+  const { debounced: debouncedResetTypingFlagTitle, cancel: cancelDebouncedResetTypingFlagTitle } = useDebounceWithCancel(
+    resetTypingFlag,
+    2500,
+  )
 
   const handleTitleChange = (newTitle: string) => {
     setUpdateTitle(newTitle)
