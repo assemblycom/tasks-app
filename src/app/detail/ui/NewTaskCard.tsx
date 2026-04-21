@@ -85,7 +85,7 @@ export const NewTaskCard = ({
       }
 
   const [defaultWorkflowState] = useState<WorkflowStateResponse | undefined>(() => {
-    const inherited = !previewMode ? workflowStates.find((state) => state.id === activeTask?.workflowStateId) : undefined
+    const inherited = workflowStates.find((state) => state.id === activeTask?.workflowStateId)
     return inherited || workflowStates.find((el) => el.key === 'todo') || workflowStates[0]
   })
 
@@ -169,10 +169,9 @@ export const NewTaskCard = ({
       ) ?? null)
     : null
   const [taskAssociationValue, setTaskAssociationValue] = useState<IAssigneeCombined | null>(
-    previewTaskAssociation ||
-      (!previewMode && activeTask ? (getSelectorAssociationFromTask(assignee, activeTask) ?? null) : null),
+    previewTaskAssociation || (activeTask ? (getSelectorAssociationFromTask(assignee, activeTask) ?? null) : null),
   )
-  const [isShared, setIsShared] = useState(previewTaskAssociation ? true : !previewMode && !!activeTask?.isShared)
+  const [isShared, setIsShared] = useState(previewTaskAssociation ? true : !!activeTask?.isShared)
 
   const { associationLabel } = useAssociationLabelForWorkspace({ workspace, associationValue: taskAssociationValue })
 
