@@ -7,7 +7,7 @@ import { useDynamicFieldInsert } from '@/context/hooks/useDynamicFieldInsert'
 import type { Editor } from '@tiptap/react'
 import { ConfirmDeleteUI } from '@/components/layouts/ConfirmDeleteUI'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
-import { useDebounce, useDebounceWithCancel } from '@/hooks/useDebounce'
+import { useDebounceWithCancel } from '@/hooks/useDebounce'
 import { selectTaskDetails, setOpenImage, setShowConfirmDeleteModal } from '@/redux/features/taskDetailsSlice'
 import { clearTemplateFields, selectCreateTemplate } from '@/redux/features/templateSlice'
 import store from '@/redux/store'
@@ -72,10 +72,13 @@ export default function TemplateDetails({
   }, [activeTemplate?.title, activeTemplate?.body, template_id, activeUploads, template])
 
   const _titleUpdateDebounced = async (title: string) => updateTemplateTitle(title)
-  const [titleUpdateDebounced, cancelTitleUpdateDebounced] = useDebounceWithCancel(_titleUpdateDebounced, 1500)
+  const [titleUpdateDebounced, cancelTitleUpdateDebounced, flushTitleUpdateDebounced] = useDebounceWithCancel(
+    _titleUpdateDebounced,
+    1500,
+  )
 
   const _detailsUpdateDebounced = async (details: string) => updateTemplateDetail(details)
-  const detailsUpdateDebounced = useDebounce(_detailsUpdateDebounced)
+  const [detailsUpdateDebounced, , flushDetailsUpdateDebounced] = useDebounceWithCancel(_detailsUpdateDebounced)
 
   const resetTypingFlag = useCallback(() => {
     setIsUserTyping(false)
@@ -95,6 +98,24 @@ export default function TemplateDetails({
     titleUpdateDebounced(newTitle)
     debouncedResetTypingFlagTitle()
   }
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      flushTitleUpdateDebounced()
+      flushDetailsUpdateDebounced()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [flushTitleUpdateDebounced, flushDetailsUpdateDebounced])
+
+  useEffect(() => {
+    return () => {
+      flushTitleUpdateDebounced()
+      flushDetailsUpdateDebounced()
+    }
+    // Flushes the *previous* template's pending saves before props settle for the new one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template_id])
   const titleEditorRef = useRef<Editor | null>(null)
   const tapwriteEditorRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>
   const tapwriteWrapperRef = useRef<HTMLDivElement>(null)
@@ -259,6 +280,9 @@ export default function TemplateDetails({
           editor.on('focus', () => {
             lastFocusedRef.current = 'title'
           })
+          editor.on('blur', () => {
+            flushTitleUpdateDebounced()
+          })
         }}
         fontSize="20px"
         lineHeight="28px"
@@ -272,6 +296,7 @@ export default function TemplateDetails({
           onFocus={() => {
             lastFocusedRef.current = 'description'
           }}
+          onBlur={flushDetailsUpdateDebounced}
           getContent={(content: string) => {
             if (updateDetail !== '') {
               handleDetailChange(content)
