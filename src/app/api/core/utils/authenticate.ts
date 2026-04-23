@@ -48,9 +48,9 @@ const authenticate = async (req: NextRequest) => {
   const user = await authenticateWithToken(tokenParsed.data)
 
   // Capture assembly proxy metadata headers, falling back to browser headers
-  // const isPublicRoute = req.nextUrl.pathname.includes('/public/')
+  const isPublicRoute = req.nextUrl.pathname.includes('/public/')
   user.assemblyMetadata = {
-    source: req.headers.get('x-assembly-source') ?? 'platform', //hardcode platform for now.
+    source: req.headers.get('x-assembly-source') ?? (isPublicRoute ? 'platform' : 'web'),
     clientIp: req.headers.get('x-assembly-client-ip') ?? req.headers.get('x-real-ip') ?? undefined,
     userAgent: req.headers.get('x-assembly-user-agent') ?? req.headers.get('user-agent') ?? undefined,
   }
