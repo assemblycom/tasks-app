@@ -448,7 +448,7 @@ export default function Selector<T extends keyof SelectorOptionsType>({
 
             return <></>
           }}
-          noOptionsText={endOption && <ListWithEndOption />}
+          noOptionsText={endOption && <ListWithEndOption endOption={endOption} endOptionHref={endOptionHref} />}
         />
       </Popper>
     </Stack>
