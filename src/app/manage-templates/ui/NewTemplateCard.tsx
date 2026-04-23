@@ -136,7 +136,7 @@ export const NewTemplateCard = ({
             placeholder="Add description.."
             editorClass="tapwrite-task-editor"
             uploadFn={uploadFn}
-            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', null, null)}
+            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TEMPLATE)}
             attachmentLayout={(props) => (
               <AttachmentLayout {...props} isComment={true} onUploadStatusChange={handleUploadStatusChange} />
             )}

@@ -15,6 +15,12 @@ export type CopilotListArgs = {
   nextToken?: string
 }
 
+export interface AssemblyMetadata {
+  source?: string
+  clientIp?: string
+  userAgent?: string
+}
+
 export const TokenSchema = z.object({
   clientId: z.string().optional(),
   companyId: z
@@ -216,8 +222,9 @@ export const NotificationRequestBodySchema = z
 
 export const ScrapMediaRequestSchema = z.object({
   filePath: z.string(),
-  taskId: z.string().uuid().nullable(),
-  templateId: z.string().uuid().nullable(),
+  taskId: z.string().uuid().optional(),
+  templateId: z.string().uuid().optional(),
+  commentId: z.string().uuid().optional(),
 })
 
 export type ScrapMediaRequest = z.infer<typeof ScrapMediaRequestSchema>

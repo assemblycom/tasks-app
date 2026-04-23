@@ -6,13 +6,13 @@ import AttachmentLayout from '@/components/AttachmentLayout'
 import { StyledTextField } from '@/components/inputs/TextField'
 import { ConfirmDeleteUI } from '@/components/layouts/ConfirmDeleteUI'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
-import { useDebounce, useDebounceWithCancel } from '@/hooks/useDebounce'
+import { useDebounceWithCancel } from '@/hooks/useDebounce'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { selectTaskDetails, setOpenImage, setShowConfirmDeleteModal } from '@/redux/features/taskDetailsSlice'
 import store from '@/redux/store'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
-import { UserType } from '@/types/interfaces'
+import { AttachmentTypes, UserType } from '@/types/interfaces'
 import { getDeleteMessage } from '@/utils/dialogMessages'
 import { deleteEditorAttachmentsHandler, getAttachmentPayload, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { Box } from '@mui/material'
@@ -87,17 +87,25 @@ export const TaskEditor = ({
 
   const _titleUpdateDebounced = async (title: string) => updateTaskTitle(title)
 
-  const [titleUpdateDebounced, cancelTitleUpdateDebounced] = useDebounceWithCancel(_titleUpdateDebounced, 1500)
+  const {
+    debounced: titleUpdateDebounced,
+    cancel: cancelTitleUpdateDebounced,
+    flush: flushTitleUpdateDebounced,
+  } = useDebounceWithCancel(_titleUpdateDebounced, 1500)
 
   const _detailsUpdateDebounced = async (details: string) => updateTaskDetail(details)
-  const detailsUpdateDebounced = useDebounce(_detailsUpdateDebounced)
+  const { debounced: detailsUpdateDebounced, flush: flushDetailsUpdateDebounced } =
+    useDebounceWithCancel(_detailsUpdateDebounced)
 
   const resetTypingFlag = useCallback(() => {
     setIsUserTyping(false)
   }, [])
 
-  const [debouncedResetTypingFlag, _cancelDebouncedResetTypingFlag] = useDebounceWithCancel(resetTypingFlag, 1500)
-  const [debouncedResetTypingFlagTitle, cancelDebouncedResetTypingFlagTitle] = useDebounceWithCancel(resetTypingFlag, 2500)
+  const { debounced: debouncedResetTypingFlag } = useDebounceWithCancel(resetTypingFlag, 1500)
+  const { debounced: debouncedResetTypingFlagTitle, cancel: cancelDebouncedResetTypingFlagTitle } = useDebounceWithCancel(
+    resetTypingFlag,
+    2500,
+  )
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value
@@ -118,8 +126,28 @@ export const TaskEditor = ({
         const currentTask = activeTask
         setUpdateTitle(currentTask?.title ?? '')
       }, 300)
+      return
     }
+    flushTitleUpdateDebounced()
   }
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      flushTitleUpdateDebounced()
+      flushDetailsUpdateDebounced()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [flushTitleUpdateDebounced, flushDetailsUpdateDebounced])
+
+  useEffect(() => {
+    return () => {
+      flushTitleUpdateDebounced()
+      flushDetailsUpdateDebounced()
+    }
+    // Flushes the *previous* task's pending saves before props settle for the new one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task_id])
 
   const handleDetailChange = (content: string) => {
     if (!didMount.current) {
@@ -190,12 +218,13 @@ export const TaskEditor = ({
               handleDetailChange(content)
             }
           }}
+          onBlur={flushDetailsUpdateDebounced}
           readonly={!isEditable}
           editorClass="tapwrite-task-editor"
           placeholder="Add description..."
           uploadFn={uploadFn}
           handleImageDoubleClick={handleImagePreview}
-          deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', task_id, null)}
+          deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TASK, task_id)}
           attachmentLayout={(props) => <AttachmentLayout {...props} />}
           addAttachmentButton
           maxUploadLimit={MAX_UPLOAD_LIMIT}

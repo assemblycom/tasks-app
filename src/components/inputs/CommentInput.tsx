@@ -9,6 +9,7 @@ import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { CreateComment } from '@/types/dto/comment.dto'
+import { AttachmentTypes } from '@/types/interfaces'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
 import { getMentionsList } from '@/utils/getMentionList'
@@ -168,7 +169,7 @@ export const CommentInput = ({ createComment, task_id, token }: Prop) => {
             whiteSpace: 'pre-wrap',
           }}
           uploadFn={uploadFn}
-          deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', task_id, null)}
+          deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.COMMENT)}
           attachmentLayout={(props) => (
             <AttachmentLayout {...props} isComment={true} onUploadStatusChange={handleUploadStatusChange} />
           )}

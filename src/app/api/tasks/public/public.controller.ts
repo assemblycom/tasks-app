@@ -10,6 +10,8 @@ import { decode, encode } from 'js-base64'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { PublicTasksService } from '@api/tasks/public/public.service'
+import { ValidateUuid } from '@api/core/utils/validateUuid'
+import { PublicResource } from '@api/core/types/public'
 
 export const getAllTasksPublic = async (req: NextRequest) => {
   const user = await authenticate(req)
@@ -54,6 +56,7 @@ export const getAllTasksPublic = async (req: NextRequest) => {
 
 export const getOneTaskPublic = async (req: NextRequest, { params }: IdParams) => {
   const { id } = await params
+  ValidateUuid(id, PublicResource.Tasks)
   const user = await authenticate(req)
   const tasksService = new PublicTasksService(user)
   const task = await tasksService.getOneTask(id)
@@ -78,6 +81,7 @@ export const createTaskPublic = async (req: NextRequest) => {
 
 export const updateTaskPublic = async (req: NextRequest, { params }: IdParams) => {
   const { id } = await params
+  ValidateUuid(id, PublicResource.Tasks)
   const user = await authenticate(req)
   const data = PublicTaskUpdateDtoSchema.parse(await req.json())
 
@@ -90,6 +94,7 @@ export const updateTaskPublic = async (req: NextRequest, { params }: IdParams) =
 
 export const deleteOneTaskPublic = async (req: NextRequest, { params }: IdParams) => {
   const { id } = await params
+  ValidateUuid(id, PublicResource.Tasks)
   const recursive = req.nextUrl.searchParams.get('recursive')
   const user = await authenticate(req)
   const tasksService = new PublicTasksService(user)

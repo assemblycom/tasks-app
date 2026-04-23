@@ -19,7 +19,7 @@ import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { UpdateComment } from '@/types/dto/comment.dto'
 import { AttachmentTypes, IAssigneeCombined } from '@/types/interfaces'
 import { getAssigneeName } from '@/utils/assignee'
-import { deleteEditorAttachmentsHandler, getAttachmentPayload } from '@/utils/attachmentUtils'
+import { deleteEditorAttachmentsHandler, getAttachmentPayload, getCustomFilePath } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
 import { getTimeDifference } from '@/utils/getTimeDifference'
 import { isTapwriteContentEmpty } from '@/utils/isTapwriteContentEmpty'
@@ -245,7 +245,13 @@ export const ReplyCard = ({
               editorClass={isReadOnly ? 'tapwrite-comment' : 'tapwrite-comment-editable'}
               addAttachmentButton={!isReadOnly}
               uploadFn={uploadFn}
-              deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', task_id, null)}
+              deleteEditorAttachments={(url) => {
+                const commentId = z.string().parse(commentIdRef.current)
+                const customFilePath = tokenPayload?.workspaceId
+                  ? getCustomFilePath(tokenPayload?.workspaceId, task_id, commentId, url)
+                  : undefined
+                return deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.COMMENT, commentId, customFilePath)
+              }}
               maxUploadLimit={MAX_UPLOAD_LIMIT}
               attachmentLayout={(props) => <AttachmentLayout {...props} isComment={true} />}
               hardbreak

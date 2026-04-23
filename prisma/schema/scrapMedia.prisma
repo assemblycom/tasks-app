@@ -8,6 +8,10 @@ model ScrapMedia {
   deletedAt   DateTime?    @db.Timestamptz()
   templateId  String?      @db.Uuid
   template    TaskTemplate? @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  commentId   String?      @db.Uuid
+  comment     Comment?     @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+
 
   @@index([createdAt])
   @@index([filePath])

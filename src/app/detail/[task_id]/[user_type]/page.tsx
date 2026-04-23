@@ -251,6 +251,7 @@ export default async function TaskDetailPage(props: {
                 userType={user_type}
                 portalUrl={workspace.portalUrl}
                 selectedWorkflowState={task?.workflowState}
+                fromNotificationCenter={fromNotificationCenter}
                 updateWorkflowState={async (workflowState) => {
                   'use server'
                   params.user_type === UserType.CLIENT_USER && !getPreviewMode(tokenPayload)

@@ -21,7 +21,7 @@ import { selectCreateTemplate } from '@/redux/features/templateSlice'
 import { DateString } from '@/types/date'
 import { CreateTaskRequest, Associations } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
-import { FilterByOptions, IAssigneeCombined, InputValue, ITemplate, UserIds } from '@/types/interfaces'
+import { AttachmentTypes, FilterByOptions, IAssigneeCombined, InputValue, ITemplate, UserIds } from '@/types/interfaces'
 import { getAssigneeName, UserIdsType } from '@/utils/assignee'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
@@ -372,7 +372,7 @@ export const NewTaskCard = ({
             placeholder="Add description.."
             editorClass="tapwrite-task-editor"
             uploadFn={uploadFn}
-            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', null, null)}
+            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TASK)}
             attachmentLayout={(props) => (
               <AttachmentLayout {...props} isComment={true} onUploadStatusChange={handleUploadStatusChange} />
             )}
