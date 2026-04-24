@@ -160,20 +160,17 @@ const getInitiatorNotificationPromises = (
   // Forces recipient branch when initiator.initiatorType is unset (legacy comments)
   assume?: CommentInitiator,
 ) => {
+  const base = { senderId, senderType, senderCompanyId }
   let body: NotificationRequestBody
   if (initiator.initiatorType === CommentInitiator.internalUser || assume === CommentInitiator.internalUser) {
     body = {
-      senderId,
-      senderType,
-      senderCompanyId,
+      ...base,
       recipientInternalUserId: initiator.initiatorId,
       deliveryTargets: { inProduct: deliveryTargets.inProduct },
     }
   } else if (initiator.initiatorType === CommentInitiator.client || assume === CommentInitiator.client) {
     body = {
-      senderId,
-      senderType,
-      senderCompanyId,
+      ...base,
       recipientClientId: initiator.initiatorId,
       recipientCompanyId: initiatorCompanyId,
       deliveryTargets: { email: deliveryTargets.email },
