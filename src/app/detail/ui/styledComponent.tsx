@@ -242,13 +242,9 @@ export const CustomDivider = styled(Box)(({ theme }) => ({
   marginRight: '-10px',
 }))
 
-export const StyledUserCompanySelector = styled(UserCompanySelector)(({ theme }) => ({
+export const StyledUserCompanySelector = styled(UserCompanySelector)(() => ({
   width: '294px',
   height: '40px',
-  '& [class*="cop-border-primary"]': {
-    borderColor: `${theme.color.borders.borderDisabled}`,
-    backgroundColor: `${theme.color.base.white}`,
-  },
   '& [class*="mui-no1ryp"]': {
     maxHeight: '205px',
   },
