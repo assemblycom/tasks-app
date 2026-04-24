@@ -87,7 +87,7 @@ export const sendReplyCreateNotifications = task({
         (initiator) => initiator.initiatorId === parentComment.initiatorId,
       )
       if (!isParentCommentDeleted && !parentInitiatorIsCurrentUser && !isNotificationAlreadySent) {
-        let promise = getInitiatorNotificationPromises(
+        const typedPromise = getInitiatorNotificationPromises(
           copilot,
           parentComment,
           senderId,
@@ -97,8 +97,9 @@ export const sendReplyCreateNotifications = task({
           payload.task.companyId || undefined,
         )
         // If there is no "initiatorType" for parentComment we have to be slightly creative (coughhackycough)
-        if (!promise) {
-          promise = getNotificationToUntypedInitiator(
+        const promise =
+          typedPromise ??
+          getNotificationToUntypedInitiator(
             copilot,
             parentComment,
             payload.task,
@@ -107,7 +108,6 @@ export const sendReplyCreateNotifications = task({
             senderCompanyId,
             deliveryTargets,
           )
-        }
         queueNotificationPromise(promise)
       }
     }
@@ -232,5 +232,8 @@ const getNotificationToUntypedInitiator = async (
     deliveryTargets,
     task.companyId || undefined,
     CommentInitiator.client,
-  )!
+  )!.catch((e) => {
+    console.error(e)
+    return undefined
+  })
 }
