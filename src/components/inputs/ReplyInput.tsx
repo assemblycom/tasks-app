@@ -7,6 +7,7 @@ import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { CreateComment } from '@/types/dto/comment.dto'
 import { deleteEditorAttachmentsHandler } from '@/utils/attachmentUtils'
+import { isPopoverInputFocused } from '@/utils/isPopoverInputFocused'
 import { isTapwriteContentEmpty } from '@/utils/isTapwriteContentEmpty'
 import { Box, Stack } from '@mui/material'
 import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
@@ -109,6 +110,7 @@ export const ReplyInput = ({
   useEffect(() => {
     setTimeout(() => {
       if (editorRef.current && focusReplyInput) {
+        if (isPopoverInputFocused(editorRef.current)) return
         editorRef.current.focus()
       }
     }, 100)
