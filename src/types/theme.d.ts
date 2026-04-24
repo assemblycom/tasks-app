@@ -96,6 +96,7 @@ export declare module '@mui/material/styles' {
       }
       error: string
       muiError: string
+      link: string
     }
   }
 
@@ -193,6 +194,7 @@ export declare module '@mui/material/styles' {
       }
       error: React.CSSProperties['color']
       muiError: React.CSSProperties['color']
+      link: React.CSSProperties['color']
     }
   }
 
