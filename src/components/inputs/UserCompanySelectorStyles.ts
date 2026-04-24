@@ -19,6 +19,9 @@ export const userCompanySelectorStyles: UserCompanySelectorStyles = {
     borderColor: '#EFF1F4',
     backgroundColor: '#FFFFFF',
     boxShadow: 'none',
+    '&:hover': {
+      borderColor: '#EFF1F4',
+    },
     '&:focus-within': {
       borderColor: '#EFF1F4',
     },
