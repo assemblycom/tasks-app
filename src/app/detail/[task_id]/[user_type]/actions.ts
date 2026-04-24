@@ -5,6 +5,13 @@ import { ScrapMediaRequest } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { CreateComment, UpdateComment } from '@/types/dto/comment.dto'
 import { UpdateTaskRequest, Associations } from '@/types/dto/tasks.dto'
+import { headers } from 'next/headers'
+
+const getForwardedAssemblyHeaders = async (): Promise<Record<string, string>> => {
+  const h = await headers()
+  const userAgent = h.get('user-agent')
+  return userAgent ? { 'x-assembly-user-agent': userAgent } : {}
+}
 
 export const updateTaskDetail = async ({
   token,
@@ -17,6 +24,7 @@ export const updateTaskDetail = async ({
 }) => {
   await fetch(`${apiUrl}/api/tasks/${taskId}?token=${token}`, {
     method: 'PATCH',
+    headers: await getForwardedAssemblyHeaders(),
     body: JSON.stringify({
       workflowStateId: payload.workflowStateId,
       internalUserId: payload.internalUserId,
@@ -36,6 +44,7 @@ export const updateTaskDetail = async ({
 export const updateWorkflowStateIdOfTask = async (token: string, taskId: string, targetWorkflowStateId: string) => {
   await fetch(`${apiUrl}/api/tasks/${taskId}?token=${token}`, {
     method: 'PATCH',
+    headers: await getForwardedAssemblyHeaders(),
     body: JSON.stringify({
       workflowStateId: targetWorkflowStateId,
     }),
@@ -53,6 +62,7 @@ export const updateAssignee = async (
 ) => {
   await fetch(`${apiUrl}/api/tasks/${task_id}?token=${token}`, {
     method: 'PATCH',
+    headers: await getForwardedAssemblyHeaders(),
     body: JSON.stringify({
       internalUserId,
       clientId,
@@ -66,12 +76,14 @@ export const updateAssignee = async (
 export const clientUpdateTask = async (token: string, taskId: string, targetWorkflowStateId: string) => {
   await fetch(`${apiUrl}/api/tasks/${taskId}/client?token=${token}&workflowStateId=${targetWorkflowStateId}`, {
     method: 'PATCH',
+    headers: await getForwardedAssemblyHeaders(),
   })
 }
 
 export const deleteTask = async (token: string, task_id: string) => {
   await fetch(`${apiUrl}/api/tasks/${task_id}?token=${token}`, {
     method: 'DELETE',
+    headers: await getForwardedAssemblyHeaders(),
   })
 }
 

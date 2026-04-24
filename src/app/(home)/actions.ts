@@ -4,6 +4,13 @@ import { apiUrl } from '@/config'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { CreateTaskRequest, UpdateTaskRequest } from '@/types/dto/tasks.dto'
 import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
+import { headers } from 'next/headers'
+
+const getForwardedAssemblyHeaders = async (): Promise<Record<string, string>> => {
+  const h = await headers()
+  const userAgent = h.get('user-agent')
+  return userAgent ? { 'x-assembly-user-agent': userAgent } : {}
+}
 
 export const handleCreate = async (
   token: string,
@@ -15,6 +22,7 @@ export const handleCreate = async (
       `${apiUrl}/api/tasks?token=${token}&disableSubtaskTemplates=${opts?.disableSubtaskTemplates}`,
       {
         method: 'POST',
+        headers: await getForwardedAssemblyHeaders(),
         body: JSON.stringify(payload),
       },
     )
@@ -36,6 +44,7 @@ export const updateTask = async ({
 }) => {
   await fetch(`${apiUrl}/api/tasks/${taskId}?token=${token}`, {
     method: 'PATCH',
+    headers: await getForwardedAssemblyHeaders(),
     body: JSON.stringify({
       workflowStateId: payload.workflowStateId,
       internalUserId: payload.internalUserId,
