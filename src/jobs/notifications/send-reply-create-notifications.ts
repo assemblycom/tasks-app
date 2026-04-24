@@ -148,7 +148,7 @@ const getNotificationDetails = async (copilot: CopilotAPI, user: User, comment: 
   return deliveryTargets
 }
 
-const getInitiatorNotificationPromises = async (
+const getInitiatorNotificationPromises = (
   copilot: CopilotAPI,
   // Initiator in this context means previous initiators that were active in the thread, NOT the currently commenting user
   initiator: { initiatorId: string; initiatorType: CommentInitiator | null },
@@ -208,6 +208,7 @@ const getNotificationToUntypedInitiator = async (
 ) => {
   try {
     await copilot.getInternalUser(parentComment.initiatorId)
+    // `assume` guarantees a non-null promise
     return getInitiatorNotificationPromises(
       copilot,
       parentComment,
@@ -217,7 +218,7 @@ const getNotificationToUntypedInitiator = async (
       deliveryTargets,
       task.companyId || undefined,
       CommentInitiator.internalUser,
-    )
+    )!
   } catch (e) {
     console.error(e)
   }
@@ -231,5 +232,5 @@ const getNotificationToUntypedInitiator = async (
     deliveryTargets,
     task.companyId || undefined,
     CommentInitiator.client,
-  )
+  )!
 }
