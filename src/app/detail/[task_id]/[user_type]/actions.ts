@@ -9,8 +9,12 @@ import { headers } from 'next/headers'
 
 const getForwardedAssemblyHeaders = async (): Promise<Record<string, string>> => {
   const h = await headers()
+  const forwarded: Record<string, string> = {}
   const userAgent = h.get('user-agent')
-  return userAgent ? { 'x-assembly-user-agent': userAgent } : {}
+  if (userAgent) forwarded['x-assembly-user-agent'] = userAgent
+  const clientIp = h.get('x-real-ip') ?? h.get('x-forwarded-for')?.split(',')[0]?.trim()
+  if (clientIp) forwarded['x-assembly-client-ip'] = clientIp
+  return forwarded
 }
 
 export const updateTaskDetail = async ({
