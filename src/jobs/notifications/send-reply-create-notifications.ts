@@ -206,10 +206,9 @@ const getNotificationToUntypedInitiator = async (
   senderCompanyId: string | undefined,
   deliveryTargets: { inProduct: Record<'title', any>; email: object },
 ) => {
-  let promise
   try {
     await copilot.getInternalUser(parentComment.initiatorId)
-    promise = getInitiatorNotificationPromises(
+    return getInitiatorNotificationPromises(
       copilot,
       parentComment,
       senderId,
@@ -220,21 +219,17 @@ const getNotificationToUntypedInitiator = async (
       CommentInitiator.internalUser,
     )
   } catch (e) {
-    try {
-      promise = getInitiatorNotificationPromises(
-        copilot,
-        parentComment,
-        senderId,
-        senderType,
-        senderCompanyId,
-        deliveryTargets,
-        task.companyId || undefined,
-        CommentInitiator.client,
-      )
-    } catch (e) {
-      console.error(e)
-      throw new Error('Unable to resolve comment initiator as IU or Client')
-    }
+    console.error(e)
   }
-  return promise
+
+  return getInitiatorNotificationPromises(
+    copilot,
+    parentComment,
+    senderId,
+    senderType,
+    senderCompanyId,
+    deliveryTargets,
+    task.companyId || undefined,
+    CommentInitiator.client,
+  )
 }
