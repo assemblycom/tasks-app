@@ -5,9 +5,16 @@ import { buildLtreeNodeString } from '@/utils/ltree'
 import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { UserRole } from '@api/core/types/user'
+import { TaskWithWorkflowStateAndAttachments } from '@api/tasks/public/public.serializer'
+import { AssigneeType, StateType, Task, WorkflowState } from '@prisma/client'
 import { JsonValue } from '@prisma/client/runtime/library'
 import httpStatus from 'http-status'
 import { z } from 'zod'
+
+export type SubtaskCascadePair = {
+  prev: Task & { workflowState: WorkflowState }
+  updated: TaskWithWorkflowStateAndAttachments
+}
 
 interface Assignable {
   internalUserId: string | null
@@ -87,6 +94,84 @@ export class SubtaskService extends BaseService {
       archive,
       this.user.workspaceId,
     )
+  }
+
+  /**
+   * Moves all subtasks of the given parent into the provided (completed-type) workflow state.
+   * Skips subtasks that are already in a completed-type state so their original
+   * completedAt / completedBy values are preserved.
+   * Returns [prev, updated] pairs for each cascaded subtask so the caller can dispatch
+   * per-subtask webhook events.
+   */
+  async completeAllSubtasks(
+    id: string,
+    {
+      workflowStateId,
+      completedBy,
+      completedByUserType,
+    }: {
+      workflowStateId: string
+      completedBy: string | null
+      completedByUserType: AssigneeType | null
+    },
+  ): Promise<SubtaskCascadePair[]> {
+    console.info('SubtasksService#completeAllSubtasks | Completing all subtasks for parent with id', id)
+    const prevSubtasks = await this.db.task.findMany({
+      where: {
+        parentId: id,
+        workspaceId: this.user.workspaceId,
+        deletedAt: null,
+        workflowState: { type: { not: StateType.completed } },
+      },
+      include: { workflowState: true, attachments: true },
+    })
+    if (prevSubtasks.length === 0) return []
+
+    const ids = prevSubtasks.map((s) => s.id)
+    await this.db.task.updateMany({
+      where: { id: { in: ids } },
+      data: { workflowStateId, completedAt: new Date(), completedBy, completedByUserType },
+    })
+
+    const updatedSubtasks = await this.db.task.findMany({
+      where: { id: { in: ids } },
+      include: { workflowState: true, attachments: true },
+    })
+    const updatedById = new Map(updatedSubtasks.map((u) => [u.id, u]))
+    return prevSubtasks.map((prev) => ({ prev, updated: updatedById.get(prev.id)! }))
+  }
+
+  /**
+   * Moves all subtasks of the given parent out of a completed-type state into the
+   * provided (non-completed) workflow state, clearing their completion metadata.
+   * Only touches subtasks currently in a completed state, leaving any manually-set
+   * non-completed states alone. Returns [prev, updated] pairs for webhook dispatch.
+   */
+  async uncompleteAllSubtasks(id: string, { workflowStateId }: { workflowStateId: string }): Promise<SubtaskCascadePair[]> {
+    console.info('SubtasksService#uncompleteAllSubtasks | Uncompleting all subtasks for parent with id', id)
+    const prevSubtasks = await this.db.task.findMany({
+      where: {
+        parentId: id,
+        workspaceId: this.user.workspaceId,
+        deletedAt: null,
+        workflowState: { type: StateType.completed },
+      },
+      include: { workflowState: true, attachments: true },
+    })
+    if (prevSubtasks.length === 0) return []
+
+    const ids = prevSubtasks.map((s) => s.id)
+    await this.db.task.updateMany({
+      where: { id: { in: ids } },
+      data: { workflowStateId, completedAt: null, completedBy: null, completedByUserType: null },
+    })
+
+    const updatedSubtasks = await this.db.task.findMany({
+      where: { id: { in: ids } },
+      include: { workflowState: true, attachments: true },
+    })
+    const updatedById = new Map(updatedSubtasks.map((u) => [u.id, u]))
+    return prevSubtasks.map((prev) => ({ prev, updated: updatedById.get(prev.id)! }))
   }
 
   async getAccessiblePathTasks<T extends Assignable>(tasks: T[]): Promise<T[]> {
