@@ -49,6 +49,9 @@ export const StyledTiptapDescriptionWrapper = styled(Box)(({ theme }) => ({
   '.tiptap p': {
     fontSize: '16px',
   },
+  '.tiptap a, .tiptap a *': {
+    color: theme.color.link,
+  },
 }))
 
 export const VerticalLine = styled('div')(({ theme }) => ({

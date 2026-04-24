@@ -63,3 +63,11 @@
 .tapwrite-task-description:focus-within {
   border-color: #000000;
 }
+
+.ProseMirror a,
+a.tapwrite-link {
+  color: var(--color-link);
+  text-decoration: none;
+  font-weight: inherit;
+  cursor: pointer;
+}
