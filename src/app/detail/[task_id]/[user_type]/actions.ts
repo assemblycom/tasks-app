@@ -5,17 +5,7 @@ import { ScrapMediaRequest } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { CreateComment, UpdateComment } from '@/types/dto/comment.dto'
 import { UpdateTaskRequest, Associations } from '@/types/dto/tasks.dto'
-import { headers } from 'next/headers'
-
-const getForwardedAssemblyHeaders = async (): Promise<Record<string, string>> => {
-  const h = await headers()
-  const forwarded: Record<string, string> = {}
-  const userAgent = h.get('user-agent')
-  if (userAgent) forwarded['x-assembly-user-agent'] = userAgent
-  const clientIp = h.get('x-real-ip') ?? h.get('x-forwarded-for')?.split(',')[0]?.trim()
-  if (clientIp) forwarded['x-assembly-client-ip'] = clientIp
-  return forwarded
-}
+import { getForwardedAssemblyHeaders } from '@/utils/serverHeaders'
 
 export const updateTaskDetail = async ({
   token,
