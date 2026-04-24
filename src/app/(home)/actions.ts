@@ -4,17 +4,7 @@ import { apiUrl } from '@/config'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { CreateTaskRequest, UpdateTaskRequest } from '@/types/dto/tasks.dto'
 import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
-import { headers } from 'next/headers'
-
-const getForwardedAssemblyHeaders = async (): Promise<Record<string, string>> => {
-  const h = await headers()
-  const forwarded: Record<string, string> = {}
-  const userAgent = h.get('user-agent')
-  if (userAgent) forwarded['x-assembly-user-agent'] = userAgent
-  const clientIp = h.get('x-real-ip') ?? h.get('x-forwarded-for')?.split(',')[0]?.trim()
-  if (clientIp) forwarded['x-assembly-client-ip'] = clientIp
-  return forwarded
-}
+import { getForwardedAssemblyHeaders } from '@/utils/serverHeaders'
 
 export const handleCreate = async (
   token: string,
