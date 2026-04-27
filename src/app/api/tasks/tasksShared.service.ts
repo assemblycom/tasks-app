@@ -52,6 +52,34 @@ export abstract class TasksSharedService extends BaseService {
     return filters
   }
 
+  /**
+   * Prisma where fragment that limits a task query to rows the current user is allowed to read/update.
+   * Returns `{}` for full-access internal users (no extra constraint).
+   * Spread into an existing where: `{ parentId, workspaceId, deletedAt, ...accessWhere }`.
+   * Mirrors the access semantics of `filterTasksByClientAccess` so it can replace per-row in-memory filtering with a SQL filter.
+   */
+  protected async getAccessFilterForTasks(): Promise<Prisma.TaskWhereInput> {
+    if (this.user.clientId || this.user.companyId) {
+      return this.getClientOrCompanyAssigneeFilter()
+    }
+
+    if (this.user.role === UserRole.IU && this.user.internalUserId) {
+      const currentInternalUser = await this.copilot.getInternalUser(this.user.internalUserId)
+      if (currentInternalUser.isClientAccessLimited) {
+        const companyAccessList = currentInternalUser.companyAccessList || []
+        return {
+          OR: [
+            { internalUserId: { not: null } },
+            { internalUserId: null, clientId: null, companyId: null },
+            { companyId: { in: companyAccessList } },
+          ],
+        }
+      }
+    }
+
+    return {}
+  }
+
   protected getClientOrCompanyAssigneeFilter(includeAssociatedTask: boolean = true): Prisma.TaskWhereInput {
     const clientId = z.string().uuid().safeParse(this.user.clientId).data
     const companyId = z.string().uuid().parse(this.user.companyId)

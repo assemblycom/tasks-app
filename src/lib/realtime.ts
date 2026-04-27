@@ -11,6 +11,7 @@ import { getPreviewMode } from '@/utils/previewMode'
 import { extractImgSrcs, replaceImgSrcs } from '@/utils/signedUrlReplacer'
 import { AssigneeType } from '@prisma/client'
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
+import { mutate as globalMutate } from 'swr'
 import { z } from 'zod'
 
 export class RealtimeHandler {
@@ -165,7 +166,8 @@ export class RealtimeHandler {
     }
 
     if (activeTask && activeTask.id === newTask.id) {
-      store.dispatch(setActiveTask(newTask))
+      const prevTask = getFormattedTask(this.payload.old)
+      this.syncActiveTaskFromRealtime(activeTask, newTask, prevTask)
     } //updating active task if a user is currently in details page of the task being udpated
     // Update it in accessible tasks
     const updatedAccessibleTasks = [
@@ -353,7 +355,7 @@ export class RealtimeHandler {
         ]),
       )
       if (activeTask && activeTask.id === updatedTask.id) {
-        store.dispatch(setActiveTask(updatedTask))
+        this.syncActiveTaskFromRealtime(activeTask, updatedTask, prevTask)
       }
       return
     }
@@ -368,7 +370,7 @@ export class RealtimeHandler {
     if ((updatedTask.isArchived && !showArchived) || (!updatedTask.isArchived && !showUnarchived)) {
       if (activeTask && activeTask.id === updatedTask.id) {
         // However if we're in the details page of this task, we want the changes to reflect
-        store.dispatch(setActiveTask(updatedTask))
+        this.syncActiveTaskFromRealtime(activeTask, updatedTask, prevTask)
       }
       store.dispatch(setTasks(filterOutUpdatedTask(tasks)))
       return
@@ -376,7 +378,7 @@ export class RealtimeHandler {
 
     // Update active task if it's the one being updated
     if (activeTask && activeTask.id === updatedTask.id) {
-      store.dispatch(setActiveTask(updatedTask))
+      this.syncActiveTaskFromRealtime(activeTask, updatedTask, prevTask)
     }
 
     // Update tasks + accessibleTasks
@@ -384,6 +386,37 @@ export class RealtimeHandler {
       store.dispatch(setTasks(tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))))
     }
     store.dispatch(setAccessibleTasks(accessibleTasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))))
+  }
+
+  /**
+   * Full-access internal users see raw == filtered, so the realtime payload's `subtaskCount` is already correct for them.
+   * Clients and limited-access IUs need the access-filtered value from `getOneTask`, which realtime bypasses.
+   */
+  private actorNeedsFilteredSubtaskCount(): boolean {
+    if (this.userRole === AssigneeType.client) return true
+    if (this.userRole === AssigneeType.internalUser) {
+      return InternalUsersSchema.parse(this.user).isClientAccessLimited
+    }
+    return false
+  }
+
+  /**
+   * Realtime payloads carry the raw Postgres `subtaskCount`. For actors who need an access-filtered count, preserve it from the
+   * current activeTask so cascades and other count-stable updates don't clobber it; if the underlying DB count actually changed
+   * (subtask added or deleted), nudge the OneTaskDataFetcher SWR cache to revalidate and the existing fetcher will dispatch a
+   * fresh access-filtered count once it resolves.
+   */
+  private syncActiveTaskFromRealtime(activeTask: TaskResponse, updatedTask: TaskResponse, prevTask: TaskResponse) {
+    if (!this.actorNeedsFilteredSubtaskCount()) {
+      store.dispatch(setActiveTask(updatedTask))
+      return
+    }
+    store.dispatch(setActiveTask({ ...updatedTask, subtaskCount: activeTask.subtaskCount }))
+    if (prevTask.subtaskCount === updatedTask.subtaskCount) return
+    const token = store.getState().taskBoard.token
+    if (!token) return
+    const queryString = new URLSearchParams({ token }).toString()
+    globalMutate(`/api/tasks/${updatedTask.id}?${queryString}`)
   }
 
   private processTaskDescription(updatedTask: TaskResponse, oldTask?: TaskResponse) {

@@ -6,7 +6,7 @@ import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { UserRole } from '@api/core/types/user'
 import { TaskWithWorkflowStateAndAttachments } from '@api/tasks/public/public.serializer'
-import { AssigneeType, StateType, Task, WorkflowState } from '@prisma/client'
+import { AssigneeType, Prisma, StateType, Task, WorkflowState } from '@prisma/client'
 import { JsonValue } from '@prisma/client/runtime/library'
 import httpStatus from 'http-status'
 import { z } from 'zod'
@@ -109,15 +109,19 @@ export class SubtaskService extends BaseService {
       workflowStateId,
       completedBy,
       completedByUserType,
+      accessWhere,
     }: {
       workflowStateId: string
       completedBy: string | null
       completedByUserType: AssigneeType | null
+      /** Access-scope filter from the actor; only matching subtasks are cascaded. Pass `{}` for full access. */
+      accessWhere?: Prisma.TaskWhereInput
     },
   ): Promise<SubtaskCascadePair[]> {
     console.info('SubtasksService#completeAllSubtasks | Completing all subtasks for parent with id', id)
     const prevSubtasks = await this.db.task.findMany({
       where: {
+        ...accessWhere,
         parentId: id,
         workspaceId: this.user.workspaceId,
         deletedAt: null,
