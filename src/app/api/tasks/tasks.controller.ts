@@ -82,8 +82,9 @@ export const clientUpdateTask = async (req: NextRequest, { params }: IdParams) =
   const { id } = await params
   const user = await authenticate(req)
   const workflowStateId = req.nextUrl.searchParams.get('workflowStateId')
+  const skipSubtaskCascade = req.nextUrl.searchParams.get('skipSubtaskCascade') === 'true'
   const tasksService = new TasksService(user)
-  const updatedTask = await tasksService.clientUpdateTask(id, workflowStateId)
+  const updatedTask = await tasksService.clientUpdateTask(id, workflowStateId, skipSubtaskCascade)
   return NextResponse.json({ updatedTask })
 }
 

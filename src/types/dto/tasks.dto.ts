@@ -103,6 +103,7 @@ export const UpdateTaskRequestSchema = z
     companyId: z.string().uuid().nullish(),
     associations: AssociationsSchema, //right now, we only need the feature to have max of 1 viewer per task
     isShared: z.boolean().optional(),
+    skipSubtaskCascade: z.boolean().optional(),
   })
   .superRefine(validateUserIds)
 

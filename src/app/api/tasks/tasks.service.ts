@@ -328,7 +328,7 @@ export class TasksService extends TasksSharedService {
     if (!prevTask) throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
 
     const { completedBy, completedByUserType, workflowStateStatus } = await this.getCompletionInfo(data?.workflowStateId)
-    const { internalUserId, clientId, companyId, ...dataWithoutUserIds } = data
+    const { internalUserId, clientId, companyId, skipSubtaskCascade, ...dataWithoutUserIds } = data
 
     const shouldUpdateUserIds =
       (internalUserId !== undefined && internalUserId !== prevTask?.internalUserId) ||
@@ -418,8 +418,7 @@ export class TasksService extends TasksSharedService {
         await subtaskService.toggleArchiveForAllSubtasks(id, data.isArchived)
       }
 
-      // Cascade workflowState to subtasks when parent transitions in/out of a completed state
-      if (data.workflowStateId) {
+      if (data.workflowStateId && !skipSubtaskCascade) {
         const prevWasCompleted = prevTask.workflowState.type === StateType.completed
         const newIsCompleted = workflowStateStatus === StateType.completed
         if (!prevWasCompleted && newIsCompleted) {
@@ -428,8 +427,6 @@ export class TasksService extends TasksSharedService {
             completedBy,
             completedByUserType,
           })
-        } else if (prevWasCompleted && !newIsCompleted) {
-          cascadedSubtasks = await subtaskService.uncompleteAllSubtasks(id, { workflowStateId: data.workflowStateId })
         }
       }
 
@@ -446,7 +443,6 @@ export class TasksService extends TasksSharedService {
         cascadedSubtasks.length > 0 ? this.setNewLastSubtaskUpdated(id) : undefined,
         sendTaskUpdateNotifications.trigger({ prevTask, updatedTask, user: this.user }),
         dispatchUpdatedWebhookEvent(this.user, prevTask, updatedTask, false),
-        // Dispatch activity logs, notifications, and webhooks for each cascaded subtask
         ...cascadedSubtasks.flatMap(({ prev, updated }) => [
           new TasksActivityLogger(this.user, updated).logTaskUpdated(prev),
           sendTaskUpdateNotifications.trigger({ prevTask: prev, updatedTask: updated, user: this.user }),
@@ -602,7 +598,7 @@ export class TasksService extends TasksSharedService {
     return tasks
   }
 
-  async clientUpdateTask(id: string, targetWorkflowStateId?: string | null) {
+  async clientUpdateTask(id: string, targetWorkflowStateId?: string | null, skipSubtaskCascade: boolean = false) {
     //Apply custom authorization here. Policy service is not used because this api is for client's Mark done function only. Only clients can use this.
     if (this.user.role === UserRole.IU) {
       throw new APIError(httpStatus.UNAUTHORIZED, 'You are not authorized to perform this action')
@@ -646,8 +642,7 @@ export class TasksService extends TasksSharedService {
         },
       })
 
-      // Cascade workflowState to subtasks when parent transitions in/out of a completed state
-      if (updated.workflowStateId) {
+      if (updated.workflowStateId && !skipSubtaskCascade) {
         const prevWasCompleted = prevTask.workflowState.type === StateType.completed
         const newIsCompleted = updatedWorkflowState?.type === StateType.completed
         if (!prevWasCompleted && newIsCompleted) {
@@ -657,9 +652,6 @@ export class TasksService extends TasksSharedService {
             completedBy,
             completedByUserType,
           })
-        } else if (prevWasCompleted && !newIsCompleted) {
-          subtaskService.setTransaction(tx as PrismaClient)
-          cascadedSubtasks = await subtaskService.uncompleteAllSubtasks(id, { workflowStateId: updated.workflowStateId })
         }
       }
 
@@ -674,7 +666,6 @@ export class TasksService extends TasksSharedService {
         // Bump this task's lastSubtaskUpdated so the detail page's Subtasks SWR cache revalidates
         cascadedSubtasks.length > 0 ? this.setNewLastSubtaskUpdated(id) : undefined,
         dispatchUpdatedWebhookEvent(this.user, prevTask, updatedTask, false),
-        // Dispatch activity logs, notifications, and webhooks for each cascaded subtask
         ...cascadedSubtasks.flatMap(({ prev, updated }) => [
           new TasksActivityLogger(this.user, updated).logTaskUpdated(prev),
           sendClientUpdateTaskNotifications.trigger({

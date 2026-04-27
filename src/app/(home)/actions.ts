@@ -44,6 +44,7 @@ export const updateTask = async ({
       body: payload.body,
       title: payload.title,
       dueDate: payload.dueDate,
+      skipSubtaskCascade: payload.skipSubtaskCascade,
     }),
   })
 }

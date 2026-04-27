@@ -253,11 +253,11 @@ export default async function TaskDetailPage(props: {
                 portalUrl={workspace.portalUrl}
                 selectedWorkflowState={task?.workflowState}
                 fromNotificationCenter={fromNotificationCenter}
-                updateWorkflowState={async (workflowState) => {
+                updateWorkflowState={async (workflowState, skipSubtaskCascade) => {
                   'use server'
                   params.user_type === UserType.CLIENT_USER && !getPreviewMode(tokenPayload)
-                    ? await clientUpdateTask(token, task_id, workflowState.id)
-                    : await updateWorkflowStateIdOfTask(token, task_id, workflowState?.id)
+                    ? await clientUpdateTask(token, task_id, workflowState.id, skipSubtaskCascade)
+                    : await updateWorkflowStateIdOfTask(token, task_id, workflowState?.id, skipSubtaskCascade)
                 }}
                 updateAssignee={async ({
                   internalUserId,
