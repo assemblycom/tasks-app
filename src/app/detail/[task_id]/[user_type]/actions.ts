@@ -5,6 +5,7 @@ import { ScrapMediaRequest } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { CreateComment, UpdateComment } from '@/types/dto/comment.dto'
 import { UpdateTaskRequest, Associations } from '@/types/dto/tasks.dto'
+import { getForwardedAssemblyHeaders } from '@/utils/serverHeaders'
 
 export const updateTaskDetail = async ({
   token,
@@ -17,6 +18,7 @@ export const updateTaskDetail = async ({
 }) => {
   await fetch(`${apiUrl}/api/tasks/${taskId}?token=${token}`, {
     method: 'PATCH',
+    headers: await getForwardedAssemblyHeaders(),
     body: JSON.stringify({
       workflowStateId: payload.workflowStateId,
       internalUserId: payload.internalUserId,
@@ -42,6 +44,7 @@ export const updateWorkflowStateIdOfTask = async (
 ) => {
   await fetch(`${apiUrl}/api/tasks/${taskId}?token=${token}`, {
     method: 'PATCH',
+    headers: await getForwardedAssemblyHeaders(),
     body: JSON.stringify({
       workflowStateId: targetWorkflowStateId,
       skipSubtaskCascade,
@@ -60,6 +63,7 @@ export const updateAssignee = async (
 ) => {
   await fetch(`${apiUrl}/api/tasks/${task_id}?token=${token}`, {
     method: 'PATCH',
+    headers: await getForwardedAssemblyHeaders(),
     body: JSON.stringify({
       internalUserId,
       clientId,
@@ -79,12 +83,14 @@ export const clientUpdateTask = async (
   const skipParam = skipSubtaskCascade ? '&skipSubtaskCascade=true' : ''
   await fetch(`${apiUrl}/api/tasks/${taskId}/client?token=${token}&workflowStateId=${targetWorkflowStateId}${skipParam}`, {
     method: 'PATCH',
+    headers: await getForwardedAssemblyHeaders(),
   })
 }
 
 export const deleteTask = async (token: string, task_id: string) => {
   await fetch(`${apiUrl}/api/tasks/${task_id}?token=${token}`, {
     method: 'DELETE',
+    headers: await getForwardedAssemblyHeaders(),
   })
 }
 

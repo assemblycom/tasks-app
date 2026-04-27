@@ -4,6 +4,7 @@ import { apiUrl } from '@/config'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { CreateTaskRequest, UpdateTaskRequest } from '@/types/dto/tasks.dto'
 import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
+import { getForwardedAssemblyHeaders } from '@/utils/serverHeaders'
 
 export const handleCreate = async (
   token: string,
@@ -15,6 +16,7 @@ export const handleCreate = async (
       `${apiUrl}/api/tasks?token=${token}&disableSubtaskTemplates=${opts?.disableSubtaskTemplates}`,
       {
         method: 'POST',
+        headers: await getForwardedAssemblyHeaders(),
         body: JSON.stringify(payload),
       },
     )
@@ -36,6 +38,7 @@ export const updateTask = async ({
 }) => {
   await fetch(`${apiUrl}/api/tasks/${taskId}?token=${token}`, {
     method: 'PATCH',
+    headers: await getForwardedAssemblyHeaders(),
     body: JSON.stringify({
       workflowStateId: payload.workflowStateId,
       internalUserId: payload.internalUserId,
