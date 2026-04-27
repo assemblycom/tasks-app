@@ -52,7 +52,6 @@ export const Subtasks = ({
   // Default archived flag matches the API default (false) so we don't include archived subtasks before view settings hydrate.
   const archivedParam = showArchived ?? false
   const unarchivedParam = showUnarchived ?? true
-  console.log(showArchived, showUnarchived)
   const cacheKey = `/api/tasks/?token=${token}&showArchived=${archivedParam ? 1 : 0}&showUnarchived=${unarchivedParam ? 1 : 0}&parentId=${task_id}`
 
   const { data: subTasks } = useSWR(cacheKey, fetcher, {
