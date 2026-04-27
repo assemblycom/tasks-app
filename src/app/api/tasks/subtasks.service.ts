@@ -128,50 +128,26 @@ export class SubtaskService extends BaseService {
     if (prevSubtasks.length === 0) return []
 
     const ids = prevSubtasks.map((s) => s.id)
-    await this.db.task.updateMany({
-      where: { id: { in: ids } },
-      data: { workflowStateId, completedAt: new Date(), completedBy, completedByUserType },
-    })
+    const completedAt = new Date()
+    const [, newWorkflowState] = await Promise.all([
+      this.db.task.updateMany({
+        where: { id: { in: ids } },
+        data: { workflowStateId, completedAt, completedBy, completedByUserType },
+      }),
+      this.db.workflowState.findUniqueOrThrow({ where: { id: workflowStateId } }),
+    ])
 
-    const updatedSubtasks = await this.db.task.findMany({
-      where: { id: { in: ids } },
-      include: { workflowState: true, attachments: true },
-    })
-    const updatedById = new Map(updatedSubtasks.map((u) => [u.id, u]))
-    return prevSubtasks.map((prev) => ({ prev, updated: updatedById.get(prev.id)! }))
-  }
-
-  /**
-   * Moves all subtasks of the given parent out of a completed-type state into the
-   * provided (non-completed) workflow state, clearing their completion metadata.
-   * Only touches subtasks currently in a completed state, leaving any manually-set
-   * non-completed states alone. Returns [prev, updated] pairs for webhook dispatch.
-   */
-  async uncompleteAllSubtasks(id: string, { workflowStateId }: { workflowStateId: string }): Promise<SubtaskCascadePair[]> {
-    console.info('SubtasksService#uncompleteAllSubtasks | Uncompleting all subtasks for parent with id', id)
-    const prevSubtasks = await this.db.task.findMany({
-      where: {
-        parentId: id,
-        workspaceId: this.user.workspaceId,
-        deletedAt: null,
-        workflowState: { type: StateType.completed },
+    return prevSubtasks.map((prev) => ({
+      prev,
+      updated: {
+        ...prev,
+        workflowStateId,
+        workflowState: newWorkflowState,
+        completedAt,
+        completedBy,
+        completedByUserType,
       },
-      include: { workflowState: true, attachments: true },
-    })
-    if (prevSubtasks.length === 0) return []
-
-    const ids = prevSubtasks.map((s) => s.id)
-    await this.db.task.updateMany({
-      where: { id: { in: ids } },
-      data: { workflowStateId, completedAt: null, completedBy: null, completedByUserType: null },
-    })
-
-    const updatedSubtasks = await this.db.task.findMany({
-      where: { id: { in: ids } },
-      include: { workflowState: true, attachments: true },
-    })
-    const updatedById = new Map(updatedSubtasks.map((u) => [u.id, u]))
-    return prevSubtasks.map((prev) => ({ prev, updated: updatedById.get(prev.id)! }))
+    }))
   }
 
   async getAccessiblePathTasks<T extends Assignable>(tasks: T[]): Promise<T[]> {

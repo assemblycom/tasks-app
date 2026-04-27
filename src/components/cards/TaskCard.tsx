@@ -27,6 +27,7 @@ import {
 } from '@/utils/assignee'
 import { isTaskCompleted } from '@/utils/isTaskCompleted'
 import { NoAssignee } from '@/utils/noAssignee'
+import { StateType } from '@prisma/client'
 import { Box, Skeleton, Stack, styled } from '@mui/material'
 import React, { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
@@ -55,6 +56,7 @@ import {
 } from '@/utils/shouldConfirmBeforeReassign'
 import z from 'zod'
 import { StyledModal } from '@/app/detail/ui/styledComponent'
+import { CompletionCascadeModal } from '@/components/layouts/CompletionCascadeModal'
 import { ConfirmUI } from '@/components/layouts/ConfirmUI'
 import { useRouter } from 'next/navigation'
 
@@ -104,6 +106,7 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
   const [currentDueDate, setCurrentDueDate] = useState<string | undefined>(task.dueDate)
 
   const [selectedAssignee, setSelectedAssignee] = useState<UserIdsType | undefined>(undefined)
+  const [pendingCompleteState, setPendingCompleteState] = useState<WorkflowStateResponse | null>(null)
   const router = useRouter()
 
   const [assigneeValue, setAssigneeValue] = useState<IAssigneeCombined | Omit<IAssigneeCombined, 'type'> | undefined>(() => {
@@ -178,6 +181,20 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
     return match ?? NoAssignee
   }
 
+  const applyWorkflowStateChange = (value: WorkflowStateResponse, skipSubtaskCascade: boolean = false) => {
+    updateStatusValue(value)
+    store.dispatch(updateWorkflowStateIdByTaskId({ taskId: task.id, targetWorkflowStateId: value.id }))
+    if (mode === UserRole.Client && !previewMode) {
+      clientUpdateTask(z.string().parse(token), task.id, value.id, skipSubtaskCascade)
+    } else {
+      updateTask({
+        token: z.string().parse(token),
+        taskId: task.id,
+        payload: { workflowStateId: value.id, skipSubtaskCascade },
+      })
+    }
+  }
+
   return (
     <TaskCardContainer tabIndex={0}>
       <Stack direction="column" rowGap={'12px'}>
@@ -188,17 +205,13 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
               value={statusValue}
               variant="icon"
               getValue={(value) => {
-                updateStatusValue(value)
-                store.dispatch(updateWorkflowStateIdByTaskId({ taskId: task.id, targetWorkflowStateId: value.id }))
-                if (mode === UserRole.Client && !previewMode) {
-                  clientUpdateTask(z.string().parse(token), task.id, value.id)
-                } else {
-                  updateTask({
-                    token: z.string().parse(token),
-                    taskId: task.id,
-                    payload: { workflowStateId: value.id },
-                  })
+                const movingToCompleted =
+                  value.type === StateType.completed && task.workflowState?.type !== StateType.completed
+                if (movingToCompleted && subtaskCount > 0) {
+                  setPendingCompleteState(value)
+                  return
                 }
+                applyWorkflowStateChange(value)
               }}
               responsiveNoHide
               size={Sizes.MEDIUM}
@@ -387,6 +400,19 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
           variant={confirmAssociationModalId === task.id ? 'danger' : 'default'}
         />
       </StyledModal>
+      <CompletionCascadeModal
+        targetState={pendingCompleteState}
+        subtaskCount={subtaskCount}
+        onUpdate={() => {
+          if (pendingCompleteState) applyWorkflowStateChange(pendingCompleteState, false)
+          setPendingCompleteState(null)
+        }}
+        onSkip={() => {
+          if (pendingCompleteState) applyWorkflowStateChange(pendingCompleteState, true)
+          setPendingCompleteState(null)
+        }}
+        onClose={() => setPendingCompleteState(null)}
+      />
     </TaskCardContainer>
   )
 }

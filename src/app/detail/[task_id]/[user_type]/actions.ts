@@ -26,6 +26,7 @@ export const updateTaskDetail = async ({
       title: payload.title,
       dueDate: payload.dueDate,
       isArchived: payload.isArchived,
+      skipSubtaskCascade: payload.skipSubtaskCascade,
     }),
   })
 }
@@ -33,11 +34,17 @@ export const updateTaskDetail = async ({
 /**
  * Use the new update task function instead. This will be completely removed in the upcoming PRs.
  */
-export const updateWorkflowStateIdOfTask = async (token: string, taskId: string, targetWorkflowStateId: string) => {
+export const updateWorkflowStateIdOfTask = async (
+  token: string,
+  taskId: string,
+  targetWorkflowStateId: string,
+  skipSubtaskCascade?: boolean,
+) => {
   await fetch(`${apiUrl}/api/tasks/${taskId}?token=${token}`, {
     method: 'PATCH',
     body: JSON.stringify({
       workflowStateId: targetWorkflowStateId,
+      skipSubtaskCascade,
     }),
   })
 }
@@ -63,8 +70,14 @@ export const updateAssignee = async (
   })
 }
 
-export const clientUpdateTask = async (token: string, taskId: string, targetWorkflowStateId: string) => {
-  await fetch(`${apiUrl}/api/tasks/${taskId}/client?token=${token}&workflowStateId=${targetWorkflowStateId}`, {
+export const clientUpdateTask = async (
+  token: string,
+  taskId: string,
+  targetWorkflowStateId: string,
+  skipSubtaskCascade?: boolean,
+) => {
+  const skipParam = skipSubtaskCascade ? '&skipSubtaskCascade=true' : ''
+  await fetch(`${apiUrl}/api/tasks/${taskId}/client?token=${token}&workflowStateId=${targetWorkflowStateId}${skipParam}`, {
     method: 'PATCH',
   })
 }
