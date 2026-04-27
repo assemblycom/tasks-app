@@ -286,16 +286,27 @@ export class TasksService extends TasksSharedService {
       await this.checkClientAccessForTask(task, this.user.internalUserId)
     }
 
-    const updatedTask = await this.db.task.update({
-      where: { id: task.id },
-      data: {
-        body: task.body && (await replaceImageSrc(task.body, getSignedUrl)),
-      },
-      relationLoadStrategy: 'join',
-      include: { workflowState: true },
-    })
+    const accessWhere = await this.getAccessFilterForTasks()
+    const [updatedTask, accessibleSubtaskCount] = await Promise.all([
+      this.db.task.update({
+        where: { id: task.id },
+        data: {
+          body: task.body && (await replaceImageSrc(task.body, getSignedUrl)),
+        },
+        relationLoadStrategy: 'join',
+        include: { workflowState: true },
+      }),
+      this.db.task.count({
+        where: {
+          ...accessWhere,
+          parentId: task.id,
+          workspaceId: this.user.workspaceId,
+          deletedAt: null,
+        },
+      }),
+    ])
 
-    return updatedTask
+    return { ...updatedTask, subtaskCount: accessibleSubtaskCount }
   }
 
   async getTaskAssignee(task: Task): Promise<InternalUsers | ClientResponse | CompanyResponse | undefined> {
@@ -371,6 +382,13 @@ export class TasksService extends TasksSharedService {
     const subtaskService = new SubtaskService(this.user)
     let cascadedSubtasks: SubtaskCascadePair[] = []
 
+    const willCascade =
+      !!data.workflowStateId &&
+      !skipSubtaskCascade &&
+      prevTask.workflowState.type !== StateType.completed &&
+      workflowStateStatus === StateType.completed
+    const cascadeAccessWhere = willCascade ? await this.getAccessFilterForTasks() : undefined
+
     let updatedTask = await this.db.$transaction(async (tx) => {
       //generate new label if prevTask has no assignee but now assigned to someone
       let label: string = prevTask.label
@@ -418,16 +436,13 @@ export class TasksService extends TasksSharedService {
         await subtaskService.toggleArchiveForAllSubtasks(id, data.isArchived)
       }
 
-      if (data.workflowStateId && !skipSubtaskCascade) {
-        const prevWasCompleted = prevTask.workflowState.type === StateType.completed
-        const newIsCompleted = workflowStateStatus === StateType.completed
-        if (!prevWasCompleted && newIsCompleted) {
-          cascadedSubtasks = await subtaskService.completeAllSubtasks(id, {
-            workflowStateId: data.workflowStateId,
-            completedBy,
-            completedByUserType,
-          })
-        }
+      if (willCascade && data.workflowStateId) {
+        cascadedSubtasks = await subtaskService.completeAllSubtasks(id, {
+          workflowStateId: data.workflowStateId,
+          completedBy,
+          completedByUserType,
+          accessWhere: cascadeAccessWhere,
+        })
       }
 
       return updatedTask
@@ -626,6 +641,14 @@ export class TasksService extends TasksSharedService {
     const data = { workflowStateId: updatedWorkflowState?.id }
     const subtaskService = new SubtaskService(this.user)
     let cascadedSubtasks: SubtaskCascadePair[] = []
+
+    const willCascade =
+      !skipSubtaskCascade &&
+      !!updatedWorkflowState?.id &&
+      prevTask.workflowState.type !== StateType.completed &&
+      updatedWorkflowState.type === StateType.completed
+    const cascadeAccessWhere = willCascade ? await this.getAccessFilterForTasks() : undefined
+
     // Get the updated task
     const updatedTask = await this.db.$transaction(async (tx) => {
       const updated = await tx.task.update({
@@ -642,17 +665,14 @@ export class TasksService extends TasksSharedService {
         },
       })
 
-      if (updated.workflowStateId && !skipSubtaskCascade) {
-        const prevWasCompleted = prevTask.workflowState.type === StateType.completed
-        const newIsCompleted = updatedWorkflowState?.type === StateType.completed
-        if (!prevWasCompleted && newIsCompleted) {
-          subtaskService.setTransaction(tx as PrismaClient)
-          cascadedSubtasks = await subtaskService.completeAllSubtasks(id, {
-            workflowStateId: updated.workflowStateId,
-            completedBy,
-            completedByUserType,
-          })
-        }
+      if (willCascade && updated.workflowStateId) {
+        subtaskService.setTransaction(tx as PrismaClient)
+        cascadedSubtasks = await subtaskService.completeAllSubtasks(id, {
+          workflowStateId: updated.workflowStateId,
+          completedBy,
+          completedByUserType,
+          accessWhere: cascadeAccessWhere,
+        })
       }
 
       return updated
