@@ -39,7 +39,7 @@ export const Subtasks = ({
   canCreateSubtasks: boolean
 }) => {
   const [openTaskForm, setOpenTaskForm] = useState(false)
-  const { workflowStates, assignee, activeTask } = useSelector(selectTaskBoard)
+  const { workflowStates, assignee, activeTask, showArchived, showUnarchived } = useSelector(selectTaskBoard)
   const { tokenPayload } = useSelector(selectAuthDetails)
   const { fromNotificationCenter } = useSelector(selectTaskDetails)
   const [optimisticUpdates, setOptimisticUpdates] = useState<OptimisticUpdate[]>([]) //might need this server-temp id maps in the future.
@@ -49,7 +49,11 @@ export const Subtasks = ({
 
   const mode = tokenPayload?.companyId ? UserRole.Client : UserRole.IU
 
-  const cacheKey = `/api/tasks/?token=${token}&showArchived=1&showUnarchived=1&parentId=${task_id}`
+  // Default archived flag matches the API default (false) so we don't include archived subtasks before view settings hydrate.
+  const archivedParam = showArchived ?? false
+  const unarchivedParam = showUnarchived ?? true
+  console.log(showArchived, showUnarchived)
+  const cacheKey = `/api/tasks/?token=${token}&showArchived=${archivedParam ? 1 : 0}&showUnarchived=${unarchivedParam ? 1 : 0}&parentId=${task_id}`
 
   const { data: subTasks } = useSWR(cacheKey, fetcher, {
     refreshInterval: 0,

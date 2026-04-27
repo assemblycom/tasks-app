@@ -4,6 +4,7 @@ import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'
 import { AssigneeFetcher } from '@/app/_fetchers/AssigneeFetcher'
 import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { OneTaskDataFetcher } from '@/app/_fetchers/OneTaskDataFetcher'
+import { getViewSettings } from '@/app/(home)/page'
 import { TemplatesFetcher } from '@/app/_fetchers/TemplatesFetcher'
 import { WorkflowStateFetcher } from '@/app/_fetchers/WorkflowStateFetcher'
 import { UserRole } from '@/app/api/core/types/user'
@@ -93,12 +94,13 @@ export default async function TaskDetailPage(props: {
 
   const copilotClient = new CopilotAPI(token)
 
-  const [task, tokenPayload, workspace, subTaskStatus, taskPath] = await Promise.all([
+  const [task, tokenPayload, workspace, subTaskStatus, taskPath, viewSettings] = await Promise.all([
     getOneTask(token, task_id),
     copilotClient.getTokenPayload(),
     getWorkspace(token),
     getSubTasksStatus(token, task_id),
     getTaskPath(token, task_id),
+    getViewSettings(token),
   ])
 
   if (!tokenPayload) {
@@ -134,6 +136,7 @@ export default async function TaskDetailPage(props: {
       tokenPayload={tokenPayload}
       task={task}
       workspace={workspace}
+      viewSettings={viewSettings}
     >
       {token && <OneTaskDataFetcher token={token} task_id={task_id} initialTask={task} />}
       <Suspense fallback={null}>
