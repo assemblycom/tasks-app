@@ -98,6 +98,7 @@ export const theme = createTheme({
     },
     error: '#CC0000',
     muiError: '#D32F2F',
+    link: 'var(--color-link)',
   },
   typography: {
     fontFamily: inter.style.fontFamily,
