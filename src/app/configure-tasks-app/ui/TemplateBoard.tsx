@@ -1,6 +1,6 @@
 'use client'
 import { StyledModal } from '@/app/detail/ui/styledComponent'
-import { ManageTemplateHeader } from '@/app/manage-templates/ui/Header'
+import { ManageTemplateHeader } from '@/app/configure-tasks-app/ui/Header'
 import { TemplateCard } from '@/components/cards/TemplateCard'
 import { CustomLink } from '@/hoc/CustomLink'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
@@ -11,10 +11,10 @@ import { TargetMethod } from '@/types/interfaces'
 import { getCardHrefTemplate } from '@/utils/getCardHref'
 import { Box, Stack, Typography } from '@mui/material'
 import { useSelector } from 'react-redux'
-import { NoTemplateLayout } from './NoTemplateLayout'
 import { TemplateForm } from './TemplateForm'
 import { sortTemplatesByDescendingOrder } from '@/utils/sortByDescending'
 import { useMemo } from 'react'
+import { PlusIcon } from '@/icons'
 
 export const TemplateBoard = ({
   handleCreateTemplate,
@@ -37,28 +37,27 @@ export const TemplateBoard = ({
     <>
       {showHeader && <ManageTemplateHeader token={token} />}
 
-      {sortedTemplates.length ? (
-        <Box id="templates-box" sx={{ maxWidth: '384px', marginTop: '32px', marginLeft: 'auto', marginRight: 'auto' }}>
-          <Box
-            sx={{
-              width: { xs: '90%', sm: '100%' },
-              margin: '0 auto',
-            }}
-          >
-            <Typography variant="xl" lineHeight={'28px'}>
-              Templates
-            </Typography>
-          </Box>
-
+      <Box id="templates-box" sx={{ width: '100%', maxWidth: '640px', margin: '0 auto', px: { xs: 2, sm: 0 } }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: '12px' }}>
+          <Typography variant="lg">Templates</Typography>
           <Stack
-            direction="column"
-            py="24px"
+            direction="row"
+            alignItems="center"
+            gap="4px"
             sx={{
-              width: { xs: '90%', sm: '100%' },
-              margin: '0 auto',
+              cursor: 'pointer',
+              color: (theme) => theme.color.gray[600],
+              '&:hover': { color: (theme) => theme.color.gray[700] },
             }}
-            rowGap={4}
+            onClick={() => store.dispatch(setShowTemplateModal({ targetMethod: TargetMethod.POST }))}
           >
+            <PlusIcon />
+            <Typography variant="bodyMd">Add template</Typography>
+          </Stack>
+        </Stack>
+
+        {sortedTemplates.length ? (
+          <Stack direction="column" rowGap={2}>
             {sortedTemplates.map((template) => {
               return (
                 <CustomLink
@@ -74,10 +73,12 @@ export const TemplateBoard = ({
               )
             })}
           </Stack>
-        </Box>
-      ) : (
-        <NoTemplateLayout />
-      )}
+        ) : (
+          <Typography variant="bodySm" sx={{ color: (theme) => theme.color.gray[500] }}>
+            No templates yet. Create one to get started.
+          </Typography>
+        )}
+      </Box>
 
       <StyledModal
         open={showTemplateModal}

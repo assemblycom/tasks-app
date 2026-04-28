@@ -1,0 +1,9 @@
+model WorkspaceSetting {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId          String   @unique @db.VarChar(32)
+  autoArchiveAfterDays Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt @db.Timestamptz()
+
+  @@map("WorkspaceSettings")
+}

@@ -372,7 +372,7 @@ export const NewTaskCard = ({
             value={templateValue}
             selectorType={SelectorType.TEMPLATE_SELECTOR}
             endOption={!fromNotificationCenter && <ManageTemplatesEndOption hasTemplates={!!templates?.length} />}
-            endOptionHref={`/manage-templates?token=${token}`}
+            endOptionHref={`/configure-tasks-app?token=${token}`}
             listAutoHeightMax="147px"
             variant="normal"
             responsiveNoHide
