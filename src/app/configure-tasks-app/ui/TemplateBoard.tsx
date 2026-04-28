@@ -14,7 +14,8 @@ import { useSelector } from 'react-redux'
 import { TemplateForm } from './TemplateForm'
 import { sortTemplatesByDescendingOrder } from '@/utils/sortByDescending'
 import { useMemo } from 'react'
-import { PlusIcon } from '@/icons'
+import { GhostBtn } from '@/components/buttons/GhostBtn'
+import { GrayAddMediumIcon } from '@/icons'
 
 export const TemplateBoard = ({
   handleCreateTemplate,
@@ -40,20 +41,12 @@ export const TemplateBoard = ({
       <Box id="templates-box" sx={{ width: '100%', maxWidth: '640px', margin: '0 auto', px: { xs: 2, sm: 0 } }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: '12px' }}>
           <Typography variant="lg">Templates</Typography>
-          <Stack
-            direction="row"
-            alignItems="center"
-            gap="4px"
-            sx={{
-              cursor: 'pointer',
-              color: (theme) => theme.color.gray[600],
-              '&:hover': { color: (theme) => theme.color.gray[700] },
-            }}
-            onClick={() => store.dispatch(setShowTemplateModal({ targetMethod: TargetMethod.POST }))}
-          >
-            <PlusIcon />
-            <Typography variant="bodyMd">Add template</Typography>
-          </Stack>
+          <GhostBtn
+            buttonText="Add template"
+            handleClick={() => store.dispatch(setShowTemplateModal({ targetMethod: TargetMethod.POST }))}
+            startIcon={<GrayAddMediumIcon />}
+            typographyVariant="bodyMd"
+          />
         </Stack>
 
         {sortedTemplates.length ? (
