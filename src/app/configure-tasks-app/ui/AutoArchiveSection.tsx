@@ -65,20 +65,8 @@ export const AutoArchiveSection = ({ initialAutoArchiveAfterDays, token, portalU
           background: (theme) => theme.color.base.white,
         }}
       >
-        <Stack
-          direction="row"
-          alignItems={isEnabled ? 'center' : 'flex-start'}
-          justifyContent="space-between"
-          sx={{ px: '16px', py: '14px' }}
-        >
-          <Stack direction="column" gap="4px">
-            <Typography variant="bodyMd">Auto archive completed tasks</Typography>
-            {!isEnabled && (
-              <Typography variant="bodySm" sx={{ color: (theme) => theme.color.gray[500] }}>
-                Automatically archive completed tasks after {DEFAULT_DAYS_ON_ENABLE} days
-              </Typography>
-            )}
-          </Stack>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: '16px', py: '14px' }}>
+          <Typography variant="bodyMd">Auto archive completed tasks</Typography>
           <StyledSwitch checked={isEnabled} onChange={(e) => handleToggle(e.target.checked)} />
         </Stack>
 
@@ -97,9 +85,50 @@ export const AutoArchiveSection = ({ initialAutoArchiveAfterDays, token, portalU
               value={draftValue}
               onChange={(e) => handleDaysChange(Number(e.target.value) as AutoArchiveAfterDays)}
               fullWidth
-              size="small"
               sx={{
                 background: (theme) => theme.color.base.white,
+                borderRadius: '4px',
+                '& .MuiSelect-select': {
+                  padding: '10px 12px',
+                  fontSize: '14px',
+                },
+                '& .MuiSelect-icon': {
+                  transition: 'none',
+                },
+                '& .MuiOutlinedInput-notchedOutline': {
+                  border: '1px solid #EDEDF0',
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  border: '1px solid #EDEDF0',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  border: '1px solid #EDEDF0',
+                  borderWidth: '1px',
+                },
+              }}
+              MenuProps={{
+                transitionDuration: 0,
+                PaperProps: {
+                  sx: {
+                    mt: '4px',
+                    borderRadius: '6px',
+                    border: '1px solid #EDEDF0',
+                    boxShadow: '0px 6px 20px 0px rgba(0, 0, 0, 0.07)',
+                    '& .MuiList-root': {
+                      padding: 0,
+                    },
+                    '& .MuiMenuItem-root': {
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      '&:hover': { backgroundColor: 'transparent' },
+                      '&.Mui-selected': {
+                        backgroundColor: (theme) => theme.color.gray[100],
+                        '&:hover': { backgroundColor: (theme) => theme.color.gray[100] },
+                        '&.Mui-focusVisible': { backgroundColor: (theme) => theme.color.gray[100] },
+                      },
+                    },
+                  },
+                },
               }}
             >
               {DAY_OPTIONS.map((days) => (
