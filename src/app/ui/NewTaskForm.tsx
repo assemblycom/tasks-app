@@ -581,7 +581,7 @@ const NewTaskHeader = ({
             value={templateValue}
             selectorType={SelectorType.TEMPLATE_SELECTOR}
             endOption={<ManageTemplatesEndOption hasTemplates={!!templates?.length} />}
-            endOptionHref={`/manage-templates?token=${token}`}
+            endOptionHref={`/configure-tasks-app?token=${token}`}
             listAutoHeightMax="147px"
             variant="normal"
             responsiveNoHide

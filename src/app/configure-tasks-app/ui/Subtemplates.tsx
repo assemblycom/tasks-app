@@ -18,9 +18,9 @@ import { checkOptimisticStableId } from '@/utils/optimisticCommentUtils'
 import { sortTaskByDescendingOrder } from '@/utils/sortByDescending'
 import { Box, Stack, Typography } from '@mui/material'
 import useSWR, { useSWRConfig } from 'swr'
-import { createSubTemplate } from '@/app/manage-templates/actions'
-import { NewTemplateCard } from '@/app/manage-templates/ui/NewTemplateCard'
-import { SubtemplatesList } from '@/app/manage-templates/ui/SubtemplatesList'
+import { createSubTemplate } from '@/app/configure-tasks-app/actions'
+import { NewTemplateCard } from '@/app/configure-tasks-app/ui/NewTemplateCard'
+import { SubtemplatesList } from '@/app/configure-tasks-app/ui/SubtemplatesList'
 import { useDebounce } from '@/hooks/useDebounce'
 
 interface OptimisticUpdate {

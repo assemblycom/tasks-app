@@ -13,8 +13,9 @@ import { CopilotAPI } from '@/utils/CopilotAPI'
 import { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
 import { Token, TokenSchema, WorkspaceResponse } from '@/types/common'
-import { ManageTemplatesAppBridge } from '@/app/manage-templates/ui/ManageTemplatesAppBridge'
-import { UserRole } from '@/app/api/core/types/user'
+import { ConfigureTasksAppBridge } from '@/app/configure-tasks-app/ui/ConfigureTasksAppBridge'
+import { AutoArchiveSection } from '@/app/configure-tasks-app/ui/AutoArchiveSection'
+import { Stack } from '@mui/material'
 
 async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
   const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
@@ -57,21 +58,27 @@ async function getWorkspace(token: string): Promise<WorkspaceResponse> {
   return await copilot.getWorkspace()
 }
 
-interface ManageTemplatesPageProps {
+async function getWorkspaceSetting(token: string): Promise<{ autoArchiveAfterDays: number }> {
+  const res = await fetch(`${apiUrl}/api/workspace-settings?token=${token}`, { cache: 'no-store' })
+  return await res.json()
+}
+
+interface ConfigureTasksAppPageProps {
   searchParams: Promise<{
     token: string
   }>
 }
 
-export default async function ManageTemplatesPage(props: ManageTemplatesPageProps) {
+export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPageProps) {
   const searchParams = await props.searchParams
   const { token } = searchParams
-  const [workflowStates, assignee, templates, tokenPayload, workspace] = await Promise.all([
+  const [workflowStates, assignee, templates, tokenPayload, workspace, workspaceSetting] = await Promise.all([
     getAllWorkflowStates(token),
     addTypeToAssignee(await getAssigneeList(token)),
     getAllTemplates(token),
     getTokenPayload(token),
     getWorkspace(token),
+    getWorkspaceSetting(token),
   ])
 
   return (
@@ -82,22 +89,29 @@ export default async function ManageTemplatesPage(props: ManageTemplatesPageProp
       templates={templates}
       tokenPayload={tokenPayload}
     >
-      <ManageTemplatesAppBridge token={token} role={UserRole.IU} portalUrl={workspace.portalUrl} />
+      <ConfigureTasksAppBridge portalUrl={workspace.portalUrl} />
       <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
-        <TemplateBoard
-          handleCreateTemplate={async (payload: CreateTemplateRequest) => {
-            'use server'
-            return await createNewTemplate(token, payload)
-          }}
-          handleDeleteTemplate={async (templateId: string) => {
-            'use server'
-            await deleteTemplate(token, templateId)
-          }}
-          handleEditTemplate={async (payload: UpdateTemplateRequest, templateId: string) => {
-            'use server'
-            await editTemplate(token, templateId, payload)
-          }}
-        />
+        <Stack direction="column" rowGap="32px" sx={{ paddingY: '32px' }}>
+          <AutoArchiveSection
+            initialAutoArchiveAfterDays={workspaceSetting.autoArchiveAfterDays}
+            token={token}
+            portalUrl={workspace.portalUrl}
+          />
+          <TemplateBoard
+            handleCreateTemplate={async (payload: CreateTemplateRequest) => {
+              'use server'
+              return await createNewTemplate(token, payload)
+            }}
+            handleDeleteTemplate={async (templateId: string) => {
+              'use server'
+              await deleteTemplate(token, templateId)
+            }}
+            handleEditTemplate={async (payload: UpdateTemplateRequest, templateId: string) => {
+              'use server'
+              await editTemplate(token, templateId, payload)
+            }}
+          />
+        </Stack>
       </RealTimeTemplates>
     </ClientSideStateUpdate>
   )

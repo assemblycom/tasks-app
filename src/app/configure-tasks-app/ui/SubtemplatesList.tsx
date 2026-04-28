@@ -12,7 +12,7 @@ import { ITemplate, Sizes } from '@/types/interfaces'
 import { getCardHrefTemplate } from '@/utils/getCardHref'
 import { Stack } from '@mui/material'
 import { useSelector } from 'react-redux'
-import { editTemplate } from '@/app/manage-templates/actions'
+import { editTemplate } from '@/app/configure-tasks-app/actions'
 
 interface SubtemplatesListProps {
   template: ITemplate
