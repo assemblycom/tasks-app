@@ -13,6 +13,8 @@ import { ConfirmUI } from '@/components/layouts/ConfirmUI'
 import { StateType } from '@prisma/client'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { useHandleSelectorComponent } from '@/hooks/useHandleSelectorComponent'
+import { useOpenSubtaskCount } from '@/hooks/useSubtaskCount'
+import { optimisticallyCascadeSubtasks } from '@/utils/cascadeOptimistic'
 import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
@@ -87,7 +89,7 @@ export const Sidebar = ({
   portalUrl?: string
   fromNotificationCenter?: boolean
 }) => {
-  const { activeTask, workflowStates, assignee, previewMode } = useSelector(selectTaskBoard)
+  const { activeTask, workflowStates, accessibleTasks, assignee, previewMode } = useSelector(selectTaskBoard)
   const { showSidebar, showConfirmAssignModal, fromNotificationCenter } = useSelector(selectTaskDetails)
   const { tokenPayload, workspace } = useSelector(selectAuthDetails)
 
@@ -101,6 +103,8 @@ export const Sidebar = ({
     userType == UserType.CLIENT_USER &&
     !previewMode &&
     (activeTask?.assigneeId === tokenPayload?.clientId || activeTask?.assigneeId === tokenPayload?.companyId)
+
+  const openSubtaskCount = useOpenSubtaskCount(activeTask?.id ?? '')
 
   const [dueDate, setDueDate] = useState<Date | string | undefined>()
   const [showAssociationConfirmationModal, setAssociationConfirmationModal] = useState(false) //this is used only in sidebar.
@@ -220,7 +224,7 @@ export const Sidebar = ({
   const handleWorkflowStateChange = (next: WorkflowStateResponse) => {
     const prevState = workflowStates.find((s) => s.id === activeTask.workflowStateId)
     const movingToCompleted = next.type === StateType.completed && prevState?.type !== StateType.completed
-    if (movingToCompleted && activeTask.subtaskCount > 0) {
+    if (movingToCompleted && openSubtaskCount > 0) {
       setPendingCompleteState(next)
       return
     }
@@ -230,6 +234,9 @@ export const Sidebar = ({
 
   const resolvePendingCompletion = (skipSubtaskCascade: boolean) => {
     if (!pendingCompleteState) return
+    if (!skipSubtaskCascade && activeTask) {
+      optimisticallyCascadeSubtasks(activeTask.id, pendingCompleteState.id, accessibleTasks, workflowStates)
+    }
     updateStatusValue(pendingCompleteState)
     updateWorkflowState(pendingCompleteState, skipSubtaskCascade)
     setPendingCompleteState(null)
@@ -496,7 +503,7 @@ export const Sidebar = ({
         </StyledModal>
         <CompletionCascadeModal
           targetState={pendingCompleteState}
-          subtaskCount={activeTask.subtaskCount}
+          subtaskCount={openSubtaskCount}
           onUpdate={() => resolvePendingCompletion(false)}
           onSkip={() => resolvePendingCompletion(true)}
           onClose={() => setPendingCompleteState(null)}
@@ -760,7 +767,7 @@ export const Sidebar = ({
       </StyledModal>
       <CompletionCascadeModal
         targetState={pendingCompleteState}
-        subtaskCount={activeTask.subtaskCount}
+        subtaskCount={openSubtaskCount}
         onUpdate={() => resolvePendingCompletion(false)}
         onSkip={() => resolvePendingCompletion(true)}
         onClose={() => setPendingCompleteState(null)}

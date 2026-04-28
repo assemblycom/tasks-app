@@ -114,6 +114,23 @@ const taskBoardSlice = createSlice({
       }
     },
 
+    bulkUpdateWorkflowStateIdByTaskIds: (
+      state,
+      action: { payload: { taskIds: string[]; targetWorkflowStateId: string } },
+    ) => {
+      const { taskIds, targetWorkflowStateId } = action.payload
+      if (taskIds.length === 0) return
+      const targetState = state.workflowStates.find((s) => s.id === targetWorkflowStateId)
+      const ids = new Set(taskIds)
+      const patch = (t: TaskResponse): TaskResponse =>
+        ids.has(t.id)
+          ? { ...t, workflowStateId: targetWorkflowStateId, ...(targetState && { workflowState: targetState }) }
+          : t
+      state.tasks = state.tasks.map(patch)
+      state.filteredTasks = state.filteredTasks.map(patch)
+      state.accessibleTasks = state.accessibleTasks.map(patch)
+    },
+
     setAssigneeList: (state, action: { payload: IAssigneeCombined[] }) => {
       state.assignee = action.payload
       state.filteredAssigneeList = action.payload
@@ -242,6 +259,7 @@ export const {
   setTasks,
   appendTask,
   updateWorkflowStateIdByTaskId,
+  bulkUpdateWorkflowStateIdByTaskIds,
   setToken,
   setAssigneeList,
   setFilteredTasks,
