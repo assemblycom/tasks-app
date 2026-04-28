@@ -33,13 +33,13 @@ export const CompletionCascadeModal = ({
       <ConfirmUI
         handleCancel={onClose}
         handleConfirm={onUpdate}
-        secondaryButtonText={`Skip sub-task${plural}`}
+        secondaryButtonText={`Skip subtask${plural}`}
         handleSecondary={onSkip}
         buttonText="Update"
-        title={`Update the status of open sub-task${plural} too?`}
+        title={`Update the status of open subtask${plural} too?`}
         description={
           <>
-            This task still has <strong>{subtaskCount}</strong> open sub-task{plural}. Would you like to also update its
+            This task still has <strong>{subtaskCount}</strong> open subtask{plural}. Would you like to also update its
             status to <strong>{targetState?.name}</strong>?
           </>
         }

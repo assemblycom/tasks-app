@@ -15,7 +15,7 @@ import { CompletionCascadeModal } from '@/components/layouts/CompletionCascadeMo
 import { ConfirmUI } from '@/components/layouts/ConfirmUI'
 import { CustomLink } from '@/hoc/CustomLink'
 import { useHandleSelectorComponent } from '@/hooks/useHandleSelectorComponent'
-import { useSubtaskCount } from '@/hooks/useSubtaskCount'
+import { useOpenSubtaskCount } from '@/hooks/useSubtaskCount'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import {
   selectTaskBoard,
@@ -39,6 +39,7 @@ import {
 } from '@/utils/assignee'
 import { createDateFromFormattedDateString, formatDate } from '@/utils/dateHelper'
 import { getCardHref } from '@/utils/getCardHref'
+import { optimisticallyCascadeSubtasks } from '@/utils/cascadeOptimistic'
 import { isTaskCompleted } from '@/utils/isTaskCompleted'
 import { NoAssignee } from '@/utils/noAssignee'
 import {
@@ -81,15 +82,23 @@ export const TaskCardList = ({
   sx,
   disableNavigation = false,
 }: TaskCardListProps) => {
-  const { assignee, workflowStates, previewMode, token, confirmAssignModalId, assigneeCache, confirmAssociationModalId } =
-    useSelector(selectTaskBoard)
+  const {
+    assignee,
+    workflowStates,
+    accessibleTasks,
+    previewMode,
+    token,
+    confirmAssignModalId,
+    assigneeCache,
+    confirmAssociationModalId,
+  } = useSelector(selectTaskBoard)
   const { tokenPayload } = useSelector(selectAuthDetails)
 
   const [currentDueDate, setCurrentDueDate] = useState<string | undefined>(task.dueDate)
   const [selectedAssignee, setSelectedAssignee] = useState<UserIdsType | undefined>(undefined)
   const [pendingCompleteState, setPendingCompleteState] = useState<WorkflowStateResponse | null>(null)
 
-  const subtaskCount = useSubtaskCount(task.id)
+  const openSubtaskCount = useOpenSubtaskCount(task.id)
 
   const [assigneeValue, setAssigneeValue] = useState<IAssigneeCombined | Omit<IAssigneeCombined, 'type'> | undefined>(() => {
     return assigneeCache[task.id]
@@ -240,8 +249,9 @@ export const TaskCardList = ({
           value={statusValue}
           variant="icon"
           getValue={(value) => {
-            const movingToCompleted = value.type === StateType.completed && task.workflowState?.type !== StateType.completed
-            if (movingToCompleted && subtaskCount > 0) {
+            const sourceState = workflowStates.find((s) => s.id === task.workflowStateId)
+            const movingToCompleted = value.type === StateType.completed && sourceState?.type !== StateType.completed
+            if (movingToCompleted && openSubtaskCount > 0) {
               setPendingCompleteState(value)
               return
             }
@@ -464,9 +474,12 @@ export const TaskCardList = ({
       </StyledModal>
       <CompletionCascadeModal
         targetState={pendingCompleteState}
-        subtaskCount={subtaskCount}
+        subtaskCount={openSubtaskCount}
         onUpdate={() => {
-          if (pendingCompleteState) applyWorkflowStateChange(pendingCompleteState, false)
+          if (pendingCompleteState) {
+            optimisticallyCascadeSubtasks(task.id, pendingCompleteState.id, accessibleTasks, workflowStates)
+            applyWorkflowStateChange(pendingCompleteState, false)
+          }
           setPendingCompleteState(null)
         }}
         onSkip={() => {

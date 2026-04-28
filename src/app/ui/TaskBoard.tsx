@@ -8,6 +8,7 @@ import { TasksRowVirtualizer, TasksListVirtualizer } from '@/app/ui/VirtualizedT
 import { CustomDragLayer } from '@/components/CustomDragLayer'
 import { CardDragLayer } from '@/components/cards/CardDragLayer'
 import { TaskColumn } from '@/components/cards/TaskColumn'
+import { CompletionCascadeModal } from '@/components/layouts/CompletionCascadeModal'
 import DashboardEmptyState from '@/components/layouts/EmptyState/DashboardEmptyState'
 import { FilterBar } from '@/components/layouts/FilterBar'
 import { SecondaryFilterBar } from '@/components/layouts/SecondaryFilterBar'
@@ -17,11 +18,14 @@ import { selectTaskBoard, updateWorkflowStateIdByTaskId } from '@/redux/features
 import store from '@/redux/store'
 import { WorkspaceResponse } from '@/types/common'
 import { TaskResponse } from '@/types/dto/tasks.dto'
+import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { View } from '@/types/interfaces'
+import { getOpenSubtaskIds, optimisticallyCascadeSubtasks } from '@/utils/cascadeOptimistic'
 import { sortTaskByDescendingOrder } from '@/utils/sortByDescending'
 import { prioritizeStartedStates } from '@/utils/workflowStates'
 import { UserRole } from '@api/core/types/user'
 import { Box, Stack } from '@mui/material'
+import { StateType } from '@prisma/client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { z } from 'zod'
@@ -49,21 +53,43 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
   } = useSelector(selectTaskBoard)
   const boardRef = useRef<HTMLDivElement>(null)
 
-  const onDropItem = useCallback(
-    (payload: { taskId: string; targetWorkflowStateId: string }) => {
-      const { taskId, targetWorkflowStateId } = payload
+  const [pendingDrop, setPendingDrop] = useState<{
+    taskId: string
+    targetState: WorkflowStateResponse
+    subtaskCount: number
+  } | null>(null)
+
+  const performDropUpdate = useCallback(
+    (taskId: string, targetWorkflowStateId: string, skipSubtaskCascade: boolean = false) => {
       store.dispatch(updateWorkflowStateIdByTaskId({ taskId, targetWorkflowStateId }))
       if (mode === UserRole.Client && !previewMode) {
-        clientUpdateTask(z.string().parse(token), taskId, targetWorkflowStateId)
+        clientUpdateTask(z.string().parse(token), taskId, targetWorkflowStateId, skipSubtaskCascade)
       } else {
         updateTask({
           token: z.string().parse(token),
           taskId,
-          payload: { workflowStateId: targetWorkflowStateId },
+          payload: { workflowStateId: targetWorkflowStateId, skipSubtaskCascade },
         })
       }
     },
-    [token],
+    [token, mode, previewMode],
+  )
+
+  const onDropItem = useCallback(
+    (payload: { taskId: string; targetWorkflowStateId: string }) => {
+      const { taskId, targetWorkflowStateId } = payload
+      const task = accessibleTasks.find((t) => t.id === taskId)
+      const targetState = workflowStates.find((s) => s.id === targetWorkflowStateId)
+      const sourceState = workflowStates.find((s) => s.id === task?.workflowStateId)
+      const movingToCompleted = targetState?.type === StateType.completed && sourceState?.type !== StateType.completed
+      const openSubtaskCount = getOpenSubtaskIds(taskId, accessibleTasks, workflowStates).length
+      if (movingToCompleted && openSubtaskCount > 0 && targetState) {
+        setPendingDrop({ taskId, targetState, subtaskCount: openSubtaskCount })
+        return
+      }
+      performDropUpdate(taskId, targetWorkflowStateId)
+    },
+    [token, accessibleTasks, workflowStates, performDropUpdate],
   )
   const filterTaskWithWorkflowStateId = (workflowStateId: string): TaskResponse[] => {
     return filteredTasks.filter((task) => task.workflowStateId === workflowStateId)
@@ -208,6 +234,23 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
       <CustomDragLayer>
         <CardDragLayer mode={mode} />
       </CustomDragLayer>
+
+      <CompletionCascadeModal
+        targetState={pendingDrop?.targetState ?? null}
+        subtaskCount={pendingDrop?.subtaskCount ?? 0}
+        onUpdate={() => {
+          if (pendingDrop) {
+            optimisticallyCascadeSubtasks(pendingDrop.taskId, pendingDrop.targetState.id, accessibleTasks, workflowStates)
+            performDropUpdate(pendingDrop.taskId, pendingDrop.targetState.id, false)
+          }
+          setPendingDrop(null)
+        }}
+        onSkip={() => {
+          if (pendingDrop) performDropUpdate(pendingDrop.taskId, pendingDrop.targetState.id, true)
+          setPendingDrop(null)
+        }}
+        onClose={() => setPendingDrop(null)}
+      />
     </>
   )
 }

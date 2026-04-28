@@ -5,7 +5,7 @@ import { CopilotAvatar } from '@/components/atoms/CopilotAvatar'
 import { SelectorType } from '@/components/inputs/Selector'
 import { WorkflowStateSelector } from '@/components/inputs/Selector-WorkflowState'
 import { useHandleSelectorComponent } from '@/hooks/useHandleSelectorComponent'
-import { useSubtaskCount } from '@/hooks/useSubtaskCount'
+import { useOpenSubtaskCount, useSubtaskCount } from '@/hooks/useSubtaskCount'
 import {
   selectTaskBoard,
   setAssigneeCache,
@@ -25,6 +25,7 @@ import {
   isEmptyAssignee,
   UserIdsType,
 } from '@/utils/assignee'
+import { optimisticallyCascadeSubtasks } from '@/utils/cascadeOptimistic'
 import { isTaskCompleted } from '@/utils/isTaskCompleted'
 import { NoAssignee } from '@/utils/noAssignee'
 import { StateType } from '@prisma/client'
@@ -102,6 +103,7 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
   } = useSelector(selectTaskBoard)
 
   const subtaskCount = useSubtaskCount(task.id)
+  const openSubtaskCount = useOpenSubtaskCount(task.id)
 
   const [currentDueDate, setCurrentDueDate] = useState<string | undefined>(task.dueDate)
 
@@ -205,9 +207,9 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
               value={statusValue}
               variant="icon"
               getValue={(value) => {
-                const movingToCompleted =
-                  value.type === StateType.completed && task.workflowState?.type !== StateType.completed
-                if (movingToCompleted && subtaskCount > 0) {
+                const sourceState = workflowStates.find((s) => s.id === task.workflowStateId)
+                const movingToCompleted = value.type === StateType.completed && sourceState?.type !== StateType.completed
+                if (movingToCompleted && openSubtaskCount > 0) {
                   setPendingCompleteState(value)
                   return
                 }
@@ -402,9 +404,12 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
       </StyledModal>
       <CompletionCascadeModal
         targetState={pendingCompleteState}
-        subtaskCount={subtaskCount}
+        subtaskCount={openSubtaskCount}
         onUpdate={() => {
-          if (pendingCompleteState) applyWorkflowStateChange(pendingCompleteState, false)
+          if (pendingCompleteState) {
+            optimisticallyCascadeSubtasks(task.id, pendingCompleteState.id, accessibleTasks, workflowStates)
+            applyWorkflowStateChange(pendingCompleteState, false)
+          }
           setPendingCompleteState(null)
         }}
         onSkip={() => {
