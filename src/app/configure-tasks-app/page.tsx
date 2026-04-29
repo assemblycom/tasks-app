@@ -2,7 +2,7 @@ export const fetchCache = 'force-no-store'
 
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { TemplateBoard } from './ui/TemplateBoard'
-import { apiUrl } from '@/config'
+import { apiUrl, tasksAppId } from '@/config'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { IAssignee, ITemplate } from '@/types/interfaces'
 import { addTypeToAssignee } from '@/utils/addTypeToAssignee'
@@ -58,6 +58,17 @@ async function getWorkspace(token: string): Promise<WorkspaceResponse> {
   return await copilot.getWorkspace()
 }
 
+async function getAppDisplayName(token: string): Promise<string | null> {
+  if (!tasksAppId) return null
+  try {
+    const copilot = new CopilotAPI(token)
+    return await copilot.getAppInstallDisplayName(tasksAppId)
+  } catch (err) {
+    console.error('Failed to fetch app install display name', err)
+    return null
+  }
+}
+
 async function getWorkspaceSetting(token: string): Promise<{ autoArchiveAfterDays: number }> {
   const res = await fetch(`${apiUrl}/api/workspace-settings?token=${token}`, { cache: 'no-store' })
   return await res.json()
@@ -72,14 +83,17 @@ interface ConfigureTasksAppPageProps {
 export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPageProps) {
   const searchParams = await props.searchParams
   const { token } = searchParams
-  const [workflowStates, assignee, templates, tokenPayload, workspace, workspaceSetting] = await Promise.all([
-    getAllWorkflowStates(token),
-    addTypeToAssignee(await getAssigneeList(token)),
-    getAllTemplates(token),
-    getTokenPayload(token),
-    getWorkspace(token),
-    getWorkspaceSetting(token),
-  ])
+  const [workflowStates, assignee, templates, tokenPayload, workspace, workspaceSetting, appDisplayName] = await Promise.all(
+    [
+      getAllWorkflowStates(token),
+      addTypeToAssignee(await getAssigneeList(token)),
+      getAllTemplates(token),
+      getTokenPayload(token),
+      getWorkspace(token),
+      getWorkspaceSetting(token),
+      getAppDisplayName(token),
+    ],
+  )
 
   return (
     <ClientSideStateUpdate
@@ -89,7 +103,7 @@ export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPage
       templates={templates}
       tokenPayload={tokenPayload}
     >
-      <ConfigureTasksAppBridge portalUrl={workspace.portalUrl} />
+      <ConfigureTasksAppBridge portalUrl={workspace.portalUrl} appDisplayName={appDisplayName} />
       <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
         <Stack direction="column" rowGap="32px" sx={{ paddingY: '32px' }}>
           <AutoArchiveSection

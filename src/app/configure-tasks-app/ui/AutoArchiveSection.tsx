@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Box, MenuItem, Select, Stack, Typography } from '@mui/material'
 import { StyledSwitch } from '@/components/inputs/StyledSwitch'
 import { usePrimaryCta } from '@/hooks/app-bridge/usePrimaryCta'
@@ -25,6 +25,15 @@ export const AutoArchiveSection = ({ initialAutoArchiveAfterDays, token, portalU
   const isEnabled = draftValue > 0
   const hasUnsavedChanges = draftValue !== savedValue
 
+  const draftValueRef = useRef(draftValue)
+  const isSavingRef = useRef(isSaving)
+  useEffect(() => {
+    draftValueRef.current = draftValue
+  }, [draftValue])
+  useEffect(() => {
+    isSavingRef.current = isSaving
+  }, [isSaving])
+
   const handleToggle = (checked: boolean) => {
     setDraftValue(checked ? DEFAULT_DAYS_ON_ENABLE : 0)
   }
@@ -33,22 +42,27 @@ export const AutoArchiveSection = ({ initialAutoArchiveAfterDays, token, portalU
     setDraftValue(days)
   }
 
+  const handleSave = async () => {
+    if (isSavingRef.current) return
+    setIsSaving(true)
+    try {
+      const valueToSave = draftValueRef.current
+      await updateWorkspaceSettings(token, { autoArchiveAfterDays: valueToSave })
+      setSavedValue(valueToSave)
+    } catch (err) {
+      console.error('Failed to save workspace settings', err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   usePrimaryCta(
-    {
-      label: 'Save settings',
-      onClick: async () => {
-        if (!hasUnsavedChanges || isSaving) return
-        setIsSaving(true)
-        try {
-          await updateWorkspaceSettings(token, { autoArchiveAfterDays: draftValue })
-          setSavedValue(draftValue)
-        } catch (err) {
-          console.error('Failed to save workspace settings', err)
-        } finally {
-          setIsSaving(false)
+    hasUnsavedChanges
+      ? {
+          label: 'Save settings',
+          onClick: handleSave,
         }
-      },
-    },
+      : null,
     { portalUrl },
   )
 

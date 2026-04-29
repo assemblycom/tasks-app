@@ -107,6 +107,14 @@ export class CopilotAPI {
     return WorkspaceResponseSchema.parse(await this.copilot.retrieveWorkspace())
   }
 
+  async _getAppInstallDisplayName(appId: string): Promise<string | null> {
+    console.info('CopilotAPI#_getAppInstallDisplayName', this.token)
+    if (!appId) return null
+    const installs = await this.copilot.listAppInstalls()
+    const install = installs?.find((i) => i.appId === appId)
+    return install?.displayName ?? null
+  }
+
   async _getClientTokenPayload(): Promise<ClientToken | null> {
     console.info('CopilotAPI#_getClientTokenPayload', this.token)
     const tokenPayload = await this.getTokenPayload()
@@ -354,6 +362,7 @@ export class CopilotAPI {
   getTokenPayload = this.wrapWithRetry(this._getTokenPayload)
   me = this.wrapWithRetry(this._me)
   getWorkspace = this.wrapWithRetry(this._getWorkspace)
+  getAppInstallDisplayName = this.wrapWithRetry(this._getAppInstallDisplayName)
   getClientTokenPayload = this.wrapWithRetry(this._getClientTokenPayload)
   getIUTokenPayload = this.wrapWithRetry(this._getIUTokenPayload)
   createClient = this.wrapWithRetry(this._createClient)
