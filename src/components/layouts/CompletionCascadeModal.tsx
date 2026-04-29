@@ -39,8 +39,8 @@ export const CompletionCascadeModal = ({
         title={`Update the status of open subtask${plural} too?`}
         description={
           <>
-            This task still has <strong>{subtaskCount}</strong> open subtask{plural}. Would you like to also update its
-            status to <strong>{targetState?.name}</strong>?
+            This task still has <strong>{subtaskCount}</strong> open subtask{plural}. Would you like to also update{' '}
+            {plural ? 'their' : 'its'} status to <strong>{targetState?.name}</strong>?
           </>
         }
       />
