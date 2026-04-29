@@ -52,7 +52,7 @@ export const TaskBoardAppBridge = ({ token, role, portalUrl, isTaskBoardEmpty = 
       ? []
       : [
           {
-            label: 'Manage templates',
+            label: 'Configure Settings',
             icon: Icons.TEMPLATES,
             onClick: handleManageTemplatesClick,
           },
