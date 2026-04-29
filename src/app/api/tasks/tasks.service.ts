@@ -21,7 +21,7 @@ import { Resource } from '@api/core/types/api'
 import { UserAction, UserRole } from '@api/core/types/user'
 import { LabelMappingService } from '@api/label-mapping/label-mapping.service'
 import { PublicTaskSerializer } from '@api/tasks/public/public.serializer'
-import { SubtaskService } from '@api/tasks/subtasks.service'
+import { SubtaskCascadePair, SubtaskService } from '@api/tasks/subtasks.service'
 import { dispatchUpdatedWebhookEvent, getArchivedStatus, getTaskTimestamps } from '@api/tasks/tasks.helpers'
 import { TasksActivityLogger } from '@api/tasks/tasks.logger'
 import { TasksSharedService } from '@/app/api/tasks/tasksShared.service'
@@ -286,16 +286,27 @@ export class TasksService extends TasksSharedService {
       await this.checkClientAccessForTask(task, this.user.internalUserId)
     }
 
-    const updatedTask = await this.db.task.update({
-      where: { id: task.id },
-      data: {
-        body: task.body && (await replaceImageSrc(task.body, getSignedUrl)),
-      },
-      relationLoadStrategy: 'join',
-      include: { workflowState: true },
-    })
+    const accessWhere = await this.getAccessFilterForTasks()
+    const [updatedTask, accessibleSubtaskCount] = await Promise.all([
+      this.db.task.update({
+        where: { id: task.id },
+        data: {
+          body: task.body && (await replaceImageSrc(task.body, getSignedUrl)),
+        },
+        relationLoadStrategy: 'join',
+        include: { workflowState: true },
+      }),
+      this.db.task.count({
+        where: {
+          ...accessWhere,
+          parentId: task.id,
+          workspaceId: this.user.workspaceId,
+          deletedAt: null,
+        },
+      }),
+    ])
 
-    return updatedTask
+    return { ...updatedTask, subtaskCount: accessibleSubtaskCount }
   }
 
   async getTaskAssignee(task: Task): Promise<InternalUsers | ClientResponse | CompanyResponse | undefined> {
@@ -327,8 +338,8 @@ export class TasksService extends TasksSharedService {
     })
     if (!prevTask) throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
 
-    const { completedBy, completedByUserType } = await this.getCompletionInfo(data?.workflowStateId)
-    const { internalUserId, clientId, companyId, ...dataWithoutUserIds } = data
+    const { completedBy, completedByUserType, workflowStateStatus } = await this.getCompletionInfo(data?.workflowStateId)
+    const { internalUserId, clientId, companyId, skipSubtaskCascade, ...dataWithoutUserIds } = data
 
     const shouldUpdateUserIds =
       (internalUserId !== undefined && internalUserId !== prevTask?.internalUserId) ||
@@ -369,6 +380,14 @@ export class TasksService extends TasksSharedService {
     }
 
     const subtaskService = new SubtaskService(this.user)
+    let cascadedSubtasks: SubtaskCascadePair[] = []
+
+    const willCascade =
+      !!data.workflowStateId &&
+      !skipSubtaskCascade &&
+      prevTask.workflowState.type !== StateType.completed &&
+      workflowStateStatus === StateType.completed
+    const cascadeAccessWhere = willCascade ? await this.getAccessFilterForTasks() : undefined
 
     let updatedTask = await this.db.$transaction(async (tx) => {
       //generate new label if prevTask has no assignee but now assigned to someone
@@ -417,6 +436,15 @@ export class TasksService extends TasksSharedService {
         await subtaskService.toggleArchiveForAllSubtasks(id, data.isArchived)
       }
 
+      if (willCascade && data.workflowStateId) {
+        cascadedSubtasks = await subtaskService.completeAllSubtasks(id, {
+          workflowStateId: data.workflowStateId,
+          completedBy,
+          completedByUserType,
+          accessWhere: cascadeAccessWhere,
+        })
+      }
+
       return updatedTask
     })
 
@@ -426,8 +454,15 @@ export class TasksService extends TasksSharedService {
       await Promise.all([
         activityLogger.logTaskUpdated(prevTask),
         this.setNewLastSubtaskUpdated(updatedTask.parentId),
+        // Bump this task's lastSubtaskUpdated so the detail page's Subtasks SWR cache revalidates
+        cascadedSubtasks.length > 0 ? this.setNewLastSubtaskUpdated(id) : undefined,
         sendTaskUpdateNotifications.trigger({ prevTask, updatedTask, user: this.user }),
         dispatchUpdatedWebhookEvent(this.user, prevTask, updatedTask, false),
+        ...cascadedSubtasks.flatMap(({ prev, updated }) => [
+          new TasksActivityLogger(this.user, updated).logTaskUpdated(prev),
+          sendTaskUpdateNotifications.trigger({ prevTask: prev, updatedTask: updated, user: this.user }),
+          dispatchUpdatedWebhookEvent(this.user, prev, updated, false),
+        ]),
       ])
     }
 
@@ -578,7 +613,7 @@ export class TasksService extends TasksSharedService {
     return tasks
   }
 
-  async clientUpdateTask(id: string, targetWorkflowStateId?: string | null) {
+  async clientUpdateTask(id: string, targetWorkflowStateId?: string | null, skipSubtaskCascade: boolean = false) {
     //Apply custom authorization here. Policy service is not used because this api is for client's Mark done function only. Only clients can use this.
     if (this.user.role === UserRole.IU) {
       throw new APIError(httpStatus.UNAUTHORIZED, 'You are not authorized to perform this action')
@@ -604,19 +639,43 @@ export class TasksService extends TasksSharedService {
       },
     })
     const data = { workflowStateId: updatedWorkflowState?.id }
+    const subtaskService = new SubtaskService(this.user)
+    let cascadedSubtasks: SubtaskCascadePair[] = []
+
+    const willCascade =
+      !skipSubtaskCascade &&
+      !!updatedWorkflowState?.id &&
+      prevTask.workflowState.type !== StateType.completed &&
+      updatedWorkflowState.type === StateType.completed
+    const cascadeAccessWhere = willCascade ? await this.getAccessFilterForTasks() : undefined
+
     // Get the updated task
-    const updatedTask = await this.db.task.update({
-      where: { id },
-      data: {
-        ...data,
-        completedBy,
-        completedByUserType,
-        ...(await getTaskTimestamps('update', this.user, data, prevTask)),
-      },
-      include: {
-        workflowState: true,
-        attachments: true,
-      },
+    const updatedTask = await this.db.$transaction(async (tx) => {
+      const updated = await tx.task.update({
+        where: { id },
+        data: {
+          ...data,
+          completedBy,
+          completedByUserType,
+          ...(await getTaskTimestamps('update', this.user, data, prevTask)),
+        },
+        include: {
+          workflowState: true,
+          attachments: true,
+        },
+      })
+
+      if (willCascade && updated.workflowStateId) {
+        subtaskService.setTransaction(tx as PrismaClient)
+        cascadedSubtasks = await subtaskService.completeAllSubtasks(id, {
+          workflowStateId: updated.workflowStateId,
+          completedBy,
+          completedByUserType,
+          accessWhere: cascadeAccessWhere,
+        })
+      }
+
+      return updated
     })
 
     if (updatedTask) {
@@ -624,7 +683,19 @@ export class TasksService extends TasksSharedService {
       await Promise.all([
         activityLogger.logTaskUpdated(prevTask),
         this.setNewLastSubtaskUpdated(updatedTask.parentId),
+        // Bump this task's lastSubtaskUpdated so the detail page's Subtasks SWR cache revalidates
+        cascadedSubtasks.length > 0 ? this.setNewLastSubtaskUpdated(id) : undefined,
         dispatchUpdatedWebhookEvent(this.user, prevTask, updatedTask, false),
+        ...cascadedSubtasks.flatMap(({ prev, updated }) => [
+          new TasksActivityLogger(this.user, updated).logTaskUpdated(prev),
+          sendClientUpdateTaskNotifications.trigger({
+            user: this.user,
+            prevTask: prev,
+            updatedTask: updated,
+            updatedWorkflowState,
+          }),
+          dispatchUpdatedWebhookEvent(this.user, prev, updated, false),
+        ]),
       ])
     }
 

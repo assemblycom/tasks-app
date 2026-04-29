@@ -8,9 +8,13 @@ import { CopilotPopSelector } from '@/components/inputs/CopilotSelector'
 import { DatePickerComponent } from '@/components/inputs/DatePickerComponent'
 import { SelectorType } from '@/components/inputs/Selector'
 import { WorkflowStateSelector } from '@/components/inputs/Selector-WorkflowState'
+import { CompletionCascadeModal } from '@/components/layouts/CompletionCascadeModal'
 import { ConfirmUI } from '@/components/layouts/ConfirmUI'
+import { StateType } from '@prisma/client'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { useHandleSelectorComponent } from '@/hooks/useHandleSelectorComponent'
+import { useOpenSubtaskCount } from '@/hooks/useSubtaskCount'
+import { optimisticallyCascadeSubtasks } from '@/utils/cascadeOptimistic'
 import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
@@ -76,7 +80,7 @@ export const Sidebar = ({
   task_id: string
   selectedWorkflowState: WorkflowStateResponse
   selectedAssigneeId: string | undefined
-  updateWorkflowState: (workflowState: WorkflowStateResponse) => void
+  updateWorkflowState: (workflowState: WorkflowStateResponse, skipSubtaskCascade?: boolean) => void
   updateAssignee: (userIds: UserIdsWithAssociationSharedType) => void
   updateTask: (payload: UpdateTaskRequest) => void
   disabled: boolean
@@ -85,7 +89,7 @@ export const Sidebar = ({
   portalUrl?: string
   fromNotificationCenter?: boolean
 }) => {
-  const { activeTask, workflowStates, assignee, previewMode } = useSelector(selectTaskBoard)
+  const { activeTask, workflowStates, accessibleTasks, assignee, previewMode } = useSelector(selectTaskBoard)
   const { showSidebar, showConfirmAssignModal, fromNotificationCenter } = useSelector(selectTaskDetails)
   const { tokenPayload, workspace } = useSelector(selectAuthDetails)
 
@@ -100,9 +104,12 @@ export const Sidebar = ({
     !previewMode &&
     (activeTask?.assigneeId === tokenPayload?.clientId || activeTask?.assigneeId === tokenPayload?.companyId)
 
+  const openSubtaskCount = useOpenSubtaskCount(activeTask?.id ?? '')
+
   const [dueDate, setDueDate] = useState<Date | string | undefined>()
   const [showAssociationConfirmationModal, setAssociationConfirmationModal] = useState(false) //this is used only in sidebar.
   const [selectorFieldType, setSelectorFieldType] = useState<SelectorFieldType | null>(null)
+  const [pendingCompleteState, setPendingCompleteState] = useState<WorkflowStateResponse | null>(null)
 
   const [assigneeValue, setAssigneeValue] = useState<IAssigneeCombined | undefined>()
   const [selectedAssignee, setSelectedAssignee] = useState<UserIdsType | undefined>(undefined)
@@ -214,6 +221,27 @@ export const Sidebar = ({
 
   if (!activeTask || !isHydrated) return <SidebarSkeleton fromNotificationCenter={fromNotificationCenterProp} />
 
+  const handleWorkflowStateChange = (next: WorkflowStateResponse) => {
+    const prevState = workflowStates.find((s) => s.id === activeTask.workflowStateId)
+    const movingToCompleted = next.type === StateType.completed && prevState?.type !== StateType.completed
+    if (movingToCompleted && openSubtaskCount > 0) {
+      setPendingCompleteState(next)
+      return
+    }
+    updateStatusValue(next)
+    updateWorkflowState(next)
+  }
+
+  const resolvePendingCompletion = (skipSubtaskCascade: boolean) => {
+    if (!pendingCompleteState) return
+    if (!skipSubtaskCascade && activeTask) {
+      optimisticallyCascadeSubtasks(activeTask.id, pendingCompleteState.id, accessibleTasks, workflowStates)
+    }
+    updateStatusValue(pendingCompleteState)
+    updateWorkflowState(pendingCompleteState, skipSubtaskCascade)
+    setPendingCompleteState(null)
+  }
+
   const handleAssigneeChange = (inputValue: InputValue[]) => {
     setSelectorFieldType(SelectorFieldType.ASSIGNEE)
     const newUserIds = getSelectedUserIds(inputValue)
@@ -299,10 +327,7 @@ export const Sidebar = ({
           <WorkflowStateSelector
             option={workflowStates}
             value={statusValue}
-            getValue={(value) => {
-              updateStatusValue(value)
-              updateWorkflowState(value)
-            }}
+            getValue={handleWorkflowStateChange}
             responsiveNoHide
             disabled={workflowDisabled}
             size={Sizes.MEDIUM}
@@ -476,6 +501,13 @@ export const Sidebar = ({
             variant={showAssociationConfirmationModal ? 'danger' : 'default'}
           />
         </StyledModal>
+        <CompletionCascadeModal
+          targetState={pendingCompleteState}
+          subtaskCount={openSubtaskCount}
+          onUpdate={() => resolvePendingCompletion(false)}
+          onSkip={() => resolvePendingCompletion(true)}
+          onClose={() => setPendingCompleteState(null)}
+        />
       </Stack>
     )
   }
@@ -524,10 +556,7 @@ export const Sidebar = ({
                 padding="0px"
                 option={workflowStates}
                 value={statusValue}
-                getValue={(value) => {
-                  updateStatusValue(value)
-                  updateWorkflowState(value)
-                }}
+                getValue={handleWorkflowStateChange}
                 disabled={workflowDisabled}
                 variant={'normal'}
                 gap="6px"
@@ -736,12 +765,19 @@ export const Sidebar = ({
           variant={showAssociationConfirmationModal ? 'danger' : 'default'}
         />
       </StyledModal>
+      <CompletionCascadeModal
+        targetState={pendingCompleteState}
+        subtaskCount={openSubtaskCount}
+        onUpdate={() => resolvePendingCompletion(false)}
+        onSkip={() => resolvePendingCompletion(true)}
+        onClose={() => setPendingCompleteState(null)}
+      />
       {isAssignedToCU && userType == UserType.CLIENT_USER && !previewMode && (
         <ClientDetailAppBridge
           isTaskCompleted={isTaskCompleted}
           handleTaskComplete={() => {
-            completedWorkflowState && updateStatusValue(completedWorkflowState)
-            completedWorkflowState && updateWorkflowState(completedWorkflowState)
+            if (!completedWorkflowState) return
+            handleWorkflowStateChange(completedWorkflowState)
           }}
           portalUrl={portalUrl}
         />

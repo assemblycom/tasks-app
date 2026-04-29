@@ -14,6 +14,9 @@ interface ConfirmUIProps {
   title: string
   description: ReactNode | string
   variant?: 'default' | 'danger'
+  /** When provided alongside `handleSecondary`, replaces the Cancel slot with a labelled action button. */
+  secondaryButtonText?: string
+  handleSecondary?: () => void
 }
 
 export const ConfirmUI = ({
@@ -23,7 +26,10 @@ export const ConfirmUI = ({
   title = 'Are you sure?',
   description = `This action can't be undone.`,
   variant = 'default',
+  secondaryButtonText,
+  handleSecondary,
 }: ConfirmUIProps) => {
+  const hasSecondary = !!secondaryButtonText && !!handleSecondary
   return (
     <UIContainer sx={{ width: { xs: '80%', sm: '540px' } }} onClick={(e) => e.preventDefault()}>
       <StyledBox>
@@ -40,10 +46,10 @@ export const ConfirmUI = ({
       <Stack direction="row" justifyContent="right" alignItems="center" sx={{ padding: '16px 20px' }}>
         <Stack direction="row" columnGap={4}>
           <SecondaryBtn
-            handleClick={handleCancel}
+            handleClick={hasSecondary ? handleSecondary : handleCancel}
             buttonContent={
               <Typography variant="sm" sx={{ color: (theme) => theme.color.gray[700] }}>
-                Cancel
+                {hasSecondary ? secondaryButtonText : 'Cancel'}
               </Typography>
             }
             padding={'3px 8px'}

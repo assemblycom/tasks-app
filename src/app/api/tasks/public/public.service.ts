@@ -313,7 +313,7 @@ export class PublicTasksService extends TasksSharedService {
 
     const { completedBy, completedByUserType } = await this.getCompletionInfo(data?.workflowStateId)
 
-    const { internalUserId, clientId, companyId, ...dataWithoutUserIds } = data
+    const { internalUserId, clientId, companyId, skipSubtaskCascade: _skipSubtaskCascade, ...dataWithoutUserIds } = data
 
     //todo : keep this in a separate shared util
     const shouldUpdateUserIds =

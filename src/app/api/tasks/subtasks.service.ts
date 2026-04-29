@@ -5,9 +5,16 @@ import { buildLtreeNodeString } from '@/utils/ltree'
 import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { UserRole } from '@api/core/types/user'
+import { TaskWithWorkflowStateAndAttachments } from '@api/tasks/public/public.serializer'
+import { AssigneeType, Prisma, StateType, Task, WorkflowState } from '@prisma/client'
 import { JsonValue } from '@prisma/client/runtime/library'
 import httpStatus from 'http-status'
 import { z } from 'zod'
+
+export type SubtaskCascadePair = {
+  prev: Task & { workflowState: WorkflowState }
+  updated: TaskWithWorkflowStateAndAttachments
+}
 
 interface Assignable {
   internalUserId: string | null
@@ -87,6 +94,64 @@ export class SubtaskService extends BaseService {
       archive,
       this.user.workspaceId,
     )
+  }
+
+  /**
+   * Moves all subtasks of the given parent into the provided (completed-type) workflow state.
+   * Skips subtasks that are already in a completed-type state so their original
+   * completedAt / completedBy values are preserved.
+   * Returns [prev, updated] pairs for each cascaded subtask so the caller can dispatch
+   * per-subtask webhook events.
+   */
+  async completeAllSubtasks(
+    id: string,
+    {
+      workflowStateId,
+      completedBy,
+      completedByUserType,
+      accessWhere,
+    }: {
+      workflowStateId: string
+      completedBy: string | null
+      completedByUserType: AssigneeType | null
+      /** Access-scope filter from the actor; only matching subtasks are cascaded. Pass `{}` for full access. */
+      accessWhere?: Prisma.TaskWhereInput
+    },
+  ): Promise<SubtaskCascadePair[]> {
+    console.info('SubtasksService#completeAllSubtasks | Completing all subtasks for parent with id', id)
+    const prevSubtasks = await this.db.task.findMany({
+      where: {
+        ...accessWhere,
+        parentId: id,
+        workspaceId: this.user.workspaceId,
+        deletedAt: null,
+        workflowState: { type: { not: StateType.completed } },
+      },
+      include: { workflowState: true, attachments: true },
+    })
+    if (prevSubtasks.length === 0) return []
+
+    const ids = prevSubtasks.map((s) => s.id)
+    const completedAt = new Date()
+    const [, newWorkflowState] = await Promise.all([
+      this.db.task.updateMany({
+        where: { id: { in: ids } },
+        data: { workflowStateId, completedAt, completedBy, completedByUserType },
+      }),
+      this.db.workflowState.findUniqueOrThrow({ where: { id: workflowStateId } }),
+    ])
+
+    return prevSubtasks.map((prev) => ({
+      prev,
+      updated: {
+        ...prev,
+        workflowStateId,
+        workflowState: newWorkflowState,
+        completedAt,
+        completedBy,
+        completedByUserType,
+      },
+    }))
   }
 
   async getAccessiblePathTasks<T extends Assignable>(tasks: T[]): Promise<T[]> {
