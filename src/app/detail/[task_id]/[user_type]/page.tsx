@@ -43,6 +43,7 @@ import { CopilotAPI } from '@/utils/CopilotAPI'
 import EscapeHandler from '@/utils/escapeHandler'
 import { getPreviewMode } from '@/utils/previewMode'
 import { checkIfTaskViewer } from '@/utils/taskViewer'
+import { truncateText } from '@/utils/truncateText'
 import { Box, Stack } from '@mui/material'
 import { Suspense } from 'react'
 import { z } from 'zod'
@@ -121,8 +122,8 @@ export default async function TaskDetailPage(props: {
 
   const isPreviewMode = !!getPreviewMode(tokenPayload)
 
-  const breadcrumbItems: { label: string; href: string }[] = taskPath.map(({ label, id }) => ({
-    label,
+  const breadcrumbItems: { label: string; href: string }[] = taskPath.map(({ title, id }) => ({
+    label: truncateText(title, 25),
     href: `/detail/${id}/${user_type}?token=${token}`,
   }))
 
