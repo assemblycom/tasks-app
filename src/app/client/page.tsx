@@ -13,7 +13,6 @@ import { TaskBoardAppBridge } from '@/app/ui/TaskBoardAppBridge'
 import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
-import { DndWrapper } from '@/hoc/DndWrapper'
 import { RealTime } from '@/hoc/RealTime'
 import { Token, TokenSchema, UrlActionParamsType, WorkspaceResponse } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
@@ -108,9 +107,7 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
 
         <TaskBoardAppBridge token={token} role={UserRole.Client} portalUrl={workspace.portalUrl} />
         <RealTime tokenPayload={tokenPayload}>
-          <DndWrapper>
-            <TaskBoard mode={UserRole.Client} token={token} />
-          </DndWrapper>
+          <TaskBoard mode={UserRole.Client} token={token} />
           <ModalNewTaskForm
             handleCreateMultipleAttachments={async (attachments: CreateAttachmentRequest[]) => {
               'use server'

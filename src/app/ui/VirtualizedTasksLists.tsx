@@ -3,7 +3,8 @@
 import { TaskCardList } from '@/app/detail/ui/TaskCardList'
 import { TaskCard } from '@/components/cards/TaskCard'
 import { CustomLink } from '@/hoc/CustomLink'
-import { DragDropHandler } from '@/hoc/DragDropHandler'
+import { DraggableTask } from '@/hoc/dndKit/DraggableTask'
+import { DroppableArea } from '@/hoc/dndKit/DroppableArea'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { TaskResponse } from '@/types/dto/tasks.dto'
@@ -86,21 +87,17 @@ export function TasksRowVirtualizer({ rows, mode, token, subtasksByTaskId, workf
             }}
           >
             <div style={{ padding: '3px 0' }}>
-              <CustomLink
+              <DraggableTask
                 key={rows[virtualRow.index].id}
-                href={{
-                  pathname: getCardHref(rows[virtualRow.index], mode),
-                  query: { token },
-                }}
-                style={{ width: 'fit-content' }}
-                draggable={!checkIfTaskViewer(rows[virtualRow.index].associations, tokenPayload)}
+                task={rows[virtualRow.index]}
+                disabled={checkIfTaskViewer(rows[virtualRow.index].associations, tokenPayload)}
               >
-                <DragDropHandler
-                  key={rows[virtualRow.index].id}
-                  accept={'taskCard'}
-                  index={virtualRow.index}
-                  task={rows[virtualRow.index]}
-                  draggable={!checkIfTaskViewer(rows[virtualRow.index].associations, tokenPayload)}
+                <CustomLink
+                  href={{
+                    pathname: getCardHref(rows[virtualRow.index], mode),
+                    query: { token },
+                  }}
+                  style={{ width: 'fit-content' }}
                 >
                   <Box>
                     <TaskCard
@@ -116,8 +113,8 @@ export function TasksRowVirtualizer({ rows, mode, token, subtasksByTaskId, workf
                       workflowDisabled={checkIfTaskViewer(rows[virtualRow.index].associations, tokenPayload)}
                     />
                   </Box>
-                </DragDropHandler>
-              </CustomLink>
+                </CustomLink>
+              </DraggableTask>
             </div>
           </div>
         ))}
@@ -133,7 +130,6 @@ interface TasksListVirtualizerProps {
   filterTaskWithWorkflowStateId: (id: string) => TaskResponse[]
   taskCountForWorkflowStateId: (id: string) => string
   previewMode?: PreviewMode
-  onDropItem: (payload: { taskId: string; targetWorkflowStateId: string }) => void
 }
 
 type VirtualItem =
@@ -156,7 +152,6 @@ export function TasksListVirtualizer({
   filterTaskWithWorkflowStateId,
   taskCountForWorkflowStateId,
   previewMode,
-  onDropItem,
 }: TasksListVirtualizerProps) {
   const { showSubtasks } = useSelector(selectTaskBoard)
   const { tokenPayload } = useSelector(selectAuthDetails)
@@ -233,13 +228,10 @@ export function TasksListVirtualizer({
         const sectionItems = section.items
 
         return (
-          <DragDropHandler
+          <DroppableArea
             key={section.workflowState.id}
-            accept={'taskCard'}
-            index={sectionIndex}
-            id={section.workflowState.id}
-            onDropItem={onDropItem}
-            droppable
+            workflowStateId={section.workflowState.id}
+            isOverStyle={{ backgroundColor: '#F8F9FB' }}
           >
             <TaskRow
               mode={mode}
@@ -277,28 +269,14 @@ export function TasksListVirtualizer({
                         }}
                       >
                         {item.type === 'task' && (
-                          <div
-                            style={{
-                              padding: '3px 0',
-                              width: '100%',
-                            }}
-                            draggable={!checkIfTaskViewer(item.task.associations, tokenPayload)}
-                            onDragStart={(e) => {
-                              if (checkIfTaskViewer(item.task.associations, tokenPayload)) {
-                                e.preventDefault()
-                              }
-                            }}
+                          <DraggableTask
+                            key={item.task.id}
+                            task={item.task}
+                            disabled={checkIfTaskViewer(item.task.associations, tokenPayload)}
+                            style={{ padding: '3px 0', width: '100%' }}
                           >
-                            <DragDropHandler
-                              key={item.task.id}
-                              accept={'taskCard'}
-                              index={item.taskIndex}
-                              task={item.task}
-                              draggable={!checkIfTaskViewer(item.task.associations, tokenPayload)}
-                            >
-                              <TaskCardList task={item.task} variant="task" workflowState={item.workflowState} mode={mode} />
-                            </DragDropHandler>
-                          </div>
+                            <TaskCardList task={item.task} variant="task" workflowState={item.workflowState} mode={mode} />
+                          </DraggableTask>
                         )}
 
                         {item.type === 'subtask' && (
@@ -319,7 +297,7 @@ export function TasksListVirtualizer({
                   })}
               </div>
             </TaskRow>
-          </DragDropHandler>
+          </DroppableArea>
         )
       })}
     </div>

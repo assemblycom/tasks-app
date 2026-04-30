@@ -5,14 +5,14 @@ import { TaskDataFetcher } from '@/app/_fetchers/TaskDataFetcher'
 import { clientUpdateTask } from '@/app/detail/[task_id]/[user_type]/actions'
 import { TaskBoardAppBridge } from '@/app/ui/TaskBoardAppBridge'
 import { TasksRowVirtualizer, TasksListVirtualizer } from '@/app/ui/VirtualizedTasksLists'
-import { CustomDragLayer } from '@/components/CustomDragLayer'
-import { CardDragLayer } from '@/components/cards/CardDragLayer'
 import { TaskColumn } from '@/components/cards/TaskColumn'
 import { CompletionCascadeModal } from '@/components/layouts/CompletionCascadeModal'
 import DashboardEmptyState from '@/components/layouts/EmptyState/DashboardEmptyState'
 import { FilterBar } from '@/components/layouts/FilterBar'
 import { SecondaryFilterBar } from '@/components/layouts/SecondaryFilterBar'
-import { DragDropHandler } from '@/hoc/DragDropHandler'
+import { DroppableArea } from '@/hoc/dndKit/DroppableArea'
+import { TaskDndContext } from '@/hoc/dndKit/TaskDndContext'
+import { TaskDragPreview } from '@/hoc/dndKit/TaskDragPreview'
 import { useFilter } from '@/hooks/useFilter'
 import { selectTaskBoard, updateWorkflowStateIdByTaskId } from '@/redux/features/taskBoardSlice'
 import store from '@/redux/store'
@@ -169,71 +169,79 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
       {mode == UserRole.IU && <SecondaryFilterBar mode={mode} />}
 
       {/* Task board according to selected view */}
-      {viewBoardSettings === View.BOARD_VIEW && (
-        <Box sx={{ padding: '12px 12px', height: `calc(100vh - 130px)` }}>
+      <TaskDndContext
+        onDropItem={onDropItem}
+        renderOverlay={(task) => <TaskDragPreview task={task} mode={mode} />}
+        autoScroll={
+          viewBoardSettings === View.LIST_VIEW
+            ? { threshold: { x: 0, y: 0.18 }, acceleration: 10, layoutShiftCompensation: false }
+            : false
+        }
+      >
+        {viewBoardSettings === View.BOARD_VIEW && (
+          <Box sx={{ padding: '12px 12px', height: `calc(100vh - 130px)` }}>
+            <Stack
+              columnGap={2}
+              sx={{
+                flexDirection: 'row',
+                overflowX: 'auto',
+              }}
+            >
+              {workflowStates.map((list) => (
+                <DroppableArea
+                  key={list.id}
+                  workflowStateId={list.id}
+                  style={{
+                    padding: '8px 12px',
+                    border: '0.5px solid transparent',
+                    borderRadius: '4px',
+                  }}
+                  isOverStyle={{
+                    border: '0.5px solid #C9CBCD',
+                    backgroundColor: '#F8F9FB',
+                  }}
+                >
+                  <TaskColumn
+                    key={list.id}
+                    mode={mode}
+                    workflowStateId={list.id}
+                    columnName={list.name}
+                    taskCount={taskCountForWorkflowStateId(list.id)}
+                    showAddBtn={mode === UserRole.IU || !!previewMode}
+                  >
+                    <TasksRowVirtualizer
+                      rows={sortTaskByDescendingOrder<TaskResponse>(filterTaskWithWorkflowStateId(list.id))}
+                      mode={mode}
+                      token={token}
+                      subtasksByTaskId={subtasksByTaskId}
+                      workflowState={list}
+                    />
+                  </TaskColumn>
+                </DroppableArea>
+              ))}
+            </Stack>
+          </Box>
+        )}
+        {viewBoardSettings === View.LIST_VIEW && (
           <Stack
-            columnGap={2}
             sx={{
-              flexDirection: 'row',
-              overflowX: 'auto',
+              flexDirection: 'column',
+              height: `calc(100vh - 130px)`,
+              width: '99.92%',
+              margin: '0 auto',
             }}
           >
-            {workflowStates.map((list, index) => (
-              <DragDropHandler
-                key={list.id}
-                accept={'taskCard'}
-                index={index}
-                id={list.id}
-                onDropItem={onDropItem}
-                droppable // Make TaskColumn droppable
-                padding={'8px 12px'}
-              >
-                <TaskColumn
-                  key={list.id}
-                  mode={mode}
-                  workflowStateId={list.id}
-                  columnName={list.name}
-                  taskCount={taskCountForWorkflowStateId(list.id)}
-                  showAddBtn={mode === UserRole.IU || !!previewMode}
-                >
-                  <TasksRowVirtualizer
-                    rows={sortTaskByDescendingOrder<TaskResponse>(filterTaskWithWorkflowStateId(list.id))}
-                    mode={mode}
-                    token={token}
-                    subtasksByTaskId={subtasksByTaskId}
-                    workflowState={list}
-                  />
-                </TaskColumn>
-              </DragDropHandler>
-            ))}
+            <TasksListVirtualizer
+              workflowStates={prioritizeStartedStates(workflowStates)}
+              mode={mode}
+              subtasksByTaskId={subtasksByTaskId}
+              filterTaskWithWorkflowStateId={filterTaskWithWorkflowStateId}
+              taskCountForWorkflowStateId={taskCountForWorkflowStateId}
+              previewMode={previewMode}
+            />
           </Stack>
-        </Box>
-      )}
-      {viewBoardSettings === View.LIST_VIEW && (
-        <Stack
-          sx={{
-            flexDirection: 'column',
-            height: `calc(100vh - 130px)`,
-            width: '99.92%',
-            margin: '0 auto',
-          }}
-        >
-          <TasksListVirtualizer
-            workflowStates={prioritizeStartedStates(workflowStates)}
-            mode={mode}
-            subtasksByTaskId={subtasksByTaskId}
-            filterTaskWithWorkflowStateId={filterTaskWithWorkflowStateId}
-            taskCountForWorkflowStateId={taskCountForWorkflowStateId}
-            previewMode={previewMode}
-            onDropItem={onDropItem}
-          />
-        </Stack>
-      )}
-
-      {/* Drag layer layout */}
-      <CustomDragLayer>
-        <CardDragLayer mode={mode} />
-      </CustomDragLayer>
+        )}
+      </TaskDndContext>
 
       <CompletionCascadeModal
         targetState={pendingDrop?.targetState ?? null}
