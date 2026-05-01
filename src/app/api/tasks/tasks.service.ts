@@ -100,23 +100,21 @@ export class TasksService extends TasksSharedService {
     const orderBy: Prisma.TaskOrderByWithRelationInput[] = [{ createdAt: 'desc' }]
     orderBy.unshift({ dueDate: { sort: 'asc', nulls: 'last' } })
 
+    // Push the client-access filter into SQL instead of fetching all rows
+    // and post-filtering in JS (the previous filterTasksByClientAccess pass).
+    // Composed via AND to avoid clobbering the OR clauses already present in
+    // the assembled `where` (buildTaskPermissions / disjointTasksFilter both
+    // return top-level OR for some user roles).
+    const accessFilter = await this.getAccessFilterForTasks()
+
     const tasks = await this.db.task.findMany({
-      where,
+      where: { AND: [where, accessFilter] },
       orderBy,
       relationLoadStrategy: 'join',
       include: { workflowState: true },
     })
 
-    if (!this.user.internalUserId) {
-      return tasks
-    }
-
-    // Now we have the challenge of figuring out if a task is assigned to a client / company that falls in IU's access list
-    const currentInternalUser = await this.copilot.getInternalUser(this.user.internalUserId)
-    if (!currentInternalUser.isClientAccessLimited) return tasks
-
-    const filteredTasks = await this.filterTasksByClientAccess(tasks, currentInternalUser)
-    return filteredTasks
+    return tasks
   }
 
   async createTask(data: CreateTaskRequest, opts?: { disableSubtaskTemplates?: boolean; manualTimestamp?: Date }) {

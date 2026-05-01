@@ -64,6 +64,10 @@ model Task {
   @@index([path], type: Gist)
   @@index([workspaceId], name: "IX_Tasks_workspaceId")
   @@index([assigneeId], name: "IX_Tasks_assigneeId")
-  @@index([workspaceId, createdAt(sort: Desc)], name: "IX_Tasks_workspaceId_createdAt")
+  @@index([workspaceId, isArchived, dueDate, createdAt(sort: Desc)], name: "IX_Tasks_workspaceId_isArchived_dueDate_createdAt")
+  // NOTE: A GIN index on `associations` (jsonb_path_ops) also exists in the database
+  // for JSONB containment queries. It is created via raw SQL in the migration
+  // (20260501120000_add_lookup_indexes) because Prisma cannot model GIN on Json[].
+  // Run `prisma migrate diff` and ignore the GIN entry — it is intentional drift.
   @@map("Tasks")
 }

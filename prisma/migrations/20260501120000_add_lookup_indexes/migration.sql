@@ -21,9 +21,21 @@ CREATE INDEX "IX_Tasks_workspaceId" ON "Tasks"("workspaceId");
 CREATE INDEX "IX_Tasks_assigneeId" ON "Tasks"("assigneeId");
 
 -- CreateIndex
--- Composite for the tenant-scoped Tasks list ordering
--- (tasks.service.ts orderBy [dueDate, createdAt desc] inside a workspace).
-CREATE INDEX "IX_Tasks_workspaceId_createdAt" ON "Tasks"("workspaceId", "createdAt" DESC);
+-- Composite that matches the Tasks list endpoint's filter + ordering:
+--   WHERE workspaceId = $1 AND isArchived = $2 AND deletedAt IS NULL
+--   ORDER BY "dueDate" ASC NULLS LAST, "createdAt" DESC
+-- See tasks.service.ts#listTasks. Plain (non-partial) so it stays in sync
+-- with Prisma's @@index — Prisma can't model partial indexes.
+CREATE INDEX "IX_Tasks_workspaceId_isArchived_dueDate_createdAt"
+  ON "Tasks"("workspaceId", "isArchived", "dueDate" ASC NULLS LAST, "createdAt" DESC);
+
+-- CreateIndex
+-- GIN index for JSONB containment lookups on associations
+-- (e.g. webhook.service.ts uses { associations: { hasSome: [{ companyId: ... }] } }).
+-- Prisma cannot model GIN on Json[] in schema, so this lives only in SQL —
+-- the schema file intentionally omits this index.
+CREATE INDEX "IX_Tasks_associations_gin"
+  ON "Tasks" USING GIN ("associations" jsonb_path_ops);
 
 -- CreateIndex
 CREATE INDEX "IX_ClientNotifications_taskId" ON "ClientNotifications"("taskId");
