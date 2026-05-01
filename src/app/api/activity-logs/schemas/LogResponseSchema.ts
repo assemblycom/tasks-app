@@ -8,7 +8,7 @@ export const LogResponseSchema = z.object({
   type: z.nativeEnum(ActivityType),
   details: DBActivityLogDetailsSchema,
   taskId: z.string().uuid(),
-  userId: z.string().uuid(),
+  userId: z.string().uuid().nullable(),
   userRole: z.nativeEnum(AssigneeType),
   workspaceId: z.string(),
   createdAt: z.string().datetime(),
