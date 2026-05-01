@@ -160,23 +160,30 @@ export const ActivityLog = ({ log }: Prop) => {
     ),
   }
 
-  const activityUser = assignee.find((assignee) => assignee.id == log.userId)
+  const activityUser = log.userId ? assignee.find((assignee) => assignee.id == log.userId) : undefined
+  const isSystemActivity = log.userId === null && log.type === ActivityType.ARCHIVE_STATE_UPDATED
 
   return (
     <Stack direction="row" columnGap={4} position="relative">
       <VerticalLine />
 
       <Stack direction="row" columnGap={4} padding={'11px 0px 11px 0px'} width={'100%'} sx={{ alignItems: 'center' }}>
-        <CopilotAvatar size="xs" currentAssignee={activityUser} />
+        {!isSystemActivity && <CopilotAvatar size="xs" currentAssignee={activityUser} />}
         <TypographyContainer direction="row" columnGap={1}>
-          {activityUser ? (
-            <BoldTypography>{getAssigneeName(activityUser, '')}</BoldTypography>
+          {isSystemActivity ? (
+            <StyledTypography>Task was auto-archived</StyledTypography>
           ) : (
-            <Typography variant="md" sx={{ fontStyle: 'italic' }}>
-              Deleted User
-            </Typography>
+            <>
+              {activityUser ? (
+                <BoldTypography>{getAssigneeName(activityUser, '')}</BoldTypography>
+              ) : (
+                <Typography variant="md" sx={{ fontStyle: 'italic' }}>
+                  Deleted User
+                </Typography>
+              )}{' '}
+              {activityDescription[log.type as ActivityType](...logEntities)}
+            </>
           )}{' '}
-          {activityDescription[log.type as ActivityType](...logEntities)}{' '}
           <StyledTypography> {getTimeDifference(log.createdAt)}</StyledTypography>
         </TypographyContainer>
       </Stack>
