@@ -5,6 +5,7 @@ import { TaskCard } from '@/components/cards/TaskCard'
 import { CustomLink } from '@/hoc/CustomLink'
 import { DraggableTask } from '@/hoc/dndKit/DraggableTask'
 import { DroppableArea } from '@/hoc/dndKit/DroppableArea'
+import { useTaskDragState } from '@/hoc/dndKit/TaskDndContext'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { TaskResponse } from '@/types/dto/tasks.dto'
@@ -98,6 +99,7 @@ export function TasksRowVirtualizer({ rows, mode, token, subtasksByTaskId, workf
                     query: { token },
                   }}
                   style={{ width: 'fit-content' }}
+                  draggable={false}
                 >
                   <Box>
                     <TaskCard
@@ -158,6 +160,14 @@ export function TasksListVirtualizer({
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // High overscan keeps fast wheel-scroll from showing un-rendered gaps, but during a drag
+  // dnd-kit auto-scrolls every frame and re-rendering 100s of rows per frame causes jank.
+  // Auto-scroll is much slower than wheel-scroll, so a small buffer is enough mid-drag.
+  // useTaskDragState only updates on drag start/end (not on every pointer move like
+  // dnd-kit's own useDndContext would).
+  const { isDragging } = useTaskDragState()
+  const overscan = isDragging ? 15 : 100
+
   const sections = useMemo(() => {
     return workflowStates.map((workflowState) => {
       const tasks = sortTaskByDescendingOrder<TaskResponse>(filterTaskWithWorkflowStateId(workflowState.id))
@@ -198,8 +208,7 @@ export function TasksListVirtualizer({
     count: allItems.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 44,
-    measureElement: (el) => el.getBoundingClientRect().height,
-    overscan: 100,
+    overscan,
   })
 
   const sectionRanges = useMemo(() => {

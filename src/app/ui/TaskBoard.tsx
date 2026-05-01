@@ -175,7 +175,7 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
         autoScroll={
           viewBoardSettings === View.LIST_VIEW
             ? { threshold: { x: 0, y: 0.18 }, acceleration: 10, layoutShiftCompensation: false }
-            : false
+            : { threshold: { x: 0.1, y: 0.18 }, acceleration: 10, layoutShiftCompensation: false }
         }
       >
         {viewBoardSettings === View.BOARD_VIEW && (

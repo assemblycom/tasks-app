@@ -13,7 +13,7 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import type { AutoScrollOptions } from '@dnd-kit/core'
-import { ReactNode, useCallback, useState } from 'react'
+import { ReactNode, createContext, useCallback, useContext, useMemo, useState } from 'react'
 
 interface Props {
   children: ReactNode
@@ -24,8 +24,16 @@ interface Props {
 
 export const ACTIVE_DRAG_DATA_KEY = 'task'
 
+// Lightweight drag-state context. dnd-kit's own useDndContext re-renders on every
+// pointer move (over/collisions/etc update continuously); this only flips on
+// drag start/end, so consumers can react to "is a drag in progress" without
+// thrashing during the drag itself.
+const TaskDragStateContext = createContext<{ isDragging: boolean }>({ isDragging: false })
+export const useTaskDragState = () => useContext(TaskDragStateContext)
+
 export function TaskDndContext({ children, onDropItem, renderOverlay, autoScroll = true }: Props) {
   const [activeTask, setActiveTask] = useState<TaskResponse | null>(null)
+  const dragStateValue = useMemo(() => ({ isDragging: !!activeTask }), [activeTask])
 
   // Activation distance prevents accidental drags on click. Touch uses a short delay
   // so taps still register normally while a press-and-drag activates a real drag.
@@ -63,7 +71,8 @@ export function TaskDndContext({ children, onDropItem, renderOverlay, autoScroll
       onDragCancel={() => setActiveTask(null)}
       autoScroll={autoScroll}
     >
-      {children}
+      <TaskDragStateContext.Provider value={dragStateValue}>{children}</TaskDragStateContext.Provider>
+      {activeTask && <style>{`*, *::before, *::after { cursor: default !important; }`}</style>}
       <TaskDragOverlayPortal activeTask={activeTask} renderOverlay={renderOverlay} />
     </DndContext>
   )
