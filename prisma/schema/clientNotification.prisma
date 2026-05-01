@@ -20,5 +20,8 @@ model ClientNotification {
   // Either way, soft deleting client notifications (not IU ones) is not very useful in the first place
   @@unique([taskId, clientId, companyId, deletedAt], name: "UQ_ClientNotifications_taskId_clientId_companyId_deletedAt")
   @@index([notificationId], name: "IX_ClientNotifications_notificationId")
+  @@index([taskId], name: "IX_ClientNotifications_taskId")
+  @@index([clientId], name: "IX_ClientNotifications_clientId")
+  @@index([companyId], name: "IX_ClientNotifications_companyId")
   @@map("ClientNotifications")
 }

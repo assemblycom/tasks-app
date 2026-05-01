@@ -27,4 +27,6 @@ model Comment {
 
   @@map("Comments")
   @@index([taskId, workspaceId, createdAt(sort: Desc)], name: "IX_Comments_taskId_workspaceId_createdAt")
+  @@index([parentId], name: "IX_Comments_parentId")
+  @@index([workspaceId], name: "IX_Comments_workspaceId")
 }
