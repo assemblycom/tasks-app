@@ -35,9 +35,10 @@ export const autoArchiveCompletedTasks = schedules.task({
 
         while (true) {
           // Single statement does three things atomically per batch:
-          //   1. Pick eligible parents (completed, aged past threshold, no incomplete direct subtasks).
+          //   1. Pick eligible parents (top-level, completed, aged past threshold, no incomplete direct subtasks).
           //   2. Cascade to their completed unarchived descendants via ltree path.
           //   3. UPDATE all of them and RETURN their ids so we can write activity logs.
+          // Subtasks are never independently eligible — they archive only via cascade from a qualifying ancestor.
           // archivedBy = NULL marks this as an automated archive (manual sets it to a userId).
           const archivedRows = await db.$queryRaw<ArchivedTaskRow[]>`
             WITH eligible_parents AS (
@@ -45,6 +46,7 @@ export const autoArchiveCompletedTasks = schedules.task({
               FROM "Tasks" t
               JOIN "WorkflowStates" ws ON ws.id = t."workflowStateId"
               WHERE t."workspaceId" = ${workspaceId}
+                AND t."parentId" IS NULL
                 AND ws."type" = 'completed'::"StateType"
                 AND t."isArchived" = false
                 AND t."deletedAt" IS NULL
