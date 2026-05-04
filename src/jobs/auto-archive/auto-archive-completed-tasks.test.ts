@@ -4,7 +4,10 @@ import { ActivityType, AssigneeType } from '@prisma/client'
 // jest.mock factory must start with `mock` so the babel-jest allow-list lets the closure
 // see them once the const declarations have run.
 const mockQueryRaw = jest.fn()
+const mockTaskFindMany = jest.fn()
 const mockActivityLogCreateMany = jest.fn()
+const mockDispatchWebhook = jest.fn()
+const mockSerialize = jest.fn(async (task: { id: string }) => ({ id: task.id }))
 
 jest.mock('@trigger.dev/sdk/v3', () => ({
   schedules: {
@@ -18,9 +21,25 @@ jest.mock('@/lib/db', () => ({
   default: {
     getInstance: () => ({
       $queryRaw: mockQueryRaw,
+      task: { findMany: mockTaskFindMany },
       activityLog: { createMany: mockActivityLogCreateMany },
     }),
   },
+}))
+
+jest.mock('@/utils/CopilotAPI', () => ({
+  __esModule: true,
+  CopilotAPI: jest.fn().mockImplementation(() => ({
+    dispatchWebhook: mockDispatchWebhook,
+  })),
+}))
+
+jest.mock('@/app/api/tasks/public/public.serializer', () => ({
+  __esModule: true,
+  // Wrap in a function so the `mockSerialize` reference resolves at call time, not at
+  // factory-evaluation time (which happens during SUT import, before this file's const
+  // declarations have run — direct references would hit a TDZ error).
+  PublicTaskSerializer: { serialize: (...args: unknown[]) => mockSerialize(...(args as [{ id: string }])) },
 }))
 
 import { autoArchiveCompletedTasks } from './auto-archive-completed-tasks'
@@ -33,11 +52,17 @@ const runJob = async (): Promise<RunResult> => {
   return run({ timestamp: new Date() })
 }
 
+const archivedTaskRow = (id: string) => ({ id, workflowState: {}, attachments: [] })
+
 describe('autoArchiveCompletedTasks', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockQueryRaw.mockReset()
+    mockTaskFindMany.mockReset()
     mockActivityLogCreateMany.mockReset()
+    mockDispatchWebhook.mockReset()
+    mockSerialize.mockClear()
+    mockSerialize.mockImplementation(async (task: { id: string }) => ({ id: task.id }))
   })
 
   it('exits cleanly when no workspace has auto-archive enabled', async () => {
@@ -47,6 +72,8 @@ describe('autoArchiveCompletedTasks', () => {
 
     expect(result).toEqual({ totalArchived: 0, workspaceCount: 0 })
     expect(mockActivityLogCreateMany).not.toHaveBeenCalled()
+    expect(mockTaskFindMany).not.toHaveBeenCalled()
+    expect(mockDispatchWebhook).not.toHaveBeenCalled()
   })
 
   it('skips a workspace when the first archive batch returns no rows', async () => {
@@ -56,6 +83,8 @@ describe('autoArchiveCompletedTasks', () => {
 
     expect(result).toEqual({ totalArchived: 0, workspaceCount: 1 })
     expect(mockActivityLogCreateMany).not.toHaveBeenCalled()
+    expect(mockTaskFindMany).not.toHaveBeenCalled()
+    expect(mockDispatchWebhook).not.toHaveBeenCalled()
   })
 
   it('writes activity logs marked as system-initiated for archived tasks', async () => {
@@ -63,6 +92,8 @@ describe('autoArchiveCompletedTasks', () => {
       .mockResolvedValueOnce([{ workspaceId: 'ws1', autoArchiveAfterDays: 7 }])
       .mockResolvedValueOnce([{ id: 't1' }, { id: 't2' }])
       .mockResolvedValueOnce([])
+    mockTaskFindMany.mockResolvedValueOnce([archivedTaskRow('t1'), archivedTaskRow('t2')])
+    mockDispatchWebhook.mockResolvedValue(undefined)
 
     const result = await runJob()
 
@@ -81,20 +112,61 @@ describe('autoArchiveCompletedTasks', () => {
     expect(data[1]).toMatchObject({ taskId: 't2', userId: null })
   })
 
+  it('dispatches a task.archived webhook for every archived task in the batch', async () => {
+    mockQueryRaw
+      .mockResolvedValueOnce([{ workspaceId: 'ws1', autoArchiveAfterDays: 7 }])
+      .mockResolvedValueOnce([{ id: 't1' }, { id: 't2' }])
+      .mockResolvedValueOnce([])
+    mockTaskFindMany.mockResolvedValueOnce([archivedTaskRow('t1'), archivedTaskRow('t2')])
+    mockDispatchWebhook.mockResolvedValue(undefined)
+
+    await runJob()
+
+    expect(mockDispatchWebhook).toHaveBeenCalledTimes(2)
+    expect(mockDispatchWebhook).toHaveBeenCalledWith('task.archived', {
+      workspaceId: 'ws1',
+      payload: { id: 't1' },
+    })
+    expect(mockDispatchWebhook).toHaveBeenCalledWith('task.archived', {
+      workspaceId: 'ws1',
+      payload: { id: 't2' },
+    })
+  })
+
+  it('looks up archived tasks with workflowState and attachments for serialization', async () => {
+    mockQueryRaw
+      .mockResolvedValueOnce([{ workspaceId: 'ws1', autoArchiveAfterDays: 7 }])
+      .mockResolvedValueOnce([{ id: 't1' }])
+      .mockResolvedValueOnce([])
+    mockTaskFindMany.mockResolvedValueOnce([archivedTaskRow('t1')])
+    mockDispatchWebhook.mockResolvedValue(undefined)
+
+    await runJob()
+
+    expect(mockTaskFindMany).toHaveBeenCalledTimes(1)
+    expect(mockTaskFindMany).toHaveBeenCalledWith({
+      where: { id: { in: ['t1'] } },
+      include: { workflowState: true, attachments: true },
+    })
+  })
+
   it('continues paging through batches until one comes back empty', async () => {
     mockQueryRaw
       .mockResolvedValueOnce([{ workspaceId: 'ws1', autoArchiveAfterDays: 7 }])
       .mockResolvedValueOnce([{ id: 'a' }])
       .mockResolvedValueOnce([{ id: 'b' }])
       .mockResolvedValueOnce([])
+    mockTaskFindMany.mockResolvedValueOnce([archivedTaskRow('a')]).mockResolvedValueOnce([archivedTaskRow('b')])
+    mockDispatchWebhook.mockResolvedValue(undefined)
 
     const result = await runJob()
 
     expect(result.totalArchived).toBe(2)
     expect(mockActivityLogCreateMany).toHaveBeenCalledTimes(2)
+    expect(mockDispatchWebhook).toHaveBeenCalledTimes(2)
   })
 
-  it('processes multiple workspaces independently', async () => {
+  it('processes multiple workspaces independently and tags each webhook with its workspace', async () => {
     mockQueryRaw
       .mockResolvedValueOnce([
         { workspaceId: 'ws1', autoArchiveAfterDays: 7 },
@@ -104,14 +176,16 @@ describe('autoArchiveCompletedTasks', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: 'b' }])
       .mockResolvedValueOnce([])
+    mockTaskFindMany.mockResolvedValueOnce([archivedTaskRow('a')]).mockResolvedValueOnce([archivedTaskRow('b')])
+    mockDispatchWebhook.mockResolvedValue(undefined)
 
     const result = await runJob()
 
     expect(result).toEqual({ totalArchived: 2, workspaceCount: 2 })
-    const workspaceIds = mockActivityLogCreateMany.mock.calls.map(
-      (call) => (call[0].data[0] as { workspaceId: string }).workspaceId,
+    const workspaceIdsOnDispatch = mockDispatchWebhook.mock.calls.map(
+      (call) => (call[1] as { workspaceId: string }).workspaceId,
     )
-    expect(workspaceIds).toEqual(['ws1', 'ws2'])
+    expect(workspaceIdsOnDispatch).toEqual(['ws1', 'ws2'])
   })
 
   it('isolates per-workspace failures so other workspaces still archive', async () => {
@@ -123,6 +197,8 @@ describe('autoArchiveCompletedTasks', () => {
       .mockRejectedValueOnce(new Error('DB blew up'))
       .mockResolvedValueOnce([{ id: 'g1' }])
       .mockResolvedValueOnce([])
+    mockTaskFindMany.mockResolvedValueOnce([archivedTaskRow('g1')])
+    mockDispatchWebhook.mockResolvedValue(undefined)
 
     const result = await runJob()
 
@@ -133,22 +209,46 @@ describe('autoArchiveCompletedTasks', () => {
         data: expect.arrayContaining([expect.objectContaining({ taskId: 'g1', workspaceId: 'ws-good' })]),
       }),
     )
+    expect(mockDispatchWebhook).toHaveBeenCalledTimes(1)
+    expect(mockDispatchWebhook).toHaveBeenCalledWith('task.archived', {
+      workspaceId: 'ws-good',
+      payload: { id: 'g1' },
+    })
   })
 
-  it('does not abort the sweep when activity log creation fails for one workspace', async () => {
+  it('does not abort the sweep when a single webhook dispatch throws', async () => {
     mockQueryRaw
-      .mockResolvedValueOnce([
-        { workspaceId: 'ws-bad', autoArchiveAfterDays: 7 },
-        { workspaceId: 'ws-good', autoArchiveAfterDays: 7 },
-      ])
-      .mockResolvedValueOnce([{ id: 'b1' }])
-      .mockResolvedValueOnce([{ id: 'g1' }])
+      .mockResolvedValueOnce([{ workspaceId: 'ws1', autoArchiveAfterDays: 7 }])
+      .mockResolvedValueOnce([{ id: 't1' }, { id: 't2' }])
       .mockResolvedValueOnce([])
-    mockActivityLogCreateMany.mockRejectedValueOnce(new Error('Write failed')).mockResolvedValueOnce(undefined)
+    mockTaskFindMany.mockResolvedValueOnce([archivedTaskRow('t1'), archivedTaskRow('t2')])
+    mockDispatchWebhook.mockRejectedValueOnce(new Error('Network blip')).mockResolvedValueOnce(undefined)
 
     const result = await runJob()
 
-    expect(result).toEqual({ totalArchived: 1, workspaceCount: 2 })
-    expect(mockActivityLogCreateMany).toHaveBeenCalledTimes(2)
+    expect(result.totalArchived).toBe(2)
+    expect(mockDispatchWebhook).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not abort the sweep when serializer throws for one task', async () => {
+    mockQueryRaw
+      .mockResolvedValueOnce([{ workspaceId: 'ws1', autoArchiveAfterDays: 7 }])
+      .mockResolvedValueOnce([{ id: 't1' }, { id: 't2' }])
+      .mockResolvedValueOnce([])
+    mockTaskFindMany.mockResolvedValueOnce([archivedTaskRow('t1'), archivedTaskRow('t2')])
+    mockSerialize.mockImplementationOnce(async () => {
+      throw new Error('Bad payload')
+    })
+    mockDispatchWebhook.mockResolvedValue(undefined)
+
+    const result = await runJob()
+
+    expect(result.totalArchived).toBe(2)
+    // Only one webhook fires — the task whose serialization failed never gets to dispatch.
+    expect(mockDispatchWebhook).toHaveBeenCalledTimes(1)
+    expect(mockDispatchWebhook).toHaveBeenCalledWith('task.archived', {
+      workspaceId: 'ws1',
+      payload: { id: 't2' },
+    })
   })
 })

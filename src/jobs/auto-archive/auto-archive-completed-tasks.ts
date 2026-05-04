@@ -1,4 +1,7 @@
+import { PublicTaskSerializer } from '@/app/api/tasks/public/public.serializer'
 import DBClient from '@/lib/db'
+import { DISPATCHABLE_EVENT } from '@/types/webhook'
+import { CopilotAPI } from '@/utils/CopilotAPI'
 import { ActivityType, AssigneeType } from '@prisma/client'
 import { logger, schedules } from '@trigger.dev/sdk/v3'
 
@@ -12,6 +15,12 @@ export const autoArchiveCompletedTasks = schedules.task({
   maxDuration: 3000,
   run: async (payload) => {
     const db = DBClient.getInstance()
+    // CopilotAPI.dispatchWebhook authenticates with `${workspaceId}/${apiKey}` from env, not
+    // the user token, so an empty token is correct here. Note: instantiating CopilotAPI in a
+    // no-token context requires `COPILOT_ENV` to be set on the Trigger.dev runtime — `local`
+    // for prod (keeps the SDK base URL on prod), `__SECRET_STAGING__` for staging. Without it
+    // the SDK constructor throws at init.
+    const copilot = new CopilotAPI('')
 
     // $queryRaw bypasses the global filterSoftDeleted Prisma extension, which would
     // otherwise inject `deletedAt: null` into the where clause. WorkspaceSettings has no
@@ -109,6 +118,31 @@ export const autoArchiveCompletedTasks = schedules.task({
               userRole: AssigneeType.internalUser,
             })),
           })
+
+          // Dispatch task.archived webhooks for every archived task in this batch
+          // (parents + cascaded descendants). Per-task try/catch + Promise.allSettled keep
+          // one failure from blocking the rest — the archive itself is already persisted.
+          const archivedTasks = await db.task.findMany({
+            where: { id: { in: archivedRows.map((row) => row.id) } },
+            include: { workflowState: true, attachments: true },
+          })
+
+          await Promise.allSettled(
+            archivedTasks.map(async (task) => {
+              try {
+                await copilot.dispatchWebhook(DISPATCHABLE_EVENT.TaskArchived, {
+                  workspaceId,
+                  payload: await PublicTaskSerializer.serialize(task),
+                })
+              } catch (err) {
+                logger.error('Failed to dispatch task.archived webhook', {
+                  taskId: task.id,
+                  workspaceId,
+                  error: err instanceof Error ? { message: err.message, stack: err.stack } : err,
+                })
+              }
+            }),
+          )
 
           workspaceArchived += batchCount
         }
