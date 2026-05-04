@@ -4,6 +4,7 @@ import { DISPATCHABLE_EVENT } from '@/types/webhook'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { ActivityType, AssigneeType } from '@prisma/client'
 import { logger, schedules } from '@trigger.dev/sdk/v3'
+import Bottleneck from 'bottleneck'
 
 const BATCH_SIZE = 200
 
@@ -21,6 +22,12 @@ export const autoArchiveCompletedTasks = schedules.task({
     // for prod (keeps the SDK base URL on prod), `__SECRET_STAGING__` for staging. Without it
     // the SDK constructor throws at init.
     const copilot = new CopilotAPI('')
+
+    // Webhook fan-out is rate-limited to stay under Copilot's API limits. The bottleneck is
+    // declared once per sweep (not per workspace/batch) so the quota is shared globally —
+    // otherwise each batch would get its own budget and we'd reintroduce the fan-out problem.
+    // Values match the CopilotAPI bulk-operation pattern: ~8 req/s ceiling.
+    const webhookBottleneck = new Bottleneck({ minTime: 200, maxConcurrent: 3 })
 
     // $queryRaw bypasses the global filterSoftDeleted Prisma extension, which would
     // otherwise inject `deletedAt: null` into the where clause. WorkspaceSettings has no
@@ -128,20 +135,22 @@ export const autoArchiveCompletedTasks = schedules.task({
           })
 
           await Promise.allSettled(
-            archivedTasks.map(async (task) => {
-              try {
-                await copilot.dispatchWebhook(DISPATCHABLE_EVENT.TaskArchived, {
-                  workspaceId,
-                  payload: await PublicTaskSerializer.serialize(task),
-                })
-              } catch (err) {
-                logger.error('Failed to dispatch task.archived webhook', {
-                  taskId: task.id,
-                  workspaceId,
-                  error: err instanceof Error ? { message: err.message, stack: err.stack } : err,
-                })
-              }
-            }),
+            archivedTasks.map((task) =>
+              webhookBottleneck.schedule(async () => {
+                try {
+                  await copilot.dispatchWebhook(DISPATCHABLE_EVENT.TaskArchived, {
+                    workspaceId,
+                    payload: await PublicTaskSerializer.serialize(task),
+                  })
+                } catch (err) {
+                  logger.error('Failed to dispatch task.archived webhook', {
+                    taskId: task.id,
+                    workspaceId,
+                    error: err instanceof Error ? { message: err.message, stack: err.stack } : err,
+                  })
+                }
+              }),
+            ),
           )
 
           workspaceArchived += batchCount
