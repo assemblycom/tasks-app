@@ -7,5 +7,13 @@
       "path": "/api/workers/scrap-medias",
       "schedule": "0 0 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/**/*": {
+      "maxDuration": 300
+    },
+    "app/**/page.tsx": {
+      "maxDuration": 300
+    }
+  }
 }
