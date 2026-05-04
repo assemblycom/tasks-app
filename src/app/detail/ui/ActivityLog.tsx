@@ -161,7 +161,7 @@ export const ActivityLog = ({ log }: Prop) => {
   }
 
   const activityUser = log.userId ? assignee.find((assignee) => assignee.id == log.userId) : undefined
-  const isSystemActivity = log.userId === null && log.type === ActivityType.ARCHIVE_STATE_UPDATED
+  const isAutoArchived = log.userId === null && log.type === ActivityType.ARCHIVE_STATE_UPDATED
 
   return (
     <Stack direction="row" columnGap={4} position="relative">
@@ -170,8 +170,11 @@ export const ActivityLog = ({ log }: Prop) => {
       <Stack direction="row" columnGap={4} padding={'11px 0px 11px 0px'} width={'100%'} sx={{ alignItems: 'center' }}>
         <CopilotAvatar size="xs" currentAssignee={activityUser} />
         <TypographyContainer direction="row" columnGap={1}>
-          {isSystemActivity ? (
-            <StyledTypography>Task was auto-archived</StyledTypography>
+          {isAutoArchived ? (
+            <>
+              <StyledTypography>Task was auto-archived</StyledTypography>
+              <DotSeparator />
+            </>
           ) : (
             <>
               {activityUser ? (
