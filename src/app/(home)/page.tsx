@@ -26,6 +26,8 @@ import { z } from 'zod'
 import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
 
+export const maxDuration = 300
+
 export async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
   const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
     next: { tags: ['getAllWorkflowStates'] },
