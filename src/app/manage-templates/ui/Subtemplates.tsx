@@ -30,7 +30,7 @@ interface OptimisticUpdate {
   timestamp: number
 }
 
-export const Subtemplates = ({ template_id, token }: { template_id: string; token: string }) => {
+export const Subtemplates = ({ template_id }: { template_id: string }) => {
   const [openTaskForm, setOpenTaskForm] = useState(false)
   const { workflowStates } = useSelector(selectTaskBoard)
   const { activeTemplate } = useSelector(selectCreateTemplate)

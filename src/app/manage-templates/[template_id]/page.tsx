@@ -46,7 +46,7 @@ export default async function TaskDetailPage(props: {
   ])
 
   if (!template) {
-    return <DeletedRedirectPage token={token} />
+    return <DeletedRedirectPage />
   }
 
   const breadcrumbTemplates = [template]
@@ -67,8 +67,8 @@ export default async function TaskDetailPage(props: {
 
   return (
     <ClientSideStateUpdate workflowStates={workflowStates} token={token} template={template} tokenPayload={tokenPayload}>
-      {token && <OneTemplateDataFetcher token={token} template_id={template_id} initialTemplate={template} />}
-      <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
+      {token && <OneTemplateDataFetcher template_id={template_id} initialTemplate={template} />}
+      <RealTimeTemplates tokenPayload={tokenPayload}>
         <EscapeHandler />
         <DynamicFieldInsertProvider>
           <ResponsiveStack fromNotificationCenter={false}>
@@ -76,10 +76,10 @@ export default async function TaskDetailPage(props: {
               <StyledBox>
                 {isPreviewMode ? (
                   <AppMargin size={SizeofAppMargin.HEADER} py="17.5px">
-                    <HeaderBreadcrumbs token={token} items={breadcrumbItems} userType={UserType.INTERNAL_USER} />
+                    <HeaderBreadcrumbs items={breadcrumbItems} userType={UserType.INTERNAL_USER} />
                   </AppMargin>
                 ) : (
-                  <HeaderBreadcrumbs token={token} items={breadcrumbItems} userType={UserType.INTERNAL_USER} />
+                  <HeaderBreadcrumbs items={breadcrumbItems} userType={UserType.INTERNAL_USER} />
                 )}
               </StyledBox>
               <ManageTemplateDetailsAppBridge portalUrl={workspace.portalUrl} template={template} />
@@ -108,10 +108,9 @@ export default async function TaskDetailPage(props: {
                       'use server'
                       title.trim() != '' && (await editTemplate(token, template_id, { title }))
                     }}
-                    token={token}
                   />
                 </StyledTiptapDescriptionWrapper>
-                {!template.parentId && <Subtemplates template_id={template_id} token={token} />}
+                {!template.parentId && <Subtemplates template_id={template_id} />}
               </TaskDetailsContainer>
             </Box>
 

@@ -13,6 +13,7 @@ import { clearTemplateFields, selectCreateTemplate } from '@/redux/features/temp
 import store from '@/redux/store'
 import { CreateTemplateRequest } from '@/types/dto/templates.dto'
 import { AttachmentTypes, ITemplate } from '@/types/interfaces'
+import { getLiveToken, requireLiveToken } from '@/utils/assemblyTokenStore'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { insertAutofillAtCursor, insertAutofillIntoHtml } from '@/utils/sidebarFieldInsert'
 import { createUploadFn } from '@/utils/createUploadFn'
@@ -35,7 +36,6 @@ interface TemplateDetailsProps {
   handleEditTemplate: (payload: CreateTemplateRequest, templateId: string) => void
   updateTemplateDetail: (detail: string) => void
   updateTemplateTitle: (title: string) => void
-  token: string
 }
 
 export default function TemplateDetails({
@@ -45,7 +45,6 @@ export default function TemplateDetails({
   handleEditTemplate,
   updateTemplateDetail,
   updateTemplateTitle,
-  token,
 }: TemplateDetailsProps) {
   const [updateTitle, setUpdateTitle] = useState('')
   const [updateDetail, setUpdateDetail] = useState('')
@@ -267,7 +266,7 @@ export default function TemplateDetails({
   }
 
   const uploadFn = createUploadFn({
-    token,
+    token: getLiveToken,
     workspaceId: template.workspaceId,
     getEntityId: () => template_id,
     attachmentType: AttachmentTypes.TEMPLATE,
@@ -312,7 +311,7 @@ export default function TemplateDetails({
           uploadFn={uploadFn}
           handleImageDoubleClick={handleImagePreview}
           deleteEditorAttachments={(url) =>
-            deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TEMPLATE, template_id)
+            deleteEditorAttachmentsHandler(url, requireLiveToken(), AttachmentTypes.TEMPLATE, template_id)
           }
           attachmentLayout={(props) => <AttachmentLayout {...props} />}
           addAttachmentButton

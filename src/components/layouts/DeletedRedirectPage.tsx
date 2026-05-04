@@ -13,16 +13,14 @@ import { z } from 'zod'
 
 export const DeletedRedirectPage = ({
   userType,
-  token,
   fromNotificationCenter,
   entity = 'Task',
 }: {
   userType?: UserRole
-  token: string
   fromNotificationCenter?: boolean
   entity?: 'Task' | 'Template'
 }) => {
-  const tokenstring = getLiveToken() ?? z.string().parse(token)
+  const tokenstring = z.string().parse(getLiveToken())
   return (
     <>
       <AppMargin size={SizeofAppMargin.LARGE} py="20px">

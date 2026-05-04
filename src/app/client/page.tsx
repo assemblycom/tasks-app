@@ -27,7 +27,7 @@ import { UserRole } from '@api/core/types/user'
 import { Suspense } from 'react'
 import { z } from 'zod'
 
-export const maxDuration = 60 //just to be safe. the validate count job might take longer that 15 seconds(default max duration of server components) which will make the app crash. Increasing the duration to 60.
+export const maxDuration = 300 //just to be safe. the validate count job might take longer that 15 seconds(default max duration of server components) which will make the app crash. Increasing the duration to 60.
 
 async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
   const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
@@ -106,10 +106,10 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
           <AllTasksFetcher token={token} />
         </Suspense>
 
-        <TaskBoardAppBridge token={token} role={UserRole.Client} portalUrl={workspace.portalUrl} />
+        <TaskBoardAppBridge role={UserRole.Client} portalUrl={workspace.portalUrl} />
         <RealTime tokenPayload={tokenPayload}>
           <DndWrapper>
-            <TaskBoard mode={UserRole.Client} token={token} />
+            <TaskBoard mode={UserRole.Client} />
           </DndWrapper>
           <ModalNewTaskForm
             handleCreateMultipleAttachments={async (attachments: CreateAttachmentRequest[]) => {

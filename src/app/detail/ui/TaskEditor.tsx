@@ -13,6 +13,7 @@ import store from '@/redux/store'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { AttachmentTypes, UserType } from '@/types/interfaces'
+import { getLiveToken, requireLiveToken } from '@/utils/assemblyTokenStore'
 import { getDeleteMessage } from '@/utils/dialogMessages'
 import { deleteEditorAttachmentsHandler, getAttachmentPayload, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { Box } from '@mui/material'
@@ -32,7 +33,6 @@ interface Prop {
   postAttachment: (postAttachmentPayload: CreateAttachmentRequest) => void
   deleteAttachment: (id: string) => void
   userType: UserType
-  token: string
 }
 
 export const TaskEditor = ({
@@ -46,7 +46,6 @@ export const TaskEditor = ({
   postAttachment,
   deleteAttachment,
   userType,
-  token,
 }: Prop) => {
   const [updateTitle, setUpdateTitle] = useState('')
   const [updateDetail, setUpdateDetail] = useState('')
@@ -165,7 +164,7 @@ export const TaskEditor = ({
   }
 
   const uploadFn = createUploadFn({
-    token,
+    token: getLiveToken,
     workspaceId: task.workspaceId,
     getEntityId: () => task_id,
     onUploadStart: () => setActiveUploads((prev) => prev + 1),
@@ -224,7 +223,9 @@ export const TaskEditor = ({
           placeholder="Add description..."
           uploadFn={uploadFn}
           handleImageDoubleClick={handleImagePreview}
-          deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TASK, task_id)}
+          deleteEditorAttachments={(url) =>
+            deleteEditorAttachmentsHandler(url, requireLiveToken(), AttachmentTypes.TASK, task_id)
+          }
           attachmentLayout={(props) => <AttachmentLayout {...props} />}
           addAttachmentButton
           maxUploadLimit={MAX_UPLOAD_LIMIT}

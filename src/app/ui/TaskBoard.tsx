@@ -34,10 +34,9 @@ import { z } from 'zod'
 interface TaskBoardProps {
   mode: UserRole
   workspace?: WorkspaceResponse
-  token: string
 }
 
-export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
+export const TaskBoard = ({ mode, workspace }: TaskBoardProps) => {
   const {
     workflowStates,
     tasks,
@@ -74,7 +73,7 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
         })
       }
     },
-    [token, mode, previewMode],
+    [mode, previewMode],
   )
 
   const onDropItem = useCallback(
@@ -91,7 +90,7 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
       }
       performDropUpdate(taskId, targetWorkflowStateId)
     },
-    [token, accessibleTasks, workflowStates, performDropUpdate],
+    [accessibleTasks, workflowStates, performDropUpdate],
   )
   const filterTaskWithWorkflowStateId = (workflowStateId: string): TaskResponse[] => {
     return filteredTasks.filter((task) => task.workflowStateId === workflowStateId)
@@ -148,13 +147,13 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
   }, [accessibleTasks, showSubtasks, showArchived, showUnarchived])
 
   if (!hasInitialized) {
-    return <TaskDataFetcher token={token} />
+    return <TaskDataFetcher />
   } //fix this logic as soon as copilot API natively supports access scopes by creating an endpoint which shows the count of filteredTask and total tasks.
 
   if (tasks && !tasks.length && userHasNoFilter && mode === UserRole.Client && !previewMode && !isTasksLoading) {
     return (
       <>
-        <TaskDataFetcher token={token ?? ''} />
+        <TaskDataFetcher />
         <DashboardEmptyState userType={mode} />
       </>
     )
@@ -162,9 +161,9 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
 
   return (
     <>
-      <TaskDataFetcher token={token} />
+      <TaskDataFetcher />
 
-      {mode == UserRole.IU && <TaskBoardAppBridge token={token} role={UserRole.IU} portalUrl={workspace?.portalUrl} />}
+      {mode == UserRole.IU && <TaskBoardAppBridge role={UserRole.IU} portalUrl={workspace?.portalUrl} />}
 
       {/* Filterbars */}
       <FilterBar mode={mode} />
@@ -201,7 +200,6 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
                   <TasksRowVirtualizer
                     rows={sortTaskByDescendingOrder<TaskResponse>(filterTaskWithWorkflowStateId(list.id))}
                     mode={mode}
-                    token={token}
                     subtasksByTaskId={subtasksByTaskId}
                     workflowState={list}
                   />

@@ -1,17 +1,18 @@
+'use client'
+
 import { selectTaskBoard, setIsTasksLoading, setTasks } from '@/redux/features/taskBoardSlice'
 import store from '@/redux/store'
 import { DisplayOptions } from '@/types/dto/viewSettings.dto'
-import { PropsWithToken } from '@/types/interfaces'
 import { fetcher } from '@/utils/fetcher'
 import { useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import useSWR from 'swr'
 
-export const TaskDataFetcher = ({ token }: PropsWithToken) => {
+export const TaskDataFetcher = () => {
   const { showArchived, showUnarchived, showSubtasks, tasks } = useSelector(selectTaskBoard)
 
-  const buildQueryString = (token: string, displayOptions?: DisplayOptions) => {
-    const queryParams = new URLSearchParams({ token })
+  const buildQueryString = (displayOptions?: DisplayOptions) => {
+    const queryParams = new URLSearchParams()
     if (displayOptions?.showArchived !== undefined) {
       queryParams.append('showArchived', displayOptions.showArchived.toString())
     }
@@ -30,9 +31,9 @@ export const TaskDataFetcher = ({ token }: PropsWithToken) => {
     return queryParams.toString()
   }
 
-  const queryString = token ? buildQueryString(token, { showArchived, showUnarchived, showSubtasks }) : null
-
-  const { data, isLoading } = useSWR(queryString ? `/api/tasks/?${queryString}` : null, fetcher, {
+  // Stable cache key — fetcher injects the live token at request time.
+  const queryString = buildQueryString({ showArchived, showUnarchived, showSubtasks })
+  const { data, isLoading } = useSWR(queryString ? `/api/tasks/?${queryString}` : `/api/tasks/`, fetcher, {
     fallbackData: { tasks },
     revalidateOnMount: false,
     revalidateOnFocus: false,

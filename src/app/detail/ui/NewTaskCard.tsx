@@ -22,7 +22,7 @@ import { DateString } from '@/types/date'
 import { CreateTaskRequest, Associations } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { AttachmentTypes, FilterByOptions, IAssigneeCombined, InputValue, ITemplate, UserIds } from '@/types/interfaces'
-import { requireLiveToken } from '@/utils/assemblyTokenStore'
+import { getLiveToken, requireLiveToken } from '@/utils/assemblyTokenStore'
 import { getAssigneeName, UserIdsType } from '@/utils/assignee'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
@@ -60,7 +60,7 @@ export const NewTaskCard = ({
   handleClose: () => void
   handleSubTaskCreation: (payload: CreateTaskRequest) => void
 }) => {
-  const { workflowStates, assignee, token, activeTask, previewMode, previewClientCompany } = useSelector(selectTaskBoard)
+  const { workflowStates, assignee, activeTask, previewMode, previewClientCompany } = useSelector(selectTaskBoard)
   const { templates } = useSelector(selectCreateTemplate)
   const { fromNotificationCenter } = useSelector(selectTaskDetails)
 
@@ -131,7 +131,7 @@ export const NewTaskCard = ({
   }
 
   const uploadFn = createUploadFn({
-    token,
+    token: getLiveToken,
     workspaceId: tokenPayload?.workspaceId,
   })
 
@@ -229,11 +229,11 @@ export const NewTaskCard = ({
       fetchTemplate()
       return controller
     },
-    [token, setIsEditorReadonly, workflowStates, subTaskFields.title, subTaskFields.description, updateStatusValue],
+    [setIsEditorReadonly, workflowStates, subTaskFields.title, subTaskFields.description, updateStatusValue],
   )
 
   const applyTemplateHandler = (newValue: ITemplate) => {
-    if (!newValue || !token) return
+    if (!newValue) return
     const controller = applyTemplate(newValue.id, newValue.title)
     return () => {
       controller.abort()
@@ -390,7 +390,7 @@ export const NewTaskCard = ({
             placeholder="Add description.."
             editorClass="tapwrite-task-editor"
             uploadFn={uploadFn}
-            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TASK)}
+            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, requireLiveToken(), AttachmentTypes.TASK)}
             attachmentLayout={(props) => (
               <AttachmentLayout {...props} isComment={true} onUploadStatusChange={handleUploadStatusChange} />
             )}

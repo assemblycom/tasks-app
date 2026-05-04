@@ -11,12 +11,11 @@ import { UserRole } from '@api/core/types/user'
 import { useRouter } from 'next/navigation'
 
 interface TaskBoardAppBridgeProps {
-  token: string
   role: UserRole
   portalUrl?: string
 }
 
-export const ManageTemplatesAppBridge = ({ token, role, portalUrl }: TaskBoardAppBridgeProps) => {
+export const ManageTemplatesAppBridge = ({ role, portalUrl }: TaskBoardAppBridgeProps) => {
   const handleTemplateCreate = () => {
     store.dispatch(setShowTemplateModal({ targetMethod: TargetMethod.POST }))
   }

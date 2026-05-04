@@ -14,6 +14,7 @@ import { selectCreateTemplate } from '@/redux/features/templateSlice'
 import { CreateTemplateRequest } from '@/types/dto/templates.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { AttachmentTypes } from '@/types/interfaces'
+import { getLiveToken, requireLiveToken } from '@/utils/assemblyTokenStore'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
 import {
@@ -39,7 +40,7 @@ export const NewTemplateCard = ({
   handleClose: () => void
   handleCreate: (payload: CreateTemplateRequest) => void
 }) => {
-  const { workflowStates, token } = useSelector(selectTaskBoard)
+  const { workflowStates } = useSelector(selectTaskBoard)
   const { showTemplateModal, targetMethod, activeTemplate } = useSelector(selectCreateTemplate)
   const { tokenPayload } = useSelector(selectAuthDetails)
 
@@ -67,7 +68,7 @@ export const NewTemplateCard = ({
     }))
   }
   const uploadFn = createUploadFn({
-    token,
+    token: getLiveToken,
     workspaceId: tokenPayload?.workspaceId,
     attachmentType: AttachmentTypes.TEMPLATE,
   })
@@ -136,7 +137,9 @@ export const NewTemplateCard = ({
             placeholder="Add description.."
             editorClass="tapwrite-task-editor"
             uploadFn={uploadFn}
-            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TEMPLATE)}
+            deleteEditorAttachments={(url) =>
+              deleteEditorAttachmentsHandler(url, requireLiveToken(), AttachmentTypes.TEMPLATE)
+            }
             attachmentLayout={(props) => (
               <AttachmentLayout {...props} isComment={true} onUploadStatusChange={handleUploadStatusChange} />
             )}

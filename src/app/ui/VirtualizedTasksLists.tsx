@@ -19,18 +19,19 @@ import { useSelector } from 'react-redux'
 import { TaskRow } from '@/components/cards/TaskRow'
 
 import { PreviewMode } from '@/types/common'
+import { getLiveToken } from '@/utils/assemblyTokenStore'
 import { sortTaskByDescendingOrder } from '@/utils/sortByDescending'
 
 interface TasksVirtualizerProps {
   rows: TaskResponse[]
   mode: UserRole
-  token: string | null
   subtasksByTaskId: Record<string, TaskResponse[]>
   workflowState?: WorkflowStateResponse
 }
 
 // virtualization component used in board view
-export function TasksRowVirtualizer({ rows, mode, token, subtasksByTaskId, workflowState }: TasksVirtualizerProps) {
+export function TasksRowVirtualizer({ rows, mode, subtasksByTaskId, workflowState }: TasksVirtualizerProps) {
+  const token = getLiveToken()
   const { showSubtasks } = useSelector(selectTaskBoard)
   const { tokenPayload } = useSelector(selectAuthDetails)
   const parentRef = useRef<HTMLDivElement>(null)

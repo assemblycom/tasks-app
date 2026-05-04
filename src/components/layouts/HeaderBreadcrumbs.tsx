@@ -6,6 +6,7 @@ import { CustomLink } from '@/hoc/CustomLink'
 import { useBreadcrumbs } from '@/hooks/app-bridge/useBreadcrumbs'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { UserType } from '@/types/interfaces'
+import { getLiveToken } from '@/utils/assemblyTokenStore'
 import { Stack, Typography } from '@mui/material'
 import { useRouter } from 'next/navigation'
 import { Fragment } from 'react'
@@ -14,12 +15,10 @@ import { useSelector } from 'react-redux'
 type ValidTasksBoardLink = '/' | '/client'
 
 export const HeaderBreadcrumbs = ({
-  token,
   items,
   userType,
   portalUrl,
 }: {
-  token: string | undefined
   items: { label: string; href?: string }[]
   userType: UserType
   portalUrl?: string
@@ -49,7 +48,7 @@ export const HeaderBreadcrumbs = ({
   }
   return (
     <Stack direction="row" alignItems="center" columnGap={3}>
-      <CustomLink href={{ pathname: getTasksLink(userType), query: { token } }}>
+      <CustomLink href={{ pathname: getTasksLink(userType), query: { token: getLiveToken() } }}>
         <SecondaryBtn
           buttonContent={
             <StyledTypography variant="sm" lineHeight={'21px'} sx={{ fontSize: '13px' }}>

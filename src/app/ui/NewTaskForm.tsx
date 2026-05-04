@@ -44,7 +44,7 @@ import {
   ITemplate,
   UserIds,
 } from '@/types/interfaces'
-import { requireLiveToken } from '@/utils/assemblyTokenStore'
+import { getLiveToken, requireLiveToken } from '@/utils/assemblyTokenStore'
 import { checkEmptyAssignee, emptyAssignee, getAssigneeName } from '@/utils/assignee'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
@@ -82,7 +82,7 @@ type NewTaskFormHeaderProps = {
 
 export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => {
   const { activeWorkflowStateId } = useSelector(selectCreateTask)
-  const { workflowStates, assignee, previewMode, filterOptions, urlActionParams, token, previewClientCompany } =
+  const { workflowStates, assignee, previewMode, filterOptions, urlActionParams, previewClientCompany } =
     useSelector(selectTaskBoard)
   const [actionParamPayload, setActionParamPayload] = useState<PublicTaskCreateDto | null>(null)
   const { workspace } = useSelector(selectAuthDetails)
@@ -131,7 +131,7 @@ export const NewTaskForm = ({ handleCreate, handleClose }: NewTaskFormProps) => 
 
   // this function handles the action param passed in the url and fill the values in the form
   const handleUrlActionParam = useCallback(async () => {
-    if (urlActionParams.pf && token) {
+    if (urlActionParams.pf && getLiveToken()) {
       const payload = JSON.parse(decodeURIComponent(urlActionParams.pf))
 
       if (!payload.companyId && payload.clientId) {
@@ -477,7 +477,7 @@ const NewTaskHeader = ({
 }: NewTaskFormHeaderProps & { updateWorkflowStatusValue: (value: unknown) => void }) => {
   const [inputStatusValue, setInputStatusValue] = useState('')
 
-  const { token, workflowStates } = useSelector(selectTaskBoard)
+  const { workflowStates } = useSelector(selectTaskBoard)
   const { templates } = useSelector(selectCreateTemplate)
   const { title, showModal, description, appliedDescription, appliedTitle } = useSelector(selectCreateTask)
 
@@ -541,7 +541,6 @@ const NewTaskHeader = ({
       return controller
     },
     [
-      token,
       setIsEditorReadonly,
       workflowStates,
       title,
@@ -554,7 +553,7 @@ const NewTaskHeader = ({
   )
 
   const applyTemplateHandler = (newValue: ITemplate) => {
-    if (!newValue || !token) return
+    if (!newValue) return
     const controller = applyTemplate(newValue.id, newValue.title, newValue.subTaskTemplates)
     return () => {
       controller.abort()
@@ -601,7 +600,6 @@ const NewTaskHeader = ({
 const NewTaskFormInputs = ({ isEditorReadonly }: NewTaskFormInputsProps) => {
   const { title, description } = useSelector(selectCreateTask)
   const { errors } = useSelector(selectCreateTask)
-  const { token } = useSelector(selectTaskBoard)
   const { tokenPayload } = useSelector(selectAuthDetails)
 
   const handleDetailChange = (content: string) => {
@@ -609,7 +607,7 @@ const NewTaskFormInputs = ({ isEditorReadonly }: NewTaskFormInputsProps) => {
   }
 
   const uploadFn = createUploadFn({
-    token,
+    token: getLiveToken,
     workspaceId: tokenPayload?.workspaceId,
   })
 
@@ -670,7 +668,7 @@ const NewTaskFormInputs = ({ isEditorReadonly }: NewTaskFormInputsProps) => {
             editorClass="tapwrite-description-h-full"
             uploadFn={uploadFn}
             readonly={isEditorReadonly}
-            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TASK)}
+            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, requireLiveToken(), AttachmentTypes.TASK)}
             attachmentLayout={(props) => <AttachmentLayout {...props} />}
             maxUploadLimit={MAX_UPLOAD_LIMIT}
             parentContainerStyle={{ gap: '0px', minHeight: '60px' }}
