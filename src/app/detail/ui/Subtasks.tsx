@@ -31,11 +31,9 @@ interface OptimisticUpdate {
 
 export const Subtasks = ({
   task_id,
-  token,
   canCreateSubtasks,
 }: {
   task_id: string
-  token: string
   userType: UserRole
   canCreateSubtasks: boolean
 }) => {

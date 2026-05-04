@@ -10,6 +10,7 @@ import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { CreateComment } from '@/types/dto/comment.dto'
 import { AttachmentTypes } from '@/types/interfaces'
+import { getLiveToken, requireLiveToken } from '@/utils/assemblyTokenStore'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
 import { getMentionsList } from '@/utils/getMentionList'
@@ -20,12 +21,11 @@ import { useSelector } from 'react-redux'
 import { Tapwrite } from 'tapwrite'
 
 interface Prop {
-  token: string
   createComment: (postCommentPayload: CreateComment) => void
   task_id: string
 }
 
-export const CommentInput = ({ createComment, task_id, token }: Prop) => {
+export const CommentInput = ({ createComment, task_id }: Prop) => {
   const [detail, setDetail] = useState('')
   const [isListOrMenuActive, setIsListOrMenuActive] = useState(false)
   const { tokenPayload } = useSelector(selectAuthDetails)
@@ -88,7 +88,7 @@ export const CommentInput = ({ createComment, task_id, token }: Prop) => {
   }, [detail, isListOrMenuActive, isFocused, isMobile]) // Depend on detail to ensure the latest state is captured
 
   const uploadFn = createUploadFn({
-    token,
+    token: getLiveToken,
     workspaceId: activeTask?.workspaceId,
     getEntityId: () => task_id,
   })
@@ -169,7 +169,7 @@ export const CommentInput = ({ createComment, task_id, token }: Prop) => {
             whiteSpace: 'pre-wrap',
           }}
           uploadFn={uploadFn}
-          deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.COMMENT)}
+          deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, requireLiveToken(), AttachmentTypes.COMMENT)}
           attachmentLayout={(props) => (
             <AttachmentLayout {...props} isComment={true} onUploadStatusChange={handleUploadStatusChange} />
           )}

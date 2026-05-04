@@ -8,6 +8,7 @@ import { clearTemplateFields, selectCreateTemplate, setShowTemplateModal } from 
 import store from '@/redux/store'
 import { CreateTemplateRequest } from '@/types/dto/templates.dto'
 import { TargetMethod } from '@/types/interfaces'
+import { getLiveToken } from '@/utils/assemblyTokenStore'
 import { getCardHrefTemplate } from '@/utils/getCardHref'
 import { Box, Stack, Typography } from '@mui/material'
 import { useSelector } from 'react-redux'
@@ -28,14 +29,14 @@ export const TemplateBoard = ({
   const { targetTemplateId, targetMethod, templates, showTemplateModal, workflowStateId, taskName, description } =
     useSelector(selectCreateTemplate)
 
-  const { token, previewMode } = useSelector(selectTaskBoard)
+  const { previewMode } = useSelector(selectTaskBoard)
   const sortedTemplates = useMemo(() => sortTemplatesByDescendingOrder(templates), [templates])
 
-  const showHeader = token && !!previewMode
+  const showHeader = !!previewMode
 
   return (
     <>
-      {showHeader && <ManageTemplateHeader token={token} />}
+      {showHeader && <ManageTemplateHeader />}
 
       {sortedTemplates.length ? (
         <Box id="templates-box" sx={{ maxWidth: '384px', marginTop: '32px', marginLeft: 'auto', marginRight: 'auto' }}>
@@ -65,7 +66,7 @@ export const TemplateBoard = ({
                   key={template.id}
                   href={{
                     pathname: getCardHrefTemplate(template),
-                    query: { token },
+                    query: { token: getLiveToken() },
                   }}
                   style={{ width: 'auto' }}
                 >

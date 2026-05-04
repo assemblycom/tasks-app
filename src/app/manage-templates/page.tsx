@@ -82,8 +82,8 @@ export default async function ManageTemplatesPage(props: ManageTemplatesPageProp
       templates={templates}
       tokenPayload={tokenPayload}
     >
-      <ManageTemplatesAppBridge token={token} role={UserRole.IU} portalUrl={workspace.portalUrl} />
-      <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
+      <ManageTemplatesAppBridge role={UserRole.IU} portalUrl={workspace.portalUrl} />
+      <RealTimeTemplates tokenPayload={tokenPayload}>
         <TemplateBoard
           handleCreateTemplate={async (payload: CreateTemplateRequest) => {
             'use server'

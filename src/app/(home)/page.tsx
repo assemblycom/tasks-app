@@ -26,6 +26,8 @@ import { z } from 'zod'
 import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
 
+export const maxDuration = 300
+
 export async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
   const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
     next: { tags: ['getAllWorkflowStates'] },
@@ -69,9 +71,7 @@ export async function getViewSettings(token: string): Promise<CreateViewSettings
   const res = await fetch(`${apiUrl}/api/view-settings?token=${token}`, {
     next: { tags: ['getViewSettings'] },
   })
-  const resp = await res.json()
-
-  return resp
+  return res.json()
 }
 
 export default async function Main(props: {
@@ -133,9 +133,9 @@ export default async function Main(props: {
         </Suspense>
 
         <RealTime tokenPayload={tokenPayload}>
-          <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
+          <RealTimeTemplates tokenPayload={tokenPayload}>
             <DndWrapper>
-              <TaskBoard mode={UserRole.IU} workspace={workspace} token={token} />
+              <TaskBoard mode={UserRole.IU} workspace={workspace} />
             </DndWrapper>
             <ModalNewTaskForm
               handleCreateMultipleAttachments={async (attachments: CreateAttachmentRequest[]) => {

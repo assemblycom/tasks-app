@@ -13,7 +13,7 @@ import { IconBtn } from '@/components/buttons/IconBtn'
 import { Add } from '@mui/icons-material'
 import { HeaderBreadcrumbs } from '@/components/layouts/HeaderBreadcrumbs'
 
-export const ManageTemplateHeader = ({ token }: { token: string }) => {
+export const ManageTemplateHeader = () => {
   const { templates } = useSelector(selectCreateTemplate)
   const { previewMode } = useSelector(selectTaskBoard)
   return (
@@ -22,7 +22,6 @@ export const ManageTemplateHeader = ({ token }: { token: string }) => {
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <HeaderBreadcrumbs
             items={[{ label: 'Manage templates' }]}
-            token={token}
             // Treat user as IU since only they are allowed to manage templates for now
             userType={UserType.INTERNAL_USER}
           />

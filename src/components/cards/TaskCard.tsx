@@ -25,7 +25,7 @@ import {
   isEmptyAssignee,
   UserIdsType,
 } from '@/utils/assignee'
-import { getLiveToken } from '@/utils/assemblyTokenStore'
+import { getLiveToken, requireLiveToken } from '@/utils/assemblyTokenStore'
 import { optimisticallyCascadeSubtasks } from '@/utils/cascadeOptimistic'
 import { isTaskCompleted } from '@/utils/isTaskCompleted'
 import { NoAssignee } from '@/utils/noAssignee'
@@ -96,7 +96,6 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
     workflowStates,
     assigneeCache,
     previewMode,
-    token,
     accessibleTasks,
     showSubtasks,
     confirmAssignModalId,
@@ -145,7 +144,7 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
     const { internalUserId, clientId, companyId } = userIds
     store.dispatch(setConfirmAssigneeModalId(undefined))
     store.dispatch(setConfirmAssociationModalId(undefined))
-    token && updateAssignee(token, task.id, internalUserId, clientId, companyId, associations, isShared)
+    updateAssignee(requireLiveToken(), task.id, internalUserId, clientId, companyId, associations, isShared)
   }
 
   const handleAssigneeChange = (inputValue: InputValue[]) => {
@@ -170,7 +169,7 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
       const hasNoAssignee = !internalUserId && !isAssigneeClient
       const associations = isAssigneeClient ? [] : undefined
       const isShared = hasNoAssignee || isAssigneeClient ? false : undefined
-      token && updateAssignee(token, task.id, internalUserId, clientId, companyId, associations, isShared)
+      updateAssignee(requireLiveToken(), task.id, internalUserId, clientId, companyId, associations, isShared)
       setAssigneeValue(nextAssignee ?? NoAssignee)
     }
   }
@@ -187,11 +186,12 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
   const applyWorkflowStateChange = (value: WorkflowStateResponse, skipSubtaskCascade: boolean = false) => {
     updateStatusValue(value)
     store.dispatch(updateWorkflowStateIdByTaskId({ taskId: task.id, targetWorkflowStateId: value.id }))
+    const liveToken = requireLiveToken()
     if (mode === UserRole.Client && !previewMode) {
-      clientUpdateTask(z.string().parse(token), task.id, value.id, skipSubtaskCascade)
+      clientUpdateTask(liveToken, task.id, value.id, skipSubtaskCascade)
     } else {
       updateTask({
-        token: z.string().parse(token),
+        token: liveToken,
         taskId: task.id,
         payload: { workflowStateId: value.id, skipSubtaskCascade },
       })
@@ -285,7 +285,7 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
                   <DatePickerComponent
                     getDate={(date) => {
                       const isoDate = DateStringSchema.parse(formatDate(date))
-                      token && updateTaskDetail({ token, taskId: task.id, payload: { dueDate: isoDate } })
+                      updateTaskDetail({ token: requireLiveToken(), taskId: task.id, payload: { dueDate: isoDate } })
                       setCurrentDueDate(isoDate)
                     }}
                     variant="icon"
@@ -324,7 +324,7 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
         {showSubtasks && subtasks && subtasks.length > 0 && (
           <Stack direction="column">
             {subtasks.map((subtask) => {
-              const href = `${getCardHref(subtask, mode)}/?token=${getLiveToken() ?? token}`
+              const href = `${getCardHref(subtask, mode)}/?token=${requireLiveToken()}`
               return (
                 <Box
                   key={subtask.id}

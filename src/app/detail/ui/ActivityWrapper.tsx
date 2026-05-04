@@ -31,15 +31,7 @@ interface OptimisticUpdate {
   timestamp: number
 }
 
-export const ActivityWrapper = ({
-  token,
-  task_id,
-  tokenPayload,
-}: {
-  token: string
-  task_id: string
-  tokenPayload: Token
-}) => {
+export const ActivityWrapper = ({ task_id, tokenPayload }: { task_id: string; tokenPayload: Token }) => {
   const { activeTask, assignee } = useSelector(selectTaskBoard)
   const { expandedComments } = useSelector(selectTaskDetails)
   const task = activeTask
@@ -229,7 +221,6 @@ export const ActivityWrapper = ({
                   >
                     {item.type === ActivityType.COMMENT_ADDED ? (
                       <Comments
-                        token={token}
                         comment={item}
                         createComment={handleCreateComment}
                         deleteComment={(commentId, replyId, softDelete) =>
@@ -246,7 +237,7 @@ export const ActivityWrapper = ({
                 </Collapse>
               ))}
             </TransitionGroup>
-            <CommentInput createComment={handleCreateComment} task_id={task_id} token={token} />
+            <CommentInput createComment={handleCreateComment} task_id={task_id} />
           </Stack>
         )}
       </Stack>

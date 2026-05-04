@@ -25,6 +25,7 @@ import { useHandleSelectorComponent } from '@/hooks/useHandleSelectorComponent'
 import { SelectorType } from '@/components/inputs/Selector'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
+import { getLiveToken, requireLiveToken } from '@/utils/assemblyTokenStore'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import AttachmentLayout from '@/components/AttachmentLayout'
 import { StyledModal } from '@/app/detail/ui/styledComponent'
@@ -85,10 +86,10 @@ export const TemplateForm = ({ handleCreate }: { handleCreate: () => void }) => 
 const NewTemplateFormInputs = () => {
   const { taskName, description, errors, activeWorkflowStateId, targetTemplateId, targetMethod } =
     useSelector(selectCreateTemplate)
-  const { workflowStates, token } = useSelector(selectTaskBoard)
+  const { workflowStates } = useSelector(selectTaskBoard)
   const { tokenPayload } = useSelector(selectAuthDetails)
   const uploadFn = createUploadFn({
-    token,
+    token: getLiveToken,
     workspaceId: tokenPayload?.workspaceId,
     attachmentType: AttachmentTypes.TEMPLATE,
   })
@@ -152,7 +153,9 @@ const NewTemplateFormInputs = () => {
             placeholder="Add description.."
             editorClass="tapwrite-description-h-full"
             uploadFn={uploadFn}
-            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.TEMPLATE)}
+            deleteEditorAttachments={(url) =>
+              deleteEditorAttachmentsHandler(url, requireLiveToken(), AttachmentTypes.TEMPLATE)
+            }
             attachmentLayout={(props) => <AttachmentLayout {...props} />}
             maxUploadLimit={MAX_UPLOAD_LIMIT}
             parentContainerStyle={{ gap: '0px', minHeight: '60px' }}

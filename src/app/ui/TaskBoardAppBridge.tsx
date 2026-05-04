@@ -14,13 +14,12 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
 interface TaskBoardAppBridgeProps {
-  token: string
   role: UserRole
   portalUrl?: string
   isTaskBoardEmpty?: boolean
 }
 
-export const TaskBoardAppBridge = ({ token, role, portalUrl, isTaskBoardEmpty = false }: TaskBoardAppBridgeProps) => {
+export const TaskBoardAppBridge = ({ role, portalUrl, isTaskBoardEmpty = false }: TaskBoardAppBridgeProps) => {
   const router = useRouter()
   const awake = useAwake()
 

@@ -18,7 +18,7 @@ import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { UpdateComment } from '@/types/dto/comment.dto'
 import { AttachmentTypes, IAssigneeCombined } from '@/types/interfaces'
-import { requireLiveToken } from '@/utils/assemblyTokenStore'
+import { getLiveToken, requireLiveToken } from '@/utils/assemblyTokenStore'
 import { getAssigneeName } from '@/utils/assignee'
 import { deleteEditorAttachmentsHandler, getAttachmentPayload, getCustomFilePath } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
@@ -31,7 +31,6 @@ import { Tapwrite } from 'tapwrite'
 import { z } from 'zod'
 
 export const ReplyCard = ({
-  token,
   item,
   task_id,
   handleImagePreview,
@@ -39,7 +38,6 @@ export const ReplyCard = ({
   setDeletedReplies,
   replyInitiator,
 }: {
-  token: string
   item: ReplyResponse
   task_id: string
   handleImagePreview: (e: React.MouseEvent<unknown>) => void
@@ -125,7 +123,7 @@ export const ReplyCard = ({
   }, [editedContent, isListOrMenuActive, isFocused, isMobile])
 
   const uploadFn = createUploadFn({
-    token,
+    token: getLiveToken,
     workspaceId: activeTask?.workspaceId,
     getEntityId: () => z.string().parse(commentIdRef.current),
     attachmentType: AttachmentTypes.COMMENT,
@@ -251,7 +249,13 @@ export const ReplyCard = ({
                 const customFilePath = tokenPayload?.workspaceId
                   ? getCustomFilePath(tokenPayload?.workspaceId, task_id, commentId, url)
                   : undefined
-                return deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.COMMENT, commentId, customFilePath)
+                return deleteEditorAttachmentsHandler(
+                  url,
+                  requireLiveToken(),
+                  AttachmentTypes.COMMENT,
+                  commentId,
+                  customFilePath,
+                )
               }}
               maxUploadLimit={MAX_UPLOAD_LIMIT}
               attachmentLayout={(props) => <AttachmentLayout {...props} isComment={true} />}

@@ -2,31 +2,20 @@
 
 import { setActiveTemplate } from '@/redux/features/templateSlice'
 import store from '@/redux/store'
-import { ITemplate, PropsWithToken } from '@/types/interfaces'
+import { ITemplate } from '@/types/interfaces'
 import { fetcher } from '@/utils/fetcher'
 import { extractImgSrcs, replaceImgSrcs } from '@/utils/signedUrlReplacer'
 import { useEffect } from 'react'
 import useSWR from 'swr'
 
-interface OneTemplateDataFetcherProps extends PropsWithToken {
+interface OneTemplateDataFetcherProps {
   template_id: string
   initialTemplate: ITemplate
 }
 
-export const OneTemplateDataFetcher = ({
-  token,
-  template_id,
-  initialTemplate,
-}: OneTemplateDataFetcherProps & PropsWithToken) => {
-  const buildQueryString = (token: string) => {
-    const queryParams = new URLSearchParams({ token })
-
-    return queryParams.toString()
-  }
-
-  const queryString = token ? buildQueryString(token) : null
-
-  const { data } = useSWR(queryString ? `/api/tasks/templates/${template_id}?${queryString}` : null, fetcher, {
+export const OneTemplateDataFetcher = ({ template_id, initialTemplate }: OneTemplateDataFetcherProps) => {
+  // Stable cache key — fetcher injects the live token at request time.
+  const { data } = useSWR(`/api/tasks/templates/${template_id}`, fetcher, {
     refreshInterval: 0,
     revalidateOnFocus: false,
   })

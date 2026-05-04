@@ -28,7 +28,7 @@ import { selectTaskDetails, setExpandedComments, setOpenImage } from '@/redux/fe
 import store from '@/redux/store'
 import { CommentResponse, CreateComment, UpdateComment } from '@/types/dto/comment.dto'
 import { AttachmentTypes, IAssigneeCombined } from '@/types/interfaces'
-import { requireLiveToken } from '@/utils/assemblyTokenStore'
+import { getLiveToken, requireLiveToken } from '@/utils/assemblyTokenStore'
 import { getAssigneeName } from '@/utils/assignee'
 import { deleteEditorAttachmentsHandler, getAttachmentPayload, getCustomFilePath } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
@@ -47,7 +47,6 @@ import { Tapwrite } from 'tapwrite'
 import { z } from 'zod'
 
 export const CommentCard = ({
-  token,
   comment,
   createComment,
   deleteComment,
@@ -56,7 +55,6 @@ export const CommentCard = ({
   commentInitiator,
   'data-comment-card': dataCommentCard, //for selection of the element while highlighting the container in notification
 }: {
-  token: string
   comment: LogResponse
   createComment: (postCommentPayload: CreateComment) => void
   deleteComment: (id: string, replyId?: string, softDelete?: boolean) => void
@@ -119,7 +117,7 @@ export const CommentCard = ({
   }, [comment.details.id]) //done because tapwrite only takes uploadFn once on mount where commentId will be temp from optimistic update. So we need an actual commentId for uploadFn to work.
 
   const uploadFn = createUploadFn({
-    token,
+    token: getLiveToken,
     workspaceId: activeTask?.workspaceId,
     getEntityId: () => z.string().parse(commentIdRef.current),
     attachmentType: AttachmentTypes.COMMENT,
@@ -337,7 +335,13 @@ export const CommentCard = ({
                   const customFilePath = tokenPayload?.workspaceId
                     ? getCustomFilePath(tokenPayload?.workspaceId, task_id, commentId, url)
                     : undefined
-                  return deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.COMMENT, commentId, customFilePath)
+                  return deleteEditorAttachmentsHandler(
+                    url,
+                    requireLiveToken(),
+                    AttachmentTypes.COMMENT,
+                    commentId,
+                    customFilePath,
+                  )
                 }}
                 maxUploadLimit={MAX_UPLOAD_LIMIT}
                 attachmentLayout={(props) => <AttachmentLayout {...props} isComment={true} />}
@@ -375,7 +379,6 @@ export const CommentCard = ({
               return (
                 <Collapse key={checkOptimisticStableId(item, optimisticUpdates)}>
                   <ReplyCard
-                    token={token}
                     item={item}
                     task_id={task_id}
                     handleImagePreview={handleImagePreview}
@@ -391,7 +394,6 @@ export const CommentCard = ({
           ((comment as LogResponse).details.replies as LogResponse[]).length > 0) ||
         showReply ? (
           <ReplyInput
-            token={token}
             comment={comment}
             task_id={task_id}
             createComment={createComment}

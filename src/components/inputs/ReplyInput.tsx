@@ -6,6 +6,7 @@ import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { CreateComment } from '@/types/dto/comment.dto'
+import { getLiveToken, requireLiveToken } from '@/utils/assemblyTokenStore'
 import { deleteEditorAttachmentsHandler } from '@/utils/attachmentUtils'
 import { isPopoverInputFocused } from '@/utils/isPopoverInputFocused'
 import { isTapwriteContentEmpty } from '@/utils/isTapwriteContentEmpty'
@@ -17,7 +18,6 @@ import { createUploadFn } from '@/utils/createUploadFn'
 import { AttachmentTypes } from '@/types/interfaces'
 
 interface ReplyInputProps {
-  token: string
   task_id: string
   comment: any
   createComment: (postCommentPayload: CreateComment) => void
@@ -25,14 +25,7 @@ interface ReplyInputProps {
   setFocusReplyInput: Dispatch<SetStateAction<boolean>>
 }
 
-export const ReplyInput = ({
-  token,
-  task_id,
-  comment,
-  createComment,
-  focusReplyInput,
-  setFocusReplyInput,
-}: ReplyInputProps) => {
+export const ReplyInput = ({ task_id, comment, createComment, focusReplyInput, setFocusReplyInput }: ReplyInputProps) => {
   const [detail, setDetail] = useState('')
   const { assignee, activeTask } = useSelector(selectTaskBoard)
   const windowWidth = useWindowWidth()
@@ -147,7 +140,7 @@ export const ReplyInput = ({
   }
 
   const uploadFn = createUploadFn({
-    token,
+    token: getLiveToken,
     workspaceId: activeTask?.workspaceId,
     getEntityId: () => task_id,
   })
@@ -200,7 +193,9 @@ export const ReplyInput = ({
               flexGrow: 1,
             }}
             addAttachmentButton
-            deleteEditorAttachments={(url) => deleteEditorAttachmentsHandler(url, token ?? '', AttachmentTypes.COMMENT)}
+            deleteEditorAttachments={(url) =>
+              deleteEditorAttachmentsHandler(url, requireLiveToken(), AttachmentTypes.COMMENT)
+            }
             uploadFn={uploadFn}
             maxUploadLimit={MAX_UPLOAD_LIMIT}
             endButtons={<SubmitCommentButtons handleSubmit={handleReplySubmission} disabled={isUploading} />}

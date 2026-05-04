@@ -113,7 +113,6 @@ export default async function TaskDetailPage(props: {
     return (
       <DeletedRedirectPage
         userType={tokenPayload.companyId ? UserRole.Client : UserRole.IU}
-        token={token}
         fromNotificationCenter={fromNotificationCenter}
       />
     )
@@ -138,12 +137,12 @@ export default async function TaskDetailPage(props: {
       workspace={workspace}
       viewSettings={viewSettings}
     >
-      {token && <OneTaskDataFetcher token={token} task_id={task_id} initialTask={task} />}
+      {token && <OneTaskDataFetcher task_id={task_id} initialTask={task} />}
       <Suspense fallback={null}>
         <TemplatesFetcher token={token} />
       </Suspense>
       <RealTime tokenPayload={tokenPayload}>
-        <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
+        <RealTimeTemplates tokenPayload={tokenPayload}>
           <EscapeHandler />
           <ResponsiveStack fromNotificationCenter={fromNotificationCenter}>
             <Box sx={{ width: '100%', display: 'flex', flex: 1, flexDirection: 'column', overflow: 'auto' }}>
@@ -151,7 +150,7 @@ export default async function TaskDetailPage(props: {
                 <StyledBox>
                   <AppMargin size={SizeofAppMargin.HEADER} py="17.5px">
                     <Stack direction="row" justifyContent="space-between">
-                      <HeaderBreadcrumbs token={token} items={breadcrumbItems} userType={params.user_type} />
+                      <HeaderBreadcrumbs items={breadcrumbItems} userType={params.user_type} />
                       <Stack direction="row" alignItems="center" columnGap="8px">
                         <MenuBoxContainer role={tokenPayload.internalUserId ? UserRole.IU : UserRole.Client} />
                         <Stack direction="row" alignItems="center" columnGap="8px">
@@ -163,12 +162,7 @@ export default async function TaskDetailPage(props: {
                 </StyledBox>
               ) : (
                 <>
-                  <HeaderBreadcrumbs
-                    token={token}
-                    items={breadcrumbItems}
-                    userType={params.user_type}
-                    portalUrl={workspace.portalUrl}
-                  />
+                  <HeaderBreadcrumbs items={breadcrumbItems} userType={params.user_type} portalUrl={workspace.portalUrl} />
                   <ArchiveWrapper taskId={task_id} userType={user_type} />
                 </>
               )}
@@ -206,13 +200,11 @@ export default async function TaskDetailPage(props: {
                       await deleteAttachment(token, id)
                     }}
                     userType={params.user_type}
-                    token={token}
                   />
                 </StyledTiptapDescriptionWrapper>
                 {subTaskStatus.canCreateSubtask && (
                   <Subtasks
                     task_id={task_id}
-                    token={token}
                     userType={tokenPayload.internalUserId ? UserRole.IU : UserRole.Client}
                     canCreateSubtasks={params.user_type === UserType.INTERNAL_USER || !!getPreviewMode(tokenPayload)}
                   />
@@ -223,7 +215,7 @@ export default async function TaskDetailPage(props: {
                     await postAttachment(token, postAttachmentPayload)
                   }}
                 >
-                  <ActivityWrapper task_id={task_id} token={token} tokenPayload={tokenPayload} />
+                  <ActivityWrapper task_id={task_id} tokenPayload={tokenPayload} />
                 </AttachmentProvider>
               </TaskDetailsContainer>
             </Box>
