@@ -42,6 +42,15 @@ jest.mock('@/app/api/tasks/public/public.serializer', () => ({
   PublicTaskSerializer: { serialize: (...args: unknown[]) => mockSerialize(...(args as [{ id: string }])) },
 }))
 
+// Bypass Bottleneck's rate-limiting in tests — schedule(fn) just runs fn immediately.
+// Real rate-limit behavior would slow tests by ~250ms × N without changing what we assert.
+jest.mock('bottleneck', () => ({
+  __esModule: true,
+  default: jest.fn().mockImplementation(() => ({
+    schedule: <T>(fn: () => Promise<T>) => fn(),
+  })),
+}))
+
 import { autoArchiveCompletedTasks } from './auto-archive-completed-tasks'
 
 type RunResult = { totalArchived: number; workspaceCount: number }
