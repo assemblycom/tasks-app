@@ -16,6 +16,7 @@ import { sortTemplatesByDescendingOrder } from '@/utils/sortByDescending'
 import { useMemo } from 'react'
 import { GhostBtn } from '@/components/buttons/GhostBtn'
 import { GrayAddMediumIcon } from '@/icons'
+import { EmptyTemplates } from './EmptyTemplates'
 
 export const TemplateBoard = ({
   handleCreateTemplate,
@@ -59,7 +60,7 @@ export const TemplateBoard = ({
                     pathname: getCardHrefTemplate(template),
                     query: { token },
                   }}
-                  style={{ width: 'auto' }}
+                  style={{ display: 'block', width: '100%' }}
                 >
                   <TemplateCard title={template.title} key={template.id} />
                 </CustomLink>
@@ -67,9 +68,7 @@ export const TemplateBoard = ({
             })}
           </Stack>
         ) : (
-          <Typography variant="bodySm" sx={{ color: (theme) => theme.color.gray[500] }}>
-            No templates yet. Create one to get started.
-          </Typography>
+          <EmptyTemplates />
         )}
       </Box>
 

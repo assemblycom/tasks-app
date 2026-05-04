@@ -105,7 +105,7 @@ export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPage
     >
       <ConfigureTasksAppBridge portalUrl={workspace.portalUrl} appDisplayName={appDisplayName} />
       <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
-        <Stack direction="column" rowGap="32px" sx={{ paddingY: '32px' }}>
+        <Stack direction="column" rowGap="32px" sx={{ paddingTop: '24px', paddingBottom: '12px', paddingX: '12px' }}>
           <AutoArchiveSection
             initialAutoArchiveAfterDays={workspaceSetting.autoArchiveAfterDays}
             token={token}
