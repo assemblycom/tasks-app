@@ -168,7 +168,7 @@ export const ActivityLog = ({ log }: Prop) => {
       <VerticalLine />
 
       <Stack direction="row" columnGap={4} padding={'11px 0px 11px 0px'} width={'100%'} sx={{ alignItems: 'center' }}>
-        {!isSystemActivity && <CopilotAvatar size="xs" currentAssignee={activityUser} />}
+        <CopilotAvatar size="xs" currentAssignee={activityUser} />
         <TypographyContainer direction="row" columnGap={1}>
           {isSystemActivity ? (
             <StyledTypography>Task was auto-archived</StyledTypography>
