@@ -12,6 +12,7 @@ import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { selectTaskDetails } from '@/redux/features/taskDetailsSlice'
 import { CreateTaskRequest, TaskResponse } from '@/types/dto/tasks.dto'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { fetcher } from '@/utils/fetcher'
 import { generateRandomString } from '@/utils/generateRandomString'
 import { checkOptimisticStableId } from '@/utils/optimisticCommentUtils'
@@ -52,7 +53,8 @@ export const Subtasks = ({
   // Default archived flag matches the API default (false) so we don't include archived subtasks before view settings hydrate.
   const archivedParam = showArchived ?? false
   const unarchivedParam = showUnarchived ?? true
-  const cacheKey = `/api/tasks/?token=${token}&showArchived=${archivedParam ? 1 : 0}&showUnarchived=${unarchivedParam ? 1 : 0}&parentId=${task_id}`
+  // Stable cache key — fetcher injects the live token at request time.
+  const cacheKey = `/api/tasks/?showArchived=${archivedParam ? 1 : 0}&showUnarchived=${unarchivedParam ? 1 : 0}&parentId=${task_id}`
 
   const { data: subTasks } = useSWR(cacheKey, fetcher, {
     refreshInterval: 0,
@@ -103,7 +105,7 @@ export const Subtasks = ({
       mutate(
         cacheKey,
         async () => {
-          const subTask = await handleCreate(token, payload, { disableSubtaskTemplates: true })
+          const subTask = await handleCreate(requireLiveToken(), payload, { disableSubtaskTemplates: true })
           setOptimisticUpdates((prev) =>
             prev.map((update) => (update.tempId === tempId ? { ...update, serverId: subTask.id } : update)),
           )

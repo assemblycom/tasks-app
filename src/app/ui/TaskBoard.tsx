@@ -20,6 +20,7 @@ import { WorkspaceResponse } from '@/types/common'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { View } from '@/types/interfaces'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { getOpenSubtaskIds, optimisticallyCascadeSubtasks } from '@/utils/cascadeOptimistic'
 import { sortTaskByDescendingOrder } from '@/utils/sortByDescending'
 import { prioritizeStartedStates } from '@/utils/workflowStates'
@@ -62,11 +63,12 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
   const performDropUpdate = useCallback(
     (taskId: string, targetWorkflowStateId: string, skipSubtaskCascade: boolean = false) => {
       store.dispatch(updateWorkflowStateIdByTaskId({ taskId, targetWorkflowStateId }))
+      const liveToken = requireLiveToken()
       if (mode === UserRole.Client && !previewMode) {
-        clientUpdateTask(z.string().parse(token), taskId, targetWorkflowStateId, skipSubtaskCascade)
+        clientUpdateTask(liveToken, taskId, targetWorkflowStateId, skipSubtaskCascade)
       } else {
         updateTask({
-          token: z.string().parse(token),
+          token: liveToken,
           taskId,
           payload: { workflowStateId: targetWorkflowStateId, skipSubtaskCascade },
         })

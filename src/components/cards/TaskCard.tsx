@@ -25,6 +25,7 @@ import {
   isEmptyAssignee,
   UserIdsType,
 } from '@/utils/assignee'
+import { getLiveToken } from '@/utils/assemblyTokenStore'
 import { optimisticallyCascadeSubtasks } from '@/utils/cascadeOptimistic'
 import { isTaskCompleted } from '@/utils/isTaskCompleted'
 import { NoAssignee } from '@/utils/noAssignee'
@@ -323,7 +324,7 @@ export const TaskCard = ({ task, href, workflowState, mode, subtasks, workflowDi
         {showSubtasks && subtasks && subtasks.length > 0 && (
           <Stack direction="column">
             {subtasks.map((subtask) => {
-              const href = `${getCardHref(subtask, mode)}/?token=${token}`
+              const href = `${getCardHref(subtask, mode)}/?token=${getLiveToken() ?? token}`
               return (
                 <Box
                   key={subtask.id}

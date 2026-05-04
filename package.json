@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@assembly-js/app-bridge": "^1.1.1",
     "@assembly-js/node-sdk": "^4.0.2",
     "@cyntler/react-doc-viewer": "^1.17.0",
     "@emotion/react": "^11.11.3",
@@ -110,6 +111,7 @@
   },
   "scripts": {
     "build": "next build",
+    "tsc": "tsc --noEmit",
     "cmd:backfill-archived-by": "tsx ./src/cmd/backfill-archived-by",
     "cmd:backfill-company-id-in-client-notifications": "tsx ./src/cmd/backfill-company-id-in-client-notifications",
     "cmd:backfill-completed-tasks": "tsx ./src/cmd/backfill-completed-tasks",

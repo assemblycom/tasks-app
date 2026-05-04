@@ -44,6 +44,7 @@ import {
   ITemplate,
   UserIds,
 } from '@/types/interfaces'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { checkEmptyAssignee, emptyAssignee, getAssigneeName } from '@/utils/assignee'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
@@ -507,7 +508,7 @@ const NewTaskHeader = ({
 
           setSubtasksCount(subTaskTemplates.length ?? 0)
 
-          const resp = await fetch(`/api/tasks/templates/${id}/apply?token=${token}`, {
+          const resp = await fetch(`/api/tasks/templates/${id}/apply?token=${requireLiveToken()}`, {
             signal: controller.signal,
           })
           const { data: template } = await resp.json()
@@ -581,7 +582,7 @@ const NewTaskHeader = ({
             value={templateValue}
             selectorType={SelectorType.TEMPLATE_SELECTOR}
             endOption={<ManageTemplatesEndOption hasTemplates={!!templates?.length} />}
-            endOptionHref={`/manage-templates?token=${token}`}
+            endOptionHref={`/manage-templates?token=${requireLiveToken()}`}
             listAutoHeightMax="147px"
             variant="normal"
             responsiveNoHide

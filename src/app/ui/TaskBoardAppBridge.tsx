@@ -8,6 +8,7 @@ import { usePrimaryCta } from '@/hooks/app-bridge/usePrimaryCta'
 import { useSecondaryCta } from '@/hooks/app-bridge/useSecondaryCta'
 import { setShowModal } from '@/redux/features/createTaskSlice'
 import store from '@/redux/store'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { UserRole } from '@api/core/types/user'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -30,7 +31,7 @@ export const TaskBoardAppBridge = ({ token, role, portalUrl, isTaskBoardEmpty = 
   }, [awake])
 
   const handleManageTemplatesClick = () => {
-    router.push(`/manage-templates?token=${token}`)
+    router.push(`/manage-templates?token=${requireLiveToken()}`)
   }
 
   usePrimaryCta(

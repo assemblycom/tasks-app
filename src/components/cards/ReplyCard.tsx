@@ -18,6 +18,7 @@ import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { UpdateComment } from '@/types/dto/comment.dto'
 import { AttachmentTypes, IAssigneeCombined } from '@/types/interfaces'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { getAssigneeName } from '@/utils/assignee'
 import { deleteEditorAttachmentsHandler, getAttachmentPayload, getCustomFilePath } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
@@ -96,7 +97,7 @@ export const ReplyCard = ({
       content: editedContent,
       // mentions : add mentions in the future
     }
-    token && (await updateComment(token, commentId, updateCommentPayload))
+    await updateComment(requireLiveToken(), commentId, updateCommentPayload)
     setIsReadOnly(true)
   }
 

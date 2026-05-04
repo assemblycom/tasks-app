@@ -5,6 +5,7 @@ import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { selectCreateTemplate } from '@/redux/features/templateSlice'
 import { CreateTemplateRequest } from '@/types/dto/templates.dto'
 import { ITemplate } from '@/types/interfaces'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { generateRandomString } from '@/utils/generateRandomString'
 import { getTempTaskTemplate } from '@/utils/optimisticTaskUtils'
 import { useEffect, useRef, useState } from 'react'
@@ -41,7 +42,8 @@ export const Subtemplates = ({ template_id, token }: { template_id: string; toke
 
   const canCreateSubtemplates = !activeTemplate?.parentId
 
-  const cacheKey = `/api/tasks/templates/${template_id}/sub-templates?token=${token}`
+  // Stable cache key — fetcher injects the live token at request time.
+  const cacheKey = `/api/tasks/templates/${template_id}/sub-templates`
 
   const { data: subtemplates } = useSWR(cacheKey, fetcher, {
     refreshInterval: 0,
@@ -93,7 +95,7 @@ export const Subtemplates = ({ template_id, token }: { template_id: string; toke
       mutate(
         cacheKey,
         async () => {
-          const subTask = await createSubTemplate(token, template_id, payload)
+          const subTask = await createSubTemplate(requireLiveToken(), template_id, payload)
           setOptimisticUpdates((prev) =>
             prev.map((update) => (update.tempId === tempId ? { ...update, serverId: subTask.id } : update)),
           )

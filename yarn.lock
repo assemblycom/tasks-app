@@ -18,6 +18,11 @@
     "@csstools/css-tokenizer" "^3.0.3"
     lru-cache "^10.4.3"
 
+"@assembly-js/app-bridge@^1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@assembly-js/app-bridge/-/app-bridge-1.1.1.tgz#671b49991bd89538dd8bda2444b0e5ac8e81c1bd"
+  integrity sha512-NWD8FuRBmLb8+5bMHX8NtepSnIVShmmYoPPD6rHfcFrkN9SKm61/vdCASJnMViWVOjItuKku9QSpn6sOy4L6Og==
+
 "@assembly-js/node-sdk@^4.0.2":
   version "4.0.2"
   resolved "https://registry.yarnpkg.com/@assembly-js/node-sdk/-/node-sdk-4.0.2.tgz#d745fedcb1247479757916f6170057909a99cf98"

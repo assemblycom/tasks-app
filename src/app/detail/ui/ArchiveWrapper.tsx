@@ -10,13 +10,15 @@ import { Skeleton } from '@mui/material'
 import store from '@/redux/store'
 import { selectTaskDetails, setTask } from '@/redux/features/taskDetailsSlice'
 import { UserType } from '@/types/interfaces'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { DetailAppBridge } from './DetailAppBridge'
 
 export const ArchiveWrapper = ({ taskId, userType }: { taskId: string; userType: UserType }) => {
-  const { token, activeTask, previewMode } = useSelector(selectTaskBoard)
+  const { activeTask, previewMode } = useSelector(selectTaskBoard)
   const { task } = useSelector(selectTaskDetails)
   const { mutate } = useSWRConfig()
-  const cacheKey = `/api/tasks/${taskId}?token=${token}`
+  // Stable cache key — fetcher injects the live token at request time.
+  const cacheKey = `/api/tasks/${taskId}`
   const [isArchived, setIsArchived] = useState<boolean | undefined>(undefined)
 
   // Set the initial state when `data` becomes available
@@ -40,7 +42,7 @@ export const ArchiveWrapper = ({ taskId, userType }: { taskId: string; userType:
         cacheKey,
         async () => {
           // Call the actual API to toggle isArchived
-          await fetch(`/api/tasks/${taskId}?token=${token}`, {
+          await fetch(`/api/tasks/${taskId}?token=${requireLiveToken()}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ isArchived: newIsArchived }),

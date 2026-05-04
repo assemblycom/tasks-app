@@ -4,6 +4,7 @@ import { UserRole } from '@/app/api/core/types/user'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { TasksListIcon } from '@/icons'
 
+import { getLiveToken } from '@/utils/assemblyTokenStore'
 import { SxCenter } from '@/utils/mui'
 import { Box, Button, Stack, Typography } from '@mui/material'
 import Link from 'next/link'
@@ -21,7 +22,7 @@ export const DeletedRedirectPage = ({
   fromNotificationCenter?: boolean
   entity?: 'Task' | 'Template'
 }) => {
-  const tokenstring = z.string().parse(token)
+  const tokenstring = getLiveToken() ?? z.string().parse(token)
   return (
     <>
       <AppMargin size={SizeofAppMargin.LARGE} py="20px">

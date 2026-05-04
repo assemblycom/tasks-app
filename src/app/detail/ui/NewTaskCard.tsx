@@ -22,6 +22,7 @@ import { DateString } from '@/types/date'
 import { CreateTaskRequest, Associations } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { AttachmentTypes, FilterByOptions, IAssigneeCombined, InputValue, ITemplate, UserIds } from '@/types/interfaces'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { getAssigneeName, UserIdsType } from '@/utils/assignee'
 import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
@@ -195,7 +196,7 @@ export const NewTaskCard = ({
               title: prev.title + ' ' + resolvedTitle,
             }))
           }
-          const resp = await fetch(`/api/tasks/templates/${id}/apply?token=${token}`, {
+          const resp = await fetch(`/api/tasks/templates/${id}/apply?token=${requireLiveToken()}`, {
             signal: controller.signal,
           })
           const { data: template } = await resp.json()
@@ -372,7 +373,7 @@ export const NewTaskCard = ({
             value={templateValue}
             selectorType={SelectorType.TEMPLATE_SELECTOR}
             endOption={!fromNotificationCenter && <ManageTemplatesEndOption hasTemplates={!!templates?.length} />}
-            endOptionHref={`/manage-templates?token=${token}`}
+            endOptionHref={`/manage-templates?token=${requireLiveToken()}`}
             listAutoHeightMax="147px"
             variant="normal"
             responsiveNoHide
