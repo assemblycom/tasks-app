@@ -4,8 +4,8 @@ import { TaskResponse } from '@/types/dto/tasks.dto'
 import {
   DndContext,
   DragEndEvent,
+  DragOverlay,
   DragStartEvent,
-  KeyboardSensor,
   MouseSensor,
   TouchSensor,
   pointerWithin,
@@ -13,6 +13,7 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import type { AutoScrollOptions } from '@dnd-kit/core'
+import { snapCenterToCursor } from '@dnd-kit/modifiers'
 import { ReactNode, createContext, useCallback, useContext, useMemo, useState } from 'react'
 
 interface Props {
@@ -37,10 +38,12 @@ export function TaskDndContext({ children, onDropItem, renderOverlay, autoScroll
 
   // Activation distance prevents accidental drags on click. Touch uses a short delay
   // so taps still register normally while a press-and-drag activates a real drag.
+  // KeyboardSensor is intentionally omitted: with column/section drop targets, the
+  // default arrow-key 2-D motion can't land on a target without a custom
+  // coordinateGetter, which is out of scope for this change.
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
-    useSensor(KeyboardSensor),
   )
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -77,10 +80,6 @@ export function TaskDndContext({ children, onDropItem, renderOverlay, autoScroll
     </DndContext>
   )
 }
-
-// Split out so we can lazy-import DragOverlay without breaking SSR.
-import { DragOverlay } from '@dnd-kit/core'
-import { snapCenterToCursor } from '@dnd-kit/modifiers'
 
 function TaskDragOverlayPortal({
   activeTask,

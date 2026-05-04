@@ -28,6 +28,9 @@ export function DraggableTask({ task, disabled, children, style }: Props) {
         ...style,
         opacity: isDragging ? 0.35 : 1,
         cursor: disabled ? undefined : 'grab',
+        // 'manipulation' (not dnd-kit's recommended 'none') so a touch starting
+        // on a card can still scroll the list/board. The 150ms TouchSensor delay
+        // is what disambiguates tap-vs-drag.
         touchAction: 'manipulation',
         outline: 'none',
       }}
