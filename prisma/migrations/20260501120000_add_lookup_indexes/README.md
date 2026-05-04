@@ -4,17 +4,17 @@ Adds 9 indexes (8 btree + 1 GIN) to support common lookups on `Tasks`, `Comments
 
 ## What's in this migration
 
-| Index | Table | Type | Purpose |
-|---|---|---|---|
-| `IX_Tasks_workspaceId` | Tasks | btree | Generic tenant filter |
-| `IX_Tasks_assigneeId` | Tasks | btree | Webhook bulk operations |
-| `IX_Tasks_workspaceId_isArchived_dueDate_createdAt` | Tasks | btree (composite) | Tasks list endpoint — exactly matches the WHERE + ORDER BY shape |
-| `IX_Tasks_associations_gin` | Tasks | **GIN** (`jsonb_path_ops`) | JSONB containment queries (e.g. `associations: { hasSome: [...] }`) |
-| `IX_ClientNotifications_taskId` | ClientNotifications | btree | Lookups by task |
-| `IX_ClientNotifications_clientId` | ClientNotifications | btree | webhook bulk lookup by client |
-| `IX_ClientNotifications_companyId` | ClientNotifications | btree | (low confidence — see "Post-rollout monitoring") |
-| `IX_Comments_parentId` | Comments | btree | Reply lookups |
-| `IX_Comments_workspaceId` | Comments | btree | (low confidence — see "Post-rollout monitoring") |
+| Index                                               | Table               | Type                       | Purpose                                                             |
+| --------------------------------------------------- | ------------------- | -------------------------- | ------------------------------------------------------------------- |
+| `IX_Tasks_workspaceId`                              | Tasks               | btree                      | Generic tenant filter                                               |
+| `IX_Tasks_assigneeId`                               | Tasks               | btree                      | Webhook bulk operations                                             |
+| `IX_Tasks_workspaceId_isArchived_dueDate_createdAt` | Tasks               | btree (composite)          | Tasks list endpoint — exactly matches the WHERE + ORDER BY shape    |
+| `IX_Tasks_associations_gin`                         | Tasks               | **GIN** (`jsonb_path_ops`) | JSONB containment queries (e.g. `associations: { hasSome: [...] }`) |
+| `IX_ClientNotifications_taskId`                     | ClientNotifications | btree                      | Lookups by task                                                     |
+| `IX_ClientNotifications_clientId`                   | ClientNotifications | btree                      | webhook bulk lookup by client                                       |
+| `IX_ClientNotifications_companyId`                  | ClientNotifications | btree                      | (low confidence — see "Post-rollout monitoring")                    |
+| `IX_Comments_parentId`                              | Comments            | btree                      | Reply lookups                                                       |
+| `IX_Comments_workspaceId`                           | Comments            | btree                      | (low confidence — see "Post-rollout monitoring")                    |
 
 Note on the GIN index: Prisma cannot model `GIN` on `Json[]` in its schema. The `task.prisma` annotation intentionally omits it. `prisma migrate diff` will flag it as drift — that is intentional and expected.
 
@@ -61,6 +61,7 @@ CREATE INDEX CONCURRENTLY "IX_Comments_workspaceId" ON "Comments"("workspaceId")
 ```
 
 Notes:
+
 - Run each statement separately. `CONCURRENTLY` is incompatible with explicit transaction blocks; wrapping multiple `CONCURRENTLY` statements in `BEGIN/COMMIT` will fail.
 - If a `CONCURRENTLY` build is interrupted, Postgres leaves an `INVALID` index behind. Drop it (`DROP INDEX CONCURRENTLY "<name>"`) before retrying.
 - Build progress is visible in `pg_stat_progress_create_index` while it runs.
@@ -176,6 +177,7 @@ ORDER BY idx_scan ASC;
 Indexes with `idx_scan = 0` after sustained traffic are dead weight — drop them.
 
 Suspected low-value entries to watch:
+
 - `IX_ClientNotifications_companyId` — current code paths always pair `companyId` with `clientId`, so the `clientId` index covers them.
 - `IX_Comments_workspaceId` — no production query I found filters by `workspaceId` alone on Comments; tenant filter is always combined with `taskId` or `parentId`.
 - `IX_Tasks_workspaceId` — superseded by the new composite `IX_Tasks_workspaceId_isArchived_dueDate_createdAt` for the list path. Other call sites still benefit from the standalone, but if it shows zero scans, it can go.
