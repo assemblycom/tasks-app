@@ -5,19 +5,11 @@ import { useBreadcrumbs } from '@/hooks/app-bridge/useBreadcrumbs'
 
 interface ConfigureTasksAppBridgeProps {
   portalUrl?: string
-  appDisplayName?: string | null
 }
 
-export const ConfigureTasksAppBridge = ({ portalUrl, appDisplayName }: ConfigureTasksAppBridgeProps) => {
+export const ConfigureTasksAppBridge = ({ portalUrl }: ConfigureTasksAppBridgeProps) => {
   useActionsMenu([], { portalUrl })
-  useBreadcrumbs(
-    [
-      {
-        label: appDisplayName ? `Configure ${appDisplayName}` : 'Configure',
-      },
-    ],
-    { portalUrl },
-  )
+  useBreadcrumbs([{ label: 'Configure Tasks App' }], { portalUrl })
 
   return <></>
 }

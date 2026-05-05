@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Box, MenuItem, Select, Stack, Typography } from '@mui/material'
+import { Box, Menu, MenuItem, Stack, Typography } from '@mui/material'
+import { Icon } from 'copilot-design-system'
 import { StyledSwitch } from '@/components/inputs/StyledSwitch'
 import { usePrimaryCta } from '@/hooks/app-bridge/usePrimaryCta'
 import { AUTO_ARCHIVE_AFTER_DAYS_OPTIONS, AutoArchiveAfterDays } from '@/types/dto/workspaceSettings.dto'
@@ -21,6 +22,8 @@ export const AutoArchiveSection = ({ initialAutoArchiveAfterDays, token, portalU
   const [savedValue, setSavedValue] = useState<AutoArchiveAfterDays>(initialAutoArchiveAfterDays as AutoArchiveAfterDays)
   const [draftValue, setDraftValue] = useState<AutoArchiveAfterDays>(initialAutoArchiveAfterDays as AutoArchiveAfterDays)
   const [isSaving, setIsSaving] = useState(false)
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const isMenuOpen = Boolean(anchorEl)
 
   const isEnabled = draftValue > 0
   const hasUnsavedChanges = draftValue !== savedValue
@@ -80,7 +83,7 @@ export const AutoArchiveSection = ({ initialAutoArchiveAfterDays, token, portalU
         }}
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: '16px', py: '14px' }}>
-          <Typography variant="bodyMd">Auto archive completed tasks</Typography>
+          <Typography variant="bodyMd">Auto-archive completed tasks</Typography>
           <StyledSwitch checked={isEnabled} onChange={(e) => handleToggle(e.target.checked)} />
         </Stack>
 
@@ -95,62 +98,86 @@ export const AutoArchiveSection = ({ initialAutoArchiveAfterDays, token, portalU
             <Typography variant="bodySm" sx={{ display: 'block', mb: '8px', color: (theme) => theme.color.gray[600] }}>
               Archive after
             </Typography>
-            <Select
-              value={draftValue}
-              onChange={(e) => handleDaysChange(Number(e.target.value) as AutoArchiveAfterDays)}
-              fullWidth
+            <Box
+              component="button"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded={isMenuOpen}
+              onClick={(e: React.MouseEvent<HTMLButtonElement>) => setAnchorEl(e.currentTarget)}
               sx={{
-                background: (theme) => theme.color.base.white,
-                borderRadius: '4px',
-                '& .MuiSelect-select': {
-                  padding: '10px 12px',
-                  fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                padding: '10px 12px',
+                bgcolor: (theme) => theme.color.base.white,
+                border: (theme) => `1px solid ${isMenuOpen ? theme.color.gray[700] : theme.color.borders.border2}`,
+                borderRadius: '6px',
+                cursor: 'pointer',
+                font: 'inherit',
+                textAlign: 'left',
+                outline: 'none',
+                transition: 'border-color 120ms ease',
+                '&:hover': {
+                  borderColor: (theme) => (isMenuOpen ? theme.color.gray[700] : theme.color.gray[200]),
                 },
-                '& .MuiSelect-icon': {
-                  transition: 'none',
-                },
-                '& .MuiOutlinedInput-notchedOutline': {
-                  border: '1px solid #EDEDF0',
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  border: '1px solid #EDEDF0',
-                },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  border: '1px solid #EDEDF0',
-                  borderWidth: '1px',
-                },
+                '&:focus-visible': { borderColor: (theme) => theme.color.gray[700] },
               }}
-              MenuProps={{
-                transitionDuration: 0,
-                PaperProps: {
+            >
+              <Typography sx={{ fontSize: '14px', color: (theme) => theme.color.text.text }}>{draftValue} days</Typography>
+              <Box
+                sx={{
+                  display: 'flex',
+                  color: (theme) => theme.color.gray[500],
+                  transition: 'transform 120ms ease',
+                  transform: isMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                }}
+              >
+                <Icon icon="ChevronDown" width={16} height={16} />
+              </Box>
+            </Box>
+            <Menu
+              anchorEl={anchorEl}
+              open={isMenuOpen}
+              onClose={() => setAnchorEl(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              transitionDuration={0}
+              slotProps={{
+                paper: {
                   sx: {
                     mt: '4px',
+                    width: anchorEl ? `${anchorEl.clientWidth}px` : undefined,
                     borderRadius: '6px',
-                    border: '1px solid #EDEDF0',
+                    border: (theme) => `1px solid ${theme.color.borders.border2}`,
                     boxShadow: '0px 6px 20px 0px rgba(0, 0, 0, 0.07)',
-                    '& .MuiList-root': {
-                      padding: 0,
-                    },
+                    '& .MuiList-root': { padding: '4px 0' },
                     '& .MuiMenuItem-root': {
-                      padding: '10px 12px',
+                      padding: '8px 12px',
                       fontSize: '14px',
-                      '&:hover': { backgroundColor: 'transparent' },
-                      '&.Mui-selected': {
-                        backgroundColor: (theme) => theme.color.gray[100],
-                        '&:hover': { backgroundColor: (theme) => theme.color.gray[100] },
-                        '&.Mui-focusVisible': { backgroundColor: (theme) => theme.color.gray[100] },
-                      },
+                      transition: 'none',
+                      '&:hover, &.Mui-focusVisible, &:focus, &.Mui-selected, &.Mui-selected:hover, &.Mui-selected.Mui-focusVisible':
+                        {
+                          backgroundColor: (theme) => theme.color.gray[100],
+                        },
                     },
                   },
                 },
               }}
             >
               {DAY_OPTIONS.map((days) => (
-                <MenuItem key={days} value={days}>
+                <MenuItem
+                  key={days}
+                  selected={days === draftValue}
+                  onClick={() => {
+                    handleDaysChange(days)
+                    setAnchorEl(null)
+                  }}
+                >
                   {days} days
                 </MenuItem>
               ))}
-            </Select>
+            </Menu>
           </Box>
         )}
       </Box>
