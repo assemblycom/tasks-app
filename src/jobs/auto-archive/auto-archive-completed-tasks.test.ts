@@ -64,11 +64,6 @@ const runJob = async (): Promise<RunResult> => {
   return run({ timestamp: new Date() })
 }
 
-// userId in activity log inserts is currently a sentinel UUID (see TODO in the SUT). Tests
-// assert the literal value so they fail loud when the prod migration lands and userId
-// flips back to null — that's the cue to revert both.
-const SENTINEL_USER_ID = '00000000-0000-0000-0000-000000000000'
-
 describe('autoArchiveCompletedTasks', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -126,10 +121,10 @@ describe('autoArchiveCompletedTasks', () => {
       workspaceId: 'ws1',
       type: ActivityType.ARCHIVE_STATE_UPDATED,
       details: { oldValue: false, newValue: true },
-      userId: SENTINEL_USER_ID,
+      userId: null,
       userRole: AssigneeType.internalUser,
     })
-    expect(data[1]).toMatchObject({ taskId: 't2', userId: SENTINEL_USER_ID })
+    expect(data[1]).toMatchObject({ taskId: 't2', userId: null })
   })
 
   it('archives + activity logs run inside a single $transaction', async () => {
