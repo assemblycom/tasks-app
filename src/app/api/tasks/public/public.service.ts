@@ -44,7 +44,7 @@ export class PublicTasksService extends TasksSharedService {
     const policyGate = new PoliciesService(this.user)
     policyGate.authorize(UserAction.Read, Resource.Tasks)
 
-    const filters: Prisma.TaskWhereInput = this.buildTaskPermissions()
+    const filters: Prisma.TaskWhereInput = await this.buildTaskPermissions()
 
     let isArchived: boolean | undefined = false
 
@@ -103,7 +103,7 @@ export class PublicTasksService extends TasksSharedService {
 
     // Build query filters based on role of user. IU can access all tasks related to a workspace
     // while clients can only view the tasks assigned to them or their company
-    const filters = this.buildTaskPermissions(id)
+    const filters = await this.buildTaskPermissions(id)
     const where = { ...filters, deletedAt: { not: undefined } }
     const task = await this.db.task.findFirst({
       where,
@@ -301,7 +301,7 @@ export class PublicTasksService extends TasksSharedService {
   async updateTask(id: string, data: UpdateTaskRequest) {
     const policyGate = new PoliciesService(this.user)
     policyGate.authorize(UserAction.Update, Resource.Tasks)
-    const filters = this.buildTaskPermissions(id)
+    const filters = await this.buildTaskPermissions(id)
 
     const prevTask = await this.db.task.findFirst({
       where: filters,
