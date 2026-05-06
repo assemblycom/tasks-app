@@ -704,6 +704,7 @@ export class TasksService extends TasksSharedService {
   }
 
   async getTraversalPath(id: string): Promise<AncestorTaskResponse[]> {
+    const pathQueryStartedAt = performance.now()
     const taskWithPath = (
       await this.db.$queryRaw<{ path: string }[]>`
       SELECT "path" from "Tasks"
@@ -711,27 +712,41 @@ export class TasksService extends TasksSharedService {
       LIMIT 1
     `
     )?.[0]
+    console.info(`[perf] getTraversalPath path-query id=${id} took ${(performance.now() - pathQueryStartedAt).toFixed(2)}ms`)
     if (!taskWithPath) {
       throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
     }
 
-    const parents = getIdsFromLtreePath(taskWithPath.path)
-    const parentTasks = await Promise.all(
-      parents.map((id) =>
-        this.db.task.findFirstOrThrow({
-          where: { id, workspaceId: this.user.workspaceId },
-          select: {
-            id: true,
-            title: true,
-            label: true,
-            clientId: true,
-            companyId: true,
-            internalUserId: true,
-            associations: true,
-            isShared: true,
-          },
-        }),
-      ) as Promise<AncestorTaskResponse>[],
+    const parentIds = getIdsFromLtreePath(taskWithPath.path)
+    const parentTasksStartedAt = performance.now()
+
+    const parentTasks = (await this.db.task.findMany({
+      where: {
+        id: {
+          in: parentIds,
+        },
+        workspaceId: this.user.workspaceId,
+      },
+      select: {
+        id: true,
+        title: true,
+        label: true,
+        clientId: true,
+        companyId: true,
+        internalUserId: true,
+        associations: true,
+        isShared: true,
+      },
+    })) as AncestorTaskResponse[]
+
+    const parentTaskIds = new Set(parentTasks.map((task) => task.id))
+
+    if (new Set(parentIds).difference(parentTaskIds) && parentIds.length !== parentTaskIds.size) {
+      throw new APIError(httpStatus.EXPECTATION_FAILED, 'Unable to get all of the parent ids.')
+    }
+
+    console.info(
+      `[perf] getTraversalPath parent-tasks id=${id} count=${parentTasks.length} took ${(performance.now() - parentTasksStartedAt).toFixed(2)}ms`,
     )
 
     const subtaskService = new SubtaskService(this.user)
