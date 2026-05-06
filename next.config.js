@@ -1,7 +1,7 @@
-import type { NextConfig } from 'next'
-import { withSentryConfig } from '@sentry/nextjs'
+const { withSentryConfig } = require('@sentry/nextjs')
 
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   cacheMaxMemorySize: 0,
   experimental: {
     staleTimes: {
@@ -46,9 +46,7 @@ module.exports = withSentryConfig(nextConfig, {
   tunnelRoute: '/tel',
 
   // Hides source maps from generated client bundles
-  sourcemaps: {
-    disable: true,
-  },
+  hideSourceMaps: true,
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
   disableLogger: true,
