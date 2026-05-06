@@ -12,7 +12,7 @@ import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
-import { Token, TokenSchema, WorkspaceResponse } from '@/types/common'
+import { Token, TokenSchema } from '@/types/common'
 import { ManageTemplatesAppBridge } from '@/app/manage-templates/ui/ManageTemplatesAppBridge'
 import { UserRole } from '@/app/api/core/types/user'
 
@@ -52,11 +52,6 @@ async function getTokenPayload(token: string): Promise<Token> {
   return payload
 }
 
-async function getWorkspace(token: string): Promise<WorkspaceResponse> {
-  const copilot = new CopilotAPI(token)
-  return await copilot.getWorkspace()
-}
-
 interface ManageTemplatesPageProps {
   searchParams: Promise<{
     token: string
@@ -66,12 +61,11 @@ interface ManageTemplatesPageProps {
 export default async function ManageTemplatesPage(props: ManageTemplatesPageProps) {
   const searchParams = await props.searchParams
   const { token } = searchParams
-  const [workflowStates, assignee, templates, tokenPayload, workspace] = await Promise.all([
+  const [workflowStates, assignee, templates, tokenPayload] = await Promise.all([
     getAllWorkflowStates(token),
     addTypeToAssignee(await getAssigneeList(token)),
     getAllTemplates(token),
     getTokenPayload(token),
-    getWorkspace(token),
   ])
 
   return (
@@ -82,7 +76,7 @@ export default async function ManageTemplatesPage(props: ManageTemplatesPageProp
       templates={templates}
       tokenPayload={tokenPayload}
     >
-      <ManageTemplatesAppBridge token={token} role={UserRole.IU} portalUrl={workspace.portalUrl} />
+      <ManageTemplatesAppBridge token={token} role={UserRole.IU} />
       <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
         <TemplateBoard
           handleCreateTemplate={async (payload: CreateTemplateRequest) => {

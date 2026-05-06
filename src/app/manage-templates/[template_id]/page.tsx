@@ -1,4 +1,4 @@
-import { getAllWorkflowStates, getTokenPayload, getWorkspace } from '@/app/(home)/page'
+import { getAllWorkflowStates, getTokenPayload } from '@/app/(home)/page'
 import { ResponsiveStack } from '@/app/detail/ui/ResponsiveStack'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
@@ -38,11 +38,10 @@ export default async function TaskDetailPage(props: {
   const { token } = searchParams
   const { template_id } = params
 
-  const [workflowStates, template, tokenPayload, workspace] = await Promise.all([
+  const [workflowStates, template, tokenPayload] = await Promise.all([
     getAllWorkflowStates(token),
     getTemplate(template_id, token),
     getTokenPayload(token),
-    getWorkspace(token),
   ])
 
   if (!template) {
@@ -82,7 +81,7 @@ export default async function TaskDetailPage(props: {
                   <HeaderBreadcrumbs token={token} items={breadcrumbItems} userType={UserType.INTERNAL_USER} />
                 )}
               </StyledBox>
-              <ManageTemplateDetailsAppBridge portalUrl={workspace.portalUrl} template={template} />
+              <ManageTemplateDetailsAppBridge template={template} />
               <TaskDetailsContainer
                 sx={{
                   padding: { xs: '20px 16px ', sm: '30px 20px' },

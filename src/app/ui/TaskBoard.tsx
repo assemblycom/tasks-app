@@ -16,7 +16,6 @@ import { TaskDragPreview } from '@/hoc/dndKit/TaskDragPreview'
 import { useFilter } from '@/hooks/useFilter'
 import { selectTaskBoard, updateWorkflowStateIdByTaskId } from '@/redux/features/taskBoardSlice'
 import store from '@/redux/store'
-import { WorkspaceResponse } from '@/types/common'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { View } from '@/types/interfaces'
@@ -32,11 +31,10 @@ import { z } from 'zod'
 
 interface TaskBoardProps {
   mode: UserRole
-  workspace?: WorkspaceResponse
   token: string
 }
 
-export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
+export const TaskBoard = ({ mode, token }: TaskBoardProps) => {
   const {
     workflowStates,
     tasks,
@@ -162,7 +160,7 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
     <>
       <TaskDataFetcher token={token} />
 
-      {mode == UserRole.IU && <TaskBoardAppBridge token={token} role={UserRole.IU} portalUrl={workspace?.portalUrl} />}
+      {mode == UserRole.IU && <TaskBoardAppBridge token={token} role={UserRole.IU} />}
 
       {/* Filterbars */}
       <FilterBar mode={mode} />

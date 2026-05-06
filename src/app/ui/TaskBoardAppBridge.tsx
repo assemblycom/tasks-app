@@ -6,20 +6,23 @@ import { useAwake } from '@/hooks/app-bridge/useAwake'
 import { useBreadcrumbs } from '@/hooks/app-bridge/useBreadcrumbs'
 import { usePrimaryCta } from '@/hooks/app-bridge/usePrimaryCta'
 import { useSecondaryCta } from '@/hooks/app-bridge/useSecondaryCta'
+import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { setShowModal } from '@/redux/features/createTaskSlice'
 import store from '@/redux/store'
 import { UserRole } from '@api/core/types/user'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
+import { useSelector } from 'react-redux'
 
 interface TaskBoardAppBridgeProps {
   token: string
   role: UserRole
-  portalUrl?: string
   isTaskBoardEmpty?: boolean
 }
 
-export const TaskBoardAppBridge = ({ token, role, portalUrl, isTaskBoardEmpty = false }: TaskBoardAppBridgeProps) => {
+export const TaskBoardAppBridge = ({ token, role, isTaskBoardEmpty = false }: TaskBoardAppBridgeProps) => {
+  const { workspace } = useSelector(selectAuthDetails)
+  const portalUrl = workspace?.portalUrl
   const router = useRouter()
   const awake = useAwake()
 

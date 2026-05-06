@@ -74,7 +74,6 @@ export const Sidebar = ({
   disabled,
   workflowDisabled = false,
   userType,
-  portalUrl,
   fromNotificationCenter: fromNotificationCenterProp,
 }: {
   task_id: string
@@ -86,7 +85,6 @@ export const Sidebar = ({
   disabled: boolean
   workflowDisabled?: boolean
   userType: UserType
-  portalUrl?: string
   fromNotificationCenter?: boolean
 }) => {
   const { activeTask, workflowStates, accessibleTasks, assignee, previewMode } = useSelector(selectTaskBoard)
@@ -779,7 +777,6 @@ export const Sidebar = ({
             if (!completedWorkflowState) return
             handleWorkflowStateChange(completedWorkflowState)
           }}
-          portalUrl={portalUrl}
         />
       )}
     </Box>

@@ -4,19 +4,21 @@ import { Icons } from '@/hooks/app-bridge/types'
 import { useActionsMenu } from '@/hooks/app-bridge/useActionsMenu'
 import { useBreadcrumbs } from '@/hooks/app-bridge/useBreadcrumbs'
 import { usePrimaryCta } from '@/hooks/app-bridge/usePrimaryCta'
+import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { setShowTemplateModal } from '@/redux/features/templateSlice'
 import store from '@/redux/store'
 import { TargetMethod } from '@/types/interfaces'
 import { UserRole } from '@api/core/types/user'
-import { useRouter } from 'next/navigation'
+import { useSelector } from 'react-redux'
 
 interface TaskBoardAppBridgeProps {
   token: string
   role: UserRole
-  portalUrl?: string
 }
 
-export const ManageTemplatesAppBridge = ({ token, role, portalUrl }: TaskBoardAppBridgeProps) => {
+export const ManageTemplatesAppBridge = ({ token, role }: TaskBoardAppBridgeProps) => {
+  const { workspace } = useSelector(selectAuthDetails)
+  const portalUrl = workspace?.portalUrl
   const handleTemplateCreate = () => {
     store.dispatch(setShowTemplateModal({ targetMethod: TargetMethod.POST }))
   }

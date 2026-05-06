@@ -14,7 +14,7 @@ import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { RealTime } from '@/hoc/RealTime'
-import { Token, TokenSchema, UrlActionParamsType, WorkspaceResponse } from '@/types/common'
+import { Token, TokenSchema, UrlActionParamsType } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
@@ -50,11 +50,6 @@ async function getTokenPayload(token: string): Promise<Token> {
   return payload as Token
 }
 
-async function getWorkspace(token: string): Promise<WorkspaceResponse> {
-  const copilot = new CopilotAPI(token)
-  return await copilot.getWorkspace()
-}
-
 export default async function ClientPage(props: { searchParams: Promise<{ token: string } & UrlActionParamsType> }) {
   const searchParams = await props.searchParams
   const token = searchParams.token
@@ -62,12 +57,11 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
     return <SilentError message="Please provide a Valid Token" />
   }
   redirectIfTaskCta(searchParams, UserType.CLIENT_USER)
-  const [workflowStates, tasks, viewSettings, tokenPayload, workspace] = await Promise.all([
+  const [workflowStates, tasks, viewSettings, tokenPayload] = await Promise.all([
     getAllWorkflowStates(token),
     getAllTasks(token),
     getViewSettings(token),
     getTokenPayload(token),
-    getWorkspace(token),
   ])
 
   const previewMode = getPreviewMode(tokenPayload)
@@ -87,7 +81,6 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
         tokenPayload={tokenPayload}
         viewSettings={viewSettings}
         clearExpandedComments={true}
-        workspace={workspace}
         action={searchParams?.action}
         pf={searchParams?.pf}
       >
@@ -105,7 +98,7 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
           <AllTasksFetcher token={token} />
         </Suspense>
 
-        <TaskBoardAppBridge token={token} role={UserRole.Client} portalUrl={workspace.portalUrl} />
+        <TaskBoardAppBridge token={token} role={UserRole.Client} />
         <RealTime tokenPayload={tokenPayload}>
           <TaskBoard mode={UserRole.Client} token={token} />
           <ModalNewTaskForm

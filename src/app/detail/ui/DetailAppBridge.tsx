@@ -4,16 +4,19 @@ import { Clickable, Icons } from '@/hooks/app-bridge/types'
 import { useActionsMenu } from '@/hooks/app-bridge/useActionsMenu'
 import { usePrimaryCta } from '@/hooks/app-bridge/usePrimaryCta'
 import { useSecondaryCta } from '@/hooks/app-bridge/useSecondaryCta'
+import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { setShowConfirmDeleteModal } from '@/redux/features/taskDetailsSlice'
 import store from '@/redux/store'
+import { useSelector } from 'react-redux'
 
 interface DetailAppBridgeProps {
   isArchived: boolean
   handleToggleArchive: () => void
-  portalUrl?: string
 }
 
-export const DetailAppBridge = ({ isArchived, handleToggleArchive, portalUrl }: DetailAppBridgeProps) => {
+export const DetailAppBridge = ({ isArchived, handleToggleArchive }: DetailAppBridgeProps) => {
+  const { workspace } = useSelector(selectAuthDetails)
+  const portalUrl = workspace?.portalUrl
   const handleDelete = () => store.dispatch(setShowConfirmDeleteModal())
 
   usePrimaryCta(null, { portalUrl })
