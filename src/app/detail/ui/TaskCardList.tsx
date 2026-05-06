@@ -308,6 +308,7 @@ export const TaskCardList = ({
               flexShrink: 1,
               width: '100%',
             }}
+            draggable={false}
           >
             <Stack
               direction="row"
