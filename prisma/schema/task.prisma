@@ -62,5 +62,7 @@ model Task {
   isShared           Boolean     @default(false)
 
   @@index([path], type: Gist)
+  @@index([workspaceId], name: "IX_Tasks_workspaceId")
+  @@index([parentId], name: "IX_Tasks_parentId")
   @@map("Tasks")
 }
