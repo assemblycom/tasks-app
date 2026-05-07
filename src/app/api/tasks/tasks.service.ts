@@ -704,7 +704,6 @@ export class TasksService extends TasksSharedService {
   }
 
   async getTraversalPath(id: string): Promise<AncestorTaskResponse[]> {
-    const pathQueryStartedAt = performance.now()
     const taskWithPath = (
       await this.db.$queryRaw<{ path: string }[]>`
       SELECT "path" from "Tasks"
@@ -712,7 +711,7 @@ export class TasksService extends TasksSharedService {
       LIMIT 1
     `
     )?.[0]
-    console.info(`[perf] getTraversalPath path-query id=${id} took ${(performance.now() - pathQueryStartedAt).toFixed(2)}ms`)
+
     if (!taskWithPath) {
       throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
     }
@@ -720,7 +719,7 @@ export class TasksService extends TasksSharedService {
     const parentIds = getIdsFromLtreePath(taskWithPath.path)
     const parentTasksStartedAt = performance.now()
 
-    const parentTasks = (await this.db.task.findMany({
+    const fetchedParents = (await this.db.task.findMany({
       where: {
         id: {
           in: parentIds,
@@ -739,15 +738,14 @@ export class TasksService extends TasksSharedService {
       },
     })) as AncestorTaskResponse[]
 
-    const parentTaskIds = new Set(parentTasks.map((task) => task.id))
-
-    if (new Set(parentIds).difference(parentTaskIds) && parentIds.length !== parentTaskIds.size) {
-      throw new APIError(httpStatus.EXPECTATION_FAILED, 'Unable to get all of the parent ids.')
-    }
-
-    console.info(
-      `[perf] getTraversalPath parent-tasks id=${id} count=${parentTasks.length} took ${(performance.now() - parentTasksStartedAt).toFixed(2)}ms`,
-    )
+    const parentTasksById = new Map(fetchedParents.map((task) => [task.id, task]))
+    const parentTasks = parentIds.map((parentId) => {
+      const task = parentTasksById.get(parentId)
+      if (!task) {
+        throw new APIError(httpStatus.EXPECTATION_FAILED, `Missing parent task ${parentId} in traversal path of ${id}`)
+      }
+      return task
+    })
 
     const subtaskService = new SubtaskService(this.user)
     return await subtaskService.getAccessiblePathTasks(parentTasks)
