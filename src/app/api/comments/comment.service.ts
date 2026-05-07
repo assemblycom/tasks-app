@@ -413,7 +413,7 @@ export class CommentService extends BaseService {
 
     const pagination = getBasicPaginationAttributes(limit, lastIdCursor)
     if (this.user.clientId || this.user.companyId) {
-      where.task = this.getClientOrCompanyAssigneeFilter()
+      where.task = await this.getClientOrCompanyAssigneeFilter()
     }
 
     return await this.db.comment.findMany({
@@ -430,7 +430,7 @@ export class CommentService extends BaseService {
       workspaceId: this.user.workspaceId,
     }
     if (this.user.clientId || this.user.companyId) {
-      where.task = this.getClientOrCompanyAssigneeFilter()
+      where.task = await this.getClientOrCompanyAssigneeFilter()
     }
     const newComment = await this.db.comment.findFirst({
       where,
@@ -463,12 +463,13 @@ export class CommentService extends BaseService {
     }
   }
 
-  protected getClientOrCompanyAssigneeFilter(includeAssociatedTask: boolean = true): Prisma.TaskWhereInput {
-    const clientId = z.string().uuid().parse(this.user.clientId)
-    const companyId = z.string().uuid().parse(this.user.companyId)
+  protected async getClientOrCompanyAssigneeFilter(includeAssociatedTask: boolean = true): Promise<Prisma.TaskWhereInput> {
+    const clientId = z.string().uuid().safeParse(this.user.clientId).data
+    const companyId = z.string().uuid().safeParse(this.user.companyId).data
     const isCuPortal = !this.user.internalUserId && (clientId || companyId)
+    const isIuCompanyPreview = !!this.user.internalUserId && !clientId && !!companyId
 
-    const filters = []
+    const filters: Prisma.TaskWhereInput[] = []
 
     if (clientId && companyId) {
       filters.push(
@@ -502,6 +503,23 @@ export class CommentService extends BaseService {
         }
         if (isCuPortal) tempCompanyFilter.isShared = true
         filters.push(tempCompanyFilter)
+      }
+
+      // OUT-2898: When an IU is previewing a company in the CRM, also include
+      // comments on tasks belonging to clients of this company and on IU tasks
+      // shared with those clients — mirrors the task visibility rules.
+      if (isIuCompanyPreview) {
+        const companyClientIds = (await this.copilot.getCompanyClients(companyId)).map((c) => c.id)
+        if (companyClientIds.length > 0) {
+          filters.push({ clientId: { in: companyClientIds }, companyId })
+          if (includeAssociatedTask) {
+            filters.push({
+              associations: {
+                hasSome: companyClientIds.map((cId) => ({ clientId: cId, companyId })),
+              },
+            })
+          }
+        }
       }
     }
     return filters.length > 0 ? { OR: filters } : {}
