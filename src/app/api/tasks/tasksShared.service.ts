@@ -82,7 +82,7 @@ export abstract class TasksSharedService extends BaseService {
 
   protected async getClientOrCompanyAssigneeFilter(includeAssociatedTask: boolean = true): Promise<Prisma.TaskWhereInput> {
     const clientId = z.string().uuid().safeParse(this.user.clientId).data
-    const companyId = z.string().uuid().parse(this.user.companyId)
+    const companyId = z.string().uuid().safeParse(this.user.companyId).data
     const isCuPortal = !this.user.internalUserId && (clientId || companyId)
     const isIuCompanyPreview = !!this.user.internalUserId && !clientId && !!companyId
 
@@ -126,7 +126,7 @@ export abstract class TasksSharedService extends BaseService {
       // tasks belonging to clients of this company (TEAM TASKS) and IU tasks
       // shared with those clients (SHARED WITH TEAM).
       if (isIuCompanyPreview) {
-        const companyClientIds = await this.getCompanyClientIds(companyId)
+        const companyClientIds = (await this.copilot.getCompanyClients(companyId)).map((c) => c.id)
         if (companyClientIds.length > 0) {
           filters.push({ clientId: { in: companyClientIds }, companyId })
           if (includeAssociatedTask) {
@@ -140,15 +140,6 @@ export abstract class TasksSharedService extends BaseService {
       }
     }
     return filters.length > 0 ? { OR: filters } : {}
-  }
-
-  private _companyClientIdsPromise?: Promise<string[]>
-
-  private async getCompanyClientIds(companyId: string): Promise<string[]> {
-    if (!this._companyClientIdsPromise) {
-      this._companyClientIdsPromise = this.copilot.getCompanyClients(companyId).then((clients) => clients.map((c) => c.id))
-    }
-    return this._companyClientIdsPromise
   }
 
   protected async getParentIdFilter(parentId?: string | null) {
