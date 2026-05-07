@@ -555,9 +555,7 @@ export class TasksService extends TasksSharedService {
           { assigneeId, assigneeType: AssigneeType.company },
           { companyId: assigneeId, clientId: null },
           {
-            associations: {
-              hasSome: [{ clientId: null, companyId: assigneeId }],
-            },
+            associations: { equals: [{ clientId: null, companyId: assigneeId }] },
           },
         ],
         workflowState: { type: { not: StateType.completed } },
@@ -591,7 +589,10 @@ export class TasksService extends TasksSharedService {
   async resetAllSharedTasks(assigneeId: string) {
     const tasks = await this.db.task.findMany({
       where: {
-        associations: { hasSome: [{ clientId: assigneeId }, { companyId: assigneeId }] },
+        OR: [
+          { associations: { equals: [{ clientId: assigneeId }] } },
+          { associations: { equals: [{ companyId: assigneeId }] } },
+        ],
         workspaceId: this.user.workspaceId,
       },
     })
