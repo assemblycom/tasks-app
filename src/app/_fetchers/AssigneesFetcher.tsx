@@ -1,5 +1,6 @@
 'use client'
 
+import { setAssignees as setAssigneesIDB } from '@/app/_cache/forageStorage'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { setAssigneeList } from '@/redux/features/taskBoardSlice'
@@ -46,12 +47,22 @@ export const AssigneesFetcher = () => {
   })
 
   useEffect(() => {
-    if (!data) return
+    if (!data || !tokenPayload) return
     const list = useClientEndpoint ? data.clients : data.users
     if (!list) return
-    store.dispatch(setAssigneeList(addTypeToAssignee(list)))
+    const combined = addTypeToAssignee(list)
+    store.dispatch(setAssigneeList(combined))
+
+    // Mirror the old AssigneeCacheSetter's key formula so AssigneeCacheGetter
+    // on subsequent cold loads can still pre-paint avatars from IndexedDB.
+    const { internalUserId, clientId, companyId } = tokenPayload
+    const lookupKey = clientId && companyId ? `${clientId}.${companyId}` : internalUserId
+    if (lookupKey) {
+      void setAssigneesIDB(lookupKey, combined)
+    }
+
     hasFetched = true
-  }, [data, useClientEndpoint])
+  }, [data, useClientEndpoint, tokenPayload])
 
   return null
 }
