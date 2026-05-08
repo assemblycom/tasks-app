@@ -1,6 +1,5 @@
 export const fetchCache = 'force-no-store'
 
-import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { TemplateBoard } from './ui/TemplateBoard'
 import { apiUrl } from '@/config'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
