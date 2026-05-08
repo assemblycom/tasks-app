@@ -717,7 +717,6 @@ export class TasksService extends TasksSharedService {
     }
 
     const parentIds = getIdsFromLtreePath(taskWithPath.path)
-    const parentTasksStartedAt = performance.now()
 
     const fetchedParents = (await this.db.task.findMany({
       where: {
