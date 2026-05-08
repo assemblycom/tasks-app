@@ -18,7 +18,7 @@ model ActivityLog {
   workspaceId   String       @db.VarChar(32)
   type          ActivityType
   details       Json         @db.JsonB
-  userId        String       @db.Uuid
+  userId        String?      @db.Uuid
   userCompanyId String?      @db.Uuid
   userRole      AssigneeType
   createdAt     DateTime     @default(now()) @db.Timestamptz()

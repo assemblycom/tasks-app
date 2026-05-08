@@ -6,6 +6,7 @@ export enum Resource {
   TaskTemplates = 'TaskTemplates',
   WorkflowState = 'WorkflowState',
   ViewSetting = 'ViewSetting',
+  WorkspaceSetting = 'WorkspaceSetting',
   Users = 'User',
   Attachments = 'Attachments',
   Comment = 'Comments',
