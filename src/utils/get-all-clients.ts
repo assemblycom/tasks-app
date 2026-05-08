@@ -1,4 +1,4 @@
-import { cacheLife, cacheTag, updateTag } from 'next/cache'
+import { cacheLife, cacheTag } from 'next/cache'
 
 import { copilotAPIKey as apiKey, assemblyApiDomain } from '@/config'
 import { ClientResponse } from '@/types/common'
@@ -41,10 +41,5 @@ async function fetchAllClientsCached(workspaceId: string): Promise<ClientRespons
 }
 
 export async function getAllClients(workspaceId: string): Promise<ClientResponse[]> {
-  try {
-    return await fetchAllClientsCached(workspaceId)
-  } catch (err) {
-    updateTag(tagFor(workspaceId))
-    throw err
-  }
+  return fetchAllClientsCached(workspaceId)
 }
