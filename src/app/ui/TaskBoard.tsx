@@ -179,7 +179,7 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
         }
       >
         {viewBoardSettings === View.BOARD_VIEW && (
-          <Box sx={{ padding: '12px 12px', height: `calc(100vh - 130px)` }}>
+          <Box sx={{ padding: '12px 12px', height: `calc(100vh - 130px)`, backgroundColor: '#675' }}>
             <Stack
               columnGap={2}
               sx={{

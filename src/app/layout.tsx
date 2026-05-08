@@ -17,7 +17,7 @@ import './tapwrite.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Task App',
+  title: 'Old Task App',
   description: 'A comprehensive tasks app for the Assembly marketplace',
 }
 

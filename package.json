@@ -72,6 +72,7 @@
     "@types/react-custom-scrollbars": "^4.0.13",
     "@types/react-dom": "19.2.3",
     "autoprefixer": "^10.0.1",
+    "baseline-browser-mapping": "^2.10.27",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "husky": "^8.0.0",

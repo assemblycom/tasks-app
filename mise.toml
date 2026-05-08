@@ -1,2 +1,11 @@
 [tools]
-node = "20.19.4"
+bun = "1.2"
+node = "24"
+
+[tasks."dev"]
+description = "Run dev build with portless"
+run = "portless old-tasks bun -b next dev"
+
+[tasks."db:migrate"]
+description = "Migrate db"
+run = "bunx prisma migrate dev"
