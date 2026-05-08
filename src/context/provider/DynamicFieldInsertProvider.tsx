@@ -1,6 +1,6 @@
 'use client'
 
-import { DynamicFieldInsertFn } from '@/app/manage-templates/ui/TemplateDetails'
+import { DynamicFieldInsertFn } from '@/app/configure-tasks-app/ui/TemplateDetails'
 import { createContext, ReactNode, useCallback, useContext, useRef } from 'react'
 
 interface DynamicFieldInsertContextValue {

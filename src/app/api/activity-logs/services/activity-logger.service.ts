@@ -16,19 +16,22 @@ export class ActivityLogger extends BaseService {
   async log<ActivityLog extends keyof typeof SchemaByActivityType = keyof typeof SchemaByActivityType>(
     activityType: ActivityLog,
     payload: NonNullable<z.input<(typeof SchemaByActivityType)[ActivityLog]>>,
-    // Overrides inferring createdBy data from the user's token payload
+    // Overrides inferring createdBy data from the user's token payload.
+    // userId may be null to represent a system-initiated activity (e.g. auto-archive).
     createdBy?: {
-      userId: string
+      userId: string | null
       userCompanyId?: string
       role: AssigneeType
     },
   ) {
+    const userId =
+      createdBy !== undefined ? createdBy.userId : z.string().parse(this.user.internalUserId || this.user.clientId)
     const createActivityLog = this.db.activityLog.create({
       data: {
         taskId: this.taskId,
         workspaceId: this.user.workspaceId,
         type: activityType,
-        userId: createdBy?.userId ?? z.string().parse(this.user.internalUserId || this.user.clientId),
+        userId,
         userCompanyId: createdBy?.userCompanyId || this.user.companyId,
         userRole: createdBy?.role ?? this.user.role,
         details: payload,

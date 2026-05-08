@@ -1,7 +1,6 @@
 import z from 'zod'
 
 export const copilotAPIKey = process.env.COPILOT_API_KEY || ''
-export const tasksAppId = process.env.COPILOT_TASKS_APP_ID || ''
 
 export const apiUrl =
   process.env.VERCEL_ENV === 'production'

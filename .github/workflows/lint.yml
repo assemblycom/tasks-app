@@ -1,10 +1,10 @@
-name: Lint
+name: Lint and Test
 
 on: push
 
 jobs:
   run-linters:
-    name: Run linters
+    name: Run linters and tests
     runs-on: ubuntu-latest
 
     steps:
@@ -26,3 +26,9 @@ jobs:
 
       - name: Run linters
         run: yarn lint:check && yarn prettier:check
+
+      # Scoped to src/jobs because pre-existing tests under src/app/api/tests have ESM
+      # import issues with the `retry` package that aren't fixable without broader changes.
+      # Broaden this once those are resolved.
+      - name: Run tests
+        run: yarn test src/jobs
