@@ -153,7 +153,7 @@ export class ActivityLogService extends BaseService {
     const isIuLog = (log: { userRole: AssigneeType }) => log.userRole === AssigneeType.internalUser
 
     // Check if log is from the current company's client, do not include logs from the same client but different company
-    const isCurrentCompanysClientLog = (log: { userId: string; userCompanyId?: string | null }) => {
+    const isCurrentCompanysClientLog = (log: { userId: string | null; userCompanyId?: string | null }) => {
       const isCorrectClient = log.userId === this.user.clientId
       // The reason we do !log.userCompanyId is because there are a lot of legacy logs that don't have userCompanyId
       const isCorrectCompany = !log.userCompanyId || log.userCompanyId === this.user.companyId
@@ -162,7 +162,7 @@ export class ActivityLogService extends BaseService {
 
     const isCompanyMemberLog = (
       companyClients: { id: string; companyId: string }[],
-      log: { userId: string; userCompanyId?: string | null },
+      log: { userId: string | null; userCompanyId?: string | null },
     ) => {
       const isCorrectClient = companyClients.some((client) => client.id === log.userId)
       // Backwards compatibility for legacy logs that don't have userCompanyId

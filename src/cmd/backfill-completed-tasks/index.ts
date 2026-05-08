@@ -53,7 +53,7 @@ export const fillCompletedTasks = async () => {
         'newValue' in latestLog.details
       ) {
         const { newValue } = latestLog.details as { newValue: string }
-        if (newValue === completedWorkflowState.id) {
+        if (newValue === completedWorkflowState.id && latestLog.userId) {
           completedBy = latestLog.userId
           completedByUserType = latestLog.userRole
         }
