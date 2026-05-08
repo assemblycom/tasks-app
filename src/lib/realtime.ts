@@ -50,6 +50,23 @@ export class RealtimeHandler {
   } //check if the task incoming from realtime includes the logged in client as a viewer.
 
   /**
+   * Returns true if `associations` contains any entry whose companyId is not in the access list.
+   * Mirrors the association check in `filterTasksByClientAccess` (tasksShared.service.ts) so that
+   * realtime decisions stay consistent with the API filter.
+   */
+  private hasInaccessibleAssociation(associations: unknown, companyAccessList: string[]): boolean {
+    if (!Array.isArray(associations)) return false
+    for (const association of associations) {
+      if (!association || typeof association !== 'object') continue
+      const companyId = (association as { companyId?: string }).companyId
+      if (companyId && !companyAccessList.includes(companyId)) {
+        return true
+      }
+    }
+    return false
+  }
+
+  /**
    * Filters out tasks this user type does not have access to
    */
   private isSubtaskAccessible(newTask: RealTimeTaskResponse): boolean {
@@ -70,6 +87,10 @@ export class RealtimeHandler {
           if (!companyAccessList.includes(newTask.assigneeId)) {
             return false
           }
+        }
+        // Reject tasks (incl. those assigned to an IU) whose associations are out of scope
+        if (this.hasInaccessibleAssociation(newTask.associations, companyAccessList)) {
+          return false
         }
       }
     } else if (this.userRole === AssigneeType.client) {
@@ -226,8 +247,13 @@ export class RealtimeHandler {
     if (this.userRole === AssigneeType.internalUser) {
       const iu = InternalUsersSchema.parse(this.user)
       // If the user has limited client access, and this task is outside of it, return
-      if (iu.isClientAccessLimited && newTask.companyId && !iu.companyAccessList!.includes(newTask.companyId)) {
-        return
+      if (iu.isClientAccessLimited) {
+        const companyAccessList = iu.companyAccessList || []
+        const isAssigneeOutOfScope = !!newTask.companyId && !companyAccessList.includes(newTask.companyId)
+        const isAssociationOutOfScope = this.hasInaccessibleAssociation(newTask.associations, companyAccessList)
+        if (isAssigneeOutOfScope || isAssociationOutOfScope) {
+          return
+        }
       }
     }
     // --- Client
@@ -300,10 +326,16 @@ export class RealtimeHandler {
     const isReassignedOutOfLimitedIUScope = (() => {
       if (this.userRole !== AssigneeType.internalUser) return false
       const iu = InternalUsersSchema.parse(this.user)
+      if (!iu.isClientAccessLimited) return false
+      const companyAccessList = iu.companyAccessList || []
+      // Out of scope via association: applies even when assignee is an IU or unassigned
+      if (this.hasInaccessibleAssociation(updatedTask.associations, companyAccessList)) {
+        return true
+      }
       if (updatedTask.internalUserId || !updatedTask.assigneeId) {
         return false
       }
-      return iu.isClientAccessLimited && !iu.companyAccessList?.includes(updatedTask.companyId || '__')
+      return !companyAccessList.includes(updatedTask.companyId || '__')
     })()
 
     if (isReassignedOutOfClientScope || isReassignedOutOfLimitedIUScope) {
@@ -337,11 +369,17 @@ export class RealtimeHandler {
 
     const isReassignedIntoLimitedIUScope = (() => {
       if (this.userRole !== AssigneeType.internalUser) return false
+      const iu = InternalUsersSchema.parse(this.user)
+      if (!iu.isClientAccessLimited) return false
+      const companyAccessList = iu.companyAccessList || []
+      // Even when assigned to an IU or unassigned, an out-of-scope association makes it inaccessible
+      if (this.hasInaccessibleAssociation(updatedTask.associations, companyAccessList)) {
+        return false
+      }
       if (updatedTask.internalUserId || !updatedTask.assigneeId) {
         return true
       }
-      const iu = InternalUsersSchema.parse(this.user)
-      return iu.isClientAccessLimited && iu.companyAccessList?.includes(updatedTask.companyId || '__')
+      return companyAccessList.includes(updatedTask.companyId || '__')
     })()
 
     if (isReassignedIntoClientScope || isReassignedIntoLimitedIUScope) {

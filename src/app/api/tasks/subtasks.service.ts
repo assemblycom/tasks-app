@@ -20,7 +20,7 @@ interface Assignable {
   internalUserId: string | null
   clientId: string | null
   companyId: string | null
-  associations: JsonValue[]
+  associations: JsonValue
   isShared: boolean
 }
 
