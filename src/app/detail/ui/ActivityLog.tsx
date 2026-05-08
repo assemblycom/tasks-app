@@ -14,7 +14,7 @@ import { LogResponse } from '@api/activity-logs/schemas/LogResponseSchema'
 import { TaskAssignedResponse, TaskAssignedResponseSchema } from '@api/activity-logs/schemas/TaskAssignedSchema'
 import { TitleUpdatedSchema } from '@api/activity-logs/schemas/TitleUpdatedSchema'
 import { WorkflowStateUpdatedSchema } from '@api/activity-logs/schemas/WorkflowStateUpdatedSchema'
-import { Stack, Typography } from '@mui/material'
+import { Box, Stack, Typography } from '@mui/material'
 import { ActivityType } from '@prisma/client'
 import { useCallback, useMemo } from 'react'
 import { useSelector } from 'react-redux'
@@ -168,7 +168,11 @@ export const ActivityLog = ({ log }: Prop) => {
       <VerticalLine />
 
       <Stack direction="row" columnGap={4} padding={'11px 0px 11px 0px'} width={'100%'} sx={{ alignItems: 'center' }}>
-        <CopilotAvatar size="xs" currentAssignee={activityUser} />
+        {isAutoArchived ? (
+          <Box sx={{ width: 20, height: 20, flexShrink: 0 }} />
+        ) : (
+          <CopilotAvatar size="xs" currentAssignee={activityUser} />
+        )}
         <TypographyContainer direction="row" columnGap={1}>
           {isAutoArchived ? (
             <>

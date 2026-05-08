@@ -168,6 +168,7 @@ export const AutoArchiveSection = ({ initialAutoArchiveAfterDays, token, portalU
               {DAY_OPTIONS.map((days) => (
                 <MenuItem
                   key={days}
+                  disableRipple
                   selected={days === draftValue}
                   onClick={() => {
                     handleDaysChange(days)
