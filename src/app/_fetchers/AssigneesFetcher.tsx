@@ -3,7 +3,7 @@
 import { setAssignees as setAssigneesIDB } from '@/app/_cache/forageStorage'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
-import { setAssigneeList } from '@/redux/features/taskBoardSlice'
+import { selectTaskBoard, setAssigneeList } from '@/redux/features/taskBoardSlice'
 import store from '@/redux/store'
 import { IAssignee } from '@/types/interfaces'
 import { addTypeToAssignee } from '@/utils/addTypeToAssignee'
@@ -14,10 +14,6 @@ import { useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import useSWR from 'swr'
 
-// Module-level flag: ensures exactly one fetch per layout-mount lifetime, even
-// when AssigneeCacheGetter pre-populates redux from IndexedDB on cold load.
-let hasFetched = false
-
 interface AssigneesPayload {
   users?: IAssignee
   clients?: IAssignee
@@ -27,6 +23,7 @@ export const AssigneesFetcher = () => {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
   const { tokenPayload } = useSelector(selectAuthDetails)
+  const { assignee } = useSelector(selectTaskBoard)
 
   const isPreview = !!(tokenPayload && getPreviewMode(tokenPayload))
   const isClientUser = !!tokenPayload?.clientId && !tokenPayload?.internalUserId
@@ -39,7 +36,7 @@ export const AssigneesFetcher = () => {
         : `/api/users?token=${token}&limit=${MAX_FETCH_ASSIGNEE_COUNT}`
       : null
 
-  const shouldFetch = !!endpoint && !hasFetched
+  const shouldFetch = !!endpoint && assignee.length === 0
   const { data } = useSWR<AssigneesPayload>(shouldFetch ? endpoint : null, fetcher, {
     refreshInterval: 0,
     revalidateOnFocus: false,
@@ -53,15 +50,11 @@ export const AssigneesFetcher = () => {
     const combined = addTypeToAssignee(list)
     store.dispatch(setAssigneeList(combined))
 
-    // Mirror the old AssigneeCacheSetter's key formula so AssigneeCacheGetter
-    // on subsequent cold loads can still pre-paint avatars from IndexedDB.
     const { internalUserId, clientId, companyId } = tokenPayload
     const lookupKey = clientId && companyId ? `${clientId}.${companyId}` : internalUserId
     if (lookupKey) {
       void setAssigneesIDB(lookupKey, combined)
     }
-
-    hasFetched = true
   }, [data, useClientEndpoint, tokenPayload])
 
   return null
