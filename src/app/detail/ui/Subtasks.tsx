@@ -16,7 +16,7 @@ import { fetcher } from '@/utils/fetcher'
 import { generateRandomString } from '@/utils/generateRandomString'
 import { checkOptimisticStableId } from '@/utils/optimisticCommentUtils'
 import { getTempTask } from '@/utils/optimisticTaskUtils'
-import { sortTaskByDescendingOrder } from '@/utils/sortByDescending'
+import { sortSubtasksByPriority } from '@/utils/sortByDescending'
 import { Box, Stack, Typography } from '@mui/material'
 import { useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
@@ -98,7 +98,7 @@ export const Subtasks = ({
       tokenPayload?.internalUserId ?? '',
       task_id,
     )
-    const optimisticData = subTasks?.tasks ? sortTaskByDescendingOrder([...subTasks.tasks, tempSubtask]) : [tempSubtask]
+    const optimisticData = subTasks?.tasks ? sortSubtasksByPriority([...subTasks.tasks, tempSubtask]) : [tempSubtask]
     try {
       mutate(
         cacheKey,
