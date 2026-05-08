@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import authenticate from '@api/core/utils/authenticate'
 import { ViewSettingsService } from '@api/view-settings/viewSettings.service'
 import { CreateViewSettingsSchema } from '@/types/dto/viewSettings.dto'
-import { unstable_noStore as noStore } from 'next/cache'
 
 export const getViewSetting = async (req: NextRequest) => {
-  noStore()
   const user = await authenticate(req)
 
   const viewSettingsService = new ViewSettingsService(user)

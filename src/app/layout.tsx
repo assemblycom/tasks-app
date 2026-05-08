@@ -1,6 +1,3 @@
-// export const fetchCache = 'force-no-store'
-// export const revalidate = 0
-
 import { WorkspaceFetcher } from '@/app/_fetchers/WorkspaceFetcher'
 import { ProgressLoad } from '@/components/TopLoader'
 import { InterrupCmdK } from '@/hoc/Interrupt_CmdK'
@@ -27,19 +24,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ProgressLoad />
-        <InterrupCmdK>
-          <ProviderWrapper>
-            <ThemeRegistry options={{ key: 'mui' }}>
-              <SWRConfig value={swrConfig}>
-                <Suspense fallback={null}>
+        <Suspense fallback={null}>
+          <ProgressLoad />
+          <InterrupCmdK>
+            <ProviderWrapper>
+              <ThemeRegistry options={{ key: 'mui' }}>
+                <SWRConfig value={swrConfig}>
                   <WorkspaceFetcher />
-                </Suspense>
-                {children}
-              </SWRConfig>
-            </ThemeRegistry>
-          </ProviderWrapper>
-        </InterrupCmdK>
+                  {children}
+                </SWRConfig>
+              </ThemeRegistry>
+            </ProviderWrapper>
+          </InterrupCmdK>
+        </Suspense>
       </body>
     </html>
   )

@@ -3,10 +3,8 @@ import WorkflowStatesService from '@api/workflow-states/workflowStates.service'
 import { CreateWorkflowStateRequestSchema } from '@/types/dto/workflowStates.dto'
 import httpWorkflowState from 'http-status'
 import authenticate from '@api/core/utils/authenticate'
-import { unstable_noStore as noStore } from 'next/cache'
 
 export const getWorkflowStates = async (req: NextRequest) => {
-  noStore()
   const user = await authenticate(req)
 
   const workflowStatesService = new WorkflowStatesService(user)

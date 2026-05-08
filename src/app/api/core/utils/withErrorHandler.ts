@@ -2,7 +2,7 @@ import { CopilotApiError, MessagableError, StatusableError } from '@/types/Copil
 import APIError from '@api/core/exceptions/api'
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library'
 import httpStatus from 'http-status'
-import { NextRequest, NextResponse } from 'next/server'
+import { connection, NextRequest, NextResponse } from 'next/server'
 import { ZodError, ZodFormattedError } from 'zod'
 
 export type RequestHandler = (req: NextRequest, params: any) => Promise<NextResponse>
@@ -27,7 +27,7 @@ export type RequestHandler = (req: NextRequest, params: any) => Promise<NextResp
  */
 export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
   return async (req: NextRequest, params: any) => {
-    // Execute the handler wrapped in a try... catch block
+    await connection()
     try {
       return await handler(req, params)
     } catch (error: unknown) {

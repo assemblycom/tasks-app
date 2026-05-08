@@ -1,5 +1,3 @@
-export const fetchCache = 'force-no-store'
-
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { ITemplate, PropsWithToken } from '@/types/interfaces'

@@ -1,5 +1,3 @@
-export const fetchCache = 'force-no-store'
-
 import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'
 import { AssigneeFetcher } from '@/app/_fetchers/AssigneeFetcher'
 import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'

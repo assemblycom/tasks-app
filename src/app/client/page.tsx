@@ -1,5 +1,3 @@
-export const fetchCache = 'force-no-store'
-
 import { createMultipleAttachments } from '@/app/(home)/actions'
 import { getViewSettings } from '@/app/(home)/page'
 import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'

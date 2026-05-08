@@ -2,6 +2,7 @@ import APIError from '@/app/api/core/exceptions/api'
 import { withRetry } from '@/app/api/core/utils/withRetry'
 import { copilotAPIKey as apiKey, APP_ID, assemblyApiDomain } from '@/config'
 import { MAX_LIMIT_CLIENT_COUNT } from '@/constants/users'
+import { getAllClients } from '@/utils/get-all-clients'
 import {
   AssemblyMetadata,
   ClientRequest,
@@ -41,6 +42,10 @@ import Bottleneck from 'bottleneck'
 import type { CopilotAPI as SDK } from 'copilot-node-sdk'
 import { copilotApi } from 'copilot-node-sdk'
 import { z } from 'zod'
+
+// Workspaces that route _getClients through the durable Next.js cache.
+// All other workspaces continue to use the SDK pagination path.
+const CACHED_CLIENT_WORKSPACES = new Set<string>(['us-west-2_lg5zB-Utp'])
 
 export class CopilotAPI {
   copilot: SDK
@@ -135,6 +140,17 @@ export class CopilotAPI {
 
   async _getClients(args: CopilotListArgs & { companyId?: string } = {}) {
     console.info('CopilotAPI#_getClients', this.token)
+
+    // Allow-listed workspaces use the durable cached fetcher and apply
+    // companyId/limit filters post-fetch on the cached full list.
+    if (!args.companyId) {
+      const payload = await this._getTokenPayload()
+      if (payload && CACHED_CLIENT_WORKSPACES.has(payload.workspaceId)) {
+        let cached = await getAllClients(payload.workspaceId)
+        return ClientsResponseSchema.parse({ data: cached })
+      }
+    }
+
     const maxLimit = MAX_LIMIT_CLIENT_COUNT
     const requestedLimit = args.limit || maxLimit
     let clients: ClientResponse[] = []

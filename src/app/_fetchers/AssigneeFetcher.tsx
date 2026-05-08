@@ -1,5 +1,3 @@
-export const fetchCache = 'force-no-store'
-
 import { AssigneeCacheSetter } from '@/app/_cache/AssigneeCacheSetter'
 import { apiUrl } from '@/config'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'

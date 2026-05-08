@@ -120,7 +120,7 @@ export const StyledMenuBox = styled(MenuBox)(({ theme }) => ({
 
 export const StyledModal = styled(Modal)(({ theme }) => ({
   '& > .MuiBackdrop-root': {
-    backgroundColor: theme.color.modal.backdrop,
+    backgroundColor: theme?.color?.modal.backdrop,
   },
 }))
 

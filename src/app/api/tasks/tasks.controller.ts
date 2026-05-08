@@ -4,12 +4,10 @@ import { IdParams } from '@api/core/types/api'
 import authenticate from '@api/core/utils/authenticate'
 import { TasksService } from '@api/tasks/tasks.service'
 import httpStatus from 'http-status'
-import { unstable_noStore as noStore } from 'next/cache'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 export const getTasks = async (req: NextRequest) => {
-  noStore()
   const user = await authenticate(req)
 
   const { showArchived, showUnarchived, parentId, all } = getSearchParams(req.nextUrl.searchParams, [
