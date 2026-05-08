@@ -28,6 +28,7 @@ import { selectTaskDetails, setExpandedComments, setOpenImage } from '@/redux/fe
 import store from '@/redux/store'
 import { CommentResponse, CreateComment, UpdateComment } from '@/types/dto/comment.dto'
 import { AttachmentTypes, IAssigneeCombined } from '@/types/interfaces'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { getAssigneeName } from '@/utils/assignee'
 import { deleteEditorAttachmentsHandler, getAttachmentPayload, getCustomFilePath } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
@@ -144,7 +145,7 @@ export const CommentCard = ({
       content: editedContent,
       // mentions : add mentions in the future
     }
-    token && (await updateComment(token, commentId, updateCommentPayload))
+    await updateComment(requireLiveToken(), commentId, updateCommentPayload)
     setIsReadOnly(true)
   }
 
@@ -173,7 +174,8 @@ export const CommentCard = ({
 
   const replyCount = (comment.details as CommentResponse).replyCount
 
-  const cacheKey = `/api/comments/?token=${token}&parentId=${comment.details.id}`
+  // Stable cache key — fetcher injects the live token at request time.
+  const cacheKey = `/api/comments/?parentId=${comment.details.id}`
   const { trigger } = useSWRMutation(cacheKey, fetcher, {
     optimisticData: optimisticUpdates.filter((update) => update.tempId),
   })

@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "@assembly-js/app-bridge": "^1.1.1",
+    "@assembly-js/node-sdk": "^4.0.2",
     "@cyntler/react-doc-viewer": "^1.17.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/modifiers": "^9.0.0",
@@ -31,7 +33,6 @@
     "bottleneck": "^2.19.5",
     "clsx": "^2.1.1",
     "copilot-design-system": "^2.3.4",
-    "copilot-node-sdk": "~3.16.0",
     "dayjs": "^1.11.10",
     "deep-equal": "^2.2.3",
     "fetch-retry": "^6.0.0",
@@ -110,6 +111,7 @@
   },
   "scripts": {
     "build": "next build",
+    "tsc": "tsc --noEmit",
     "cmd:backfill-archived-by": "tsx ./src/cmd/backfill-archived-by",
     "cmd:backfill-company-id-in-client-notifications": "tsx ./src/cmd/backfill-company-id-in-client-notifications",
     "cmd:backfill-completed-tasks": "tsx ./src/cmd/backfill-completed-tasks",
@@ -142,8 +144,7 @@
     "test": "jest",
     "trigger": "npx trigger.dev@latest",
     "trigger:deploy-staging": "yarn trigger deploy -e staging",
-    "vercel-build": "prisma generate && next build",
-    "patch-copilot-node-sdk": "cp ./src/lib/patch-copilot-node-sdk.js ./node_modules/copilot-node-sdk/dist/api/init.js"
+    "vercel-build": "prisma generate && next build"
   },
   "version": "0.1.0"
 }

@@ -38,18 +38,32 @@ import {
 } from '@/types/common'
 import { DISPATCHABLE_EVENT } from '@/types/webhook'
 import Bottleneck from 'bottleneck'
-import type { CopilotAPI as SDK } from 'copilot-node-sdk'
-import { copilotApi } from 'copilot-node-sdk'
+import { assemblyApi, type AssemblyAPI } from '@assembly-js/node-sdk'
 import { z } from 'zod'
 
+function createSdkProxy(sdkPromise: Promise<AssemblyAPI>): AssemblyAPI {
+  return new Proxy({} as AssemblyAPI, {
+    get(_target, prop) {
+      return (...args: unknown[]) =>
+        sdkPromise.then((sdk) => {
+          const method = (sdk as unknown as Record<string | symbol, unknown>)[prop]
+          if (typeof method !== 'function') {
+            throw new Error(`Assembly SDK has no method "${String(prop)}"`)
+          }
+          return (method as (...a: unknown[]) => unknown).apply(sdk, args)
+        })
+    },
+  })
+}
+
 export class CopilotAPI {
-  copilot: SDK
+  copilot: AssemblyAPI
 
   constructor(
     private token: string,
     customApiKey?: string,
   ) {
-    this.copilot = copilotApi({ apiKey: customApiKey ?? apiKey, token })
+    this.copilot = createSdkProxy(assemblyApi({ apiKey: customApiKey ?? apiKey, token }))
   }
 
   private async _manualFetch(route: string, query?: Record<string, string>, workspaceId?: string) {
@@ -79,13 +93,14 @@ export class CopilotAPI {
 
   // Get Token Payload from copilot request token
   async _getTokenPayload(): Promise<Token | null> {
-    const getTokenPayload = this.copilot.getTokenPayload
-    if (!getTokenPayload) {
-      console.error(`CopilotAPI#getTokenPayload | Could not parse token payload for token ${this.token}`)
+    try {
+      const getTokenPayload = this.copilot.getTokenPayload
+      if (!getTokenPayload) return null
+      return TokenSchema.parse(await getTokenPayload())
+    } catch (e) {
+      console.error(`CopilotAPI#getTokenPayload | Could not parse token payload for token ${this.token}`, e)
       return null
     }
-
-    return TokenSchema.parse(await getTokenPayload())
   }
 
   async _me(): Promise<MeResponse | null> {
@@ -169,7 +184,7 @@ export class CopilotAPI {
 
   async _deleteClient(id: string) {
     console.info('CopilotAPI#_deleteClient', this.token)
-    return await this.copilot.deleteClient({ id })
+    return this.copilot.deleteClient({ id })
   }
 
   async _createCompany(requestBody: CompanyCreateRequest) {
@@ -194,7 +209,7 @@ export class CopilotAPI {
 
   async _getCustomFields(): Promise<CustomFieldResponse> {
     console.info('CopilotAPI#_getCustomFields', this.token)
-    return CustomFieldResponseSchema.parse(await this.copilot.listCustomFields())
+    return CustomFieldResponseSchema.parse(await this.copilot.listCustomFields({}))
   }
 
   async _getInternalUsers(args: CopilotListArgs = {}): Promise<InternalUsersResponse> {

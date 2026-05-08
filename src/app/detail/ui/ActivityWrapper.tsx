@@ -12,6 +12,7 @@ import { selectTaskDetails } from '@/redux/features/taskDetailsSlice'
 import { Token } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { CreateComment } from '@/types/dto/comment.dto'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { fetcher } from '@/utils/fetcher'
 import { generateRandomString } from '@/utils/generateRandomString'
 import { checkOptimisticStableId, getOptimisticData, getTempLog } from '@/utils/optimisticCommentUtils'
@@ -46,8 +47,9 @@ export const ActivityWrapper = ({
   const [lastUpdated, setLastUpdated] = useState<string | null>()
   const [optimisticUpdates, setOptimisticUpdates] = useState<OptimisticUpdate[]>([])
   const expandedCommentsQueryString = expandedComments.map((id) => encodeURIComponent(id)).join(',')
-  const cacheKey = `/api/tasks/${task_id}/activity-logs?token=${token}`
-  const { data: activities, isLoading } = useSWR(`/api/tasks/${task_id}/activity-logs?token=${token}`, fetcher, {
+  // Stable cache key — fetcher injects the live token at request time.
+  const cacheKey = `/api/tasks/${task_id}/activity-logs`
+  const { data: activities, isLoading } = useSWR(cacheKey, fetcher, {
     refreshInterval: 0,
     revalidateOnFocus: false,
   })
@@ -107,7 +109,7 @@ export const ActivityWrapper = ({
         async () => {
           shouldRefetchRef.current = false
           // Post the actual comment to the server
-          const comment = await postComment(token, postCommentPayload)
+          const comment = await postComment(requireLiveToken(), postCommentPayload)
           setOptimisticUpdates((prev) =>
             prev.map((update) => (update.tempId === tempId ? { ...update, serverId: comment.id } : update)),
           )
@@ -190,7 +192,7 @@ export const ActivityWrapper = ({
             }
           } //Due to optimistic updates on comment creation applied in our ui, some deleted comments might have tempId which are yet to be replaced by the server id. Although the usecase frequency for this is very very minimal, we are waiting for serverId to replace tempId if the deleted comment has tempId by polling method.
 
-          await deleteComment(token, commentIdToDelete)
+          await deleteComment(requireLiveToken(), commentIdToDelete)
           return await fetcher(cacheKey)
         },
         {

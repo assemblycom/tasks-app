@@ -1,4 +1,5 @@
 'use client'
+import { getLiveToken } from '@/utils/assemblyTokenStore'
 import Link from 'next/link'
 import { CSSProperties, ReactNode, useCallback, useRef, useState } from 'react'
 import { UrlObject } from 'url'
@@ -61,7 +62,7 @@ export const CustomLink = ({
 
   return (
     <Link
-      href={`${pathname}?token=${token}`}
+      href={`${pathname}?token=${getLiveToken() ?? token}`}
       style={{
         ...style,
         outline: 'none',

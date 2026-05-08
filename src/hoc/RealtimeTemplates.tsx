@@ -6,6 +6,7 @@ import { selectCreateTemplate, setActiveTemplate, setTemplates } from '@/redux/f
 import store from '@/redux/store'
 import { Token } from '@/types/common'
 import { ITemplate } from '@/types/interfaces'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { getFormattedTemplate } from '@/utils/getFormattedRealTimeData'
 import { isTemplatePayloadEqual } from '@/utils/isRealtimePayloadEqual'
 import { extractImgSrcs, replaceImgSrcs } from '@/utils/signedUrlReplacer'
@@ -38,10 +39,11 @@ export const RealTimeTemplates = ({
     //disable board navigation if not in template details page
     if (!pathname.includes(`manage-templates/${updatedTemplate.id}`)) return
 
+    const liveToken = requireLiveToken()
     router.push(
       updatedTemplate?.parentId
-        ? `/manage-templates/${updatedTemplate.parentId}?token=${token}`
-        : `/manage-templates?token=${token}`,
+        ? `/manage-templates/${updatedTemplate.parentId}?token=${liveToken}`
+        : `/manage-templates?token=${liveToken}`,
     )
   }
 

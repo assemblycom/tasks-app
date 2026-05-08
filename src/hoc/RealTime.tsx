@@ -6,6 +6,7 @@ import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { selectTaskDetails } from '@/redux/features/taskDetailsSlice'
 import { Token } from '@/types/common'
 import { TaskResponse } from '@/types/dto/tasks.dto'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { isTaskPayloadEqual } from '@/utils/isRealtimePayloadEqual'
 import { AssigneeType } from '@prisma/client'
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
@@ -53,10 +54,13 @@ export const RealTime = ({
     const isClientUser = pathname.includes('cu')
     const isAccessibleSubtask = updatedTask.parentId && accessibleTasks.some((task) => task.id === updatedTask.parentId)
 
+    const liveToken = requireLiveToken()
     if (isClientUser) {
-      router.push(isAccessibleSubtask ? `/detail/${updatedTask.parentId}/cu?token=${token}` : `/client?token=${token}`)
+      router.push(
+        isAccessibleSubtask ? `/detail/${updatedTask.parentId}/cu?token=${liveToken}` : `/client?token=${liveToken}`,
+      )
     } else {
-      router.push(isAccessibleSubtask ? `/detail/${updatedTask.parentId}/iu/?token=${token}` : `/?token=${token}`)
+      router.push(isAccessibleSubtask ? `/detail/${updatedTask.parentId}/iu/?token=${liveToken}` : `/?token=${liveToken}`)
     }
   }
 

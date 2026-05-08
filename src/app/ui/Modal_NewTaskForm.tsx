@@ -13,6 +13,7 @@ import { HomeParamActions } from '@/types/constants'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { CreateTaskRequestSchema } from '@/types/dto/tasks.dto'
 import { FilterOptions } from '@/types/interfaces'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { checkEmptyAssignee } from '@/utils/assignee'
 import dayjs from 'dayjs'
 import { useEffect } from 'react'
@@ -25,7 +26,7 @@ export const ModalNewTaskForm = ({
 }: {
   handleCreateMultipleAttachments: (attachments: CreateAttachmentRequest[]) => Promise<void>
 }) => {
-  const { token, filterOptions, urlActionParams } = useSelector(selectTaskBoard)
+  const { filterOptions, urlActionParams } = useSelector(selectTaskBoard)
   const {
     title,
     description,
@@ -94,7 +95,7 @@ export const ModalNewTaskForm = ({
 
           const isSubTaskDisabled = disableSubtaskTemplates
           store.dispatch(clearCreateTaskFields({ isFilterOn: !checkEmptyAssignee(filterOptions[FilterOptions.ASSIGNEE]) }))
-          await handleCreate(token as string, CreateTaskRequestSchema.parse(payload), {
+          await handleCreate(requireLiveToken(), CreateTaskRequestSchema.parse(payload), {
             disableSubtaskTemplates: isSubTaskDisabled,
           })
         }}

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTokenRefresh } from '@/hooks/useTokenRefresh'
 import { setTokenPayload, setWorkspace } from '@/redux/features/authDetailsSlice'
 import {
   selectTaskBoard,
@@ -41,7 +42,7 @@ type ClientSideStateUpdateProps = {
   assigneeSuggestions?: IAssigneeSuggestions[]
   task?: TaskResponse
   clearExpandedComments?: boolean
-  accesibleTaskIds?: string[]
+  accessibleTaskIds?: string[]
   accessibleTasks?: TaskResponse[]
   workspace?: WorkspaceResponse
   template?: ITemplate
@@ -64,7 +65,7 @@ export const ClientSideStateUpdate = ({
   assigneeSuggestions,
   task,
   clearExpandedComments,
-  accesibleTaskIds,
+  accessibleTaskIds,
   accessibleTasks,
   workspace,
   action,
@@ -73,6 +74,8 @@ export const ClientSideStateUpdate = ({
 }: ClientSideStateUpdateProps) => {
   const { tasks: tasksInStore, viewSettingsTemp, accessibleTasks: accessibleTaskInStore } = useSelector(selectTaskBoard)
   const { templates: templatesInStore } = useSelector(selectCreateTemplate)
+
+  useTokenRefresh(token)
 
   useEffect(() => {
     if (workflowStates) {
@@ -141,8 +144,8 @@ export const ClientSideStateUpdate = ({
       store.dispatch(setActiveTask(undefined)) //when navigated elsewhere from details page, removing the previously set ActiveTask
     } //for updating a task in store with respect to task response from db in task details page
 
-    if (accesibleTaskIds) {
-      store.dispatch(setAccesibleTaskIds(accesibleTaskIds))
+    if (accessibleTaskIds) {
+      store.dispatch(setAccesibleTaskIds(accessibleTaskIds))
     }
 
     if (accessibleTasks) {
@@ -170,7 +173,7 @@ export const ClientSideStateUpdate = ({
     templates,
     assigneeSuggestions,
     task,
-    accesibleTaskIds,
+    accessibleTaskIds,
     accessibleTasks,
   ])
 

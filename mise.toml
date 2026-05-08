@@ -1,2 +1,7 @@
 [tools]
-node = "20.19.4"
+node = "24"
+
+
+[tasks.dev]
+description = "Run dev build with portless"
+run = "portless tasks next dev"

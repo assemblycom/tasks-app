@@ -5,6 +5,7 @@ import store from '@/redux/store'
 import { IUTokenSchema } from '@/types/common'
 import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
 import { FilterOptions, FilterOptionsKeywords, IFilterOptions } from '@/types/interfaces'
+import { requireLiveToken } from '@/utils/assemblyTokenStore'
 import { emptyAssignee, UserIdsType } from '@/utils/assignee'
 import { getWorkspaceLabels } from '@/utils/getWorkspaceLabels'
 import { useSelector } from 'react-redux'
@@ -16,7 +17,7 @@ export const useFilterBar = () => {
 
   const updateViewModeSetting = async (payload: CreateViewSettingsDTO) => {
     try {
-      await updateViewModeSettings(z.string().parse(token), payload)
+      await updateViewModeSettings(requireLiveToken(), payload)
     } catch (error) {
       console.error('view settings update error', error)
     }
