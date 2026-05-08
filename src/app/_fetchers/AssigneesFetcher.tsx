@@ -3,7 +3,7 @@
 import { setAssignees as setAssigneesIDB } from '@/app/_cache/forageStorage'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
-import { selectTaskBoard, setAssigneeList } from '@/redux/features/taskBoardSlice'
+import { setAssigneeList } from '@/redux/features/taskBoardSlice'
 import store from '@/redux/store'
 import { IAssignee } from '@/types/interfaces'
 import { addTypeToAssignee } from '@/utils/addTypeToAssignee'
@@ -23,8 +23,6 @@ export const AssigneesFetcher = () => {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
   const { tokenPayload } = useSelector(selectAuthDetails)
-  const { assignee } = useSelector(selectTaskBoard)
-
   const isPreview = !!(tokenPayload && getPreviewMode(tokenPayload))
   const isClientUser = !!tokenPayload?.clientId && !tokenPayload?.internalUserId
   const useClientEndpoint = isClientUser && !isPreview
@@ -36,8 +34,7 @@ export const AssigneesFetcher = () => {
         : `/api/users?token=${token}&limit=${MAX_FETCH_ASSIGNEE_COUNT}`
       : null
 
-  const shouldFetch = !!endpoint && assignee.length === 0
-  const { data } = useSWR<AssigneesPayload>(shouldFetch ? endpoint : null, fetcher, {
+  const { data } = useSWR<AssigneesPayload>(endpoint, fetcher, {
     refreshInterval: 0,
     revalidateOnFocus: false,
     dedupingInterval: 60_000,
