@@ -283,7 +283,7 @@ export class PublicTasksService extends TasksSharedService {
     prevAssociations,
     associationsResetCondition,
   }: {
-    prevAssociations: Prisma.JsonValue[]
+    prevAssociations: Prisma.JsonValue
     associationsResetCondition: boolean
   }) {
     let associations: Associations = AssociationsSchema.parse(prevAssociations)

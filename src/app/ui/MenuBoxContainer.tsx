@@ -12,7 +12,7 @@ export const MenuBoxContainer = () => {
   return (
     <MenuBox
       menuContent={
-        <CustomLink href={{ pathname: '/manage-templates', query: { token } }}>
+        <CustomLink href={{ pathname: '/configure-tasks-app', query: { token } }}>
           <ListBtn
             content="Manage templates"
             handleClick={() => {}}

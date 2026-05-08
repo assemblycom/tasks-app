@@ -6,15 +6,15 @@ import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
 import { ITemplate, UserType } from '@/types/interfaces'
 import EscapeHandler from '@/utils/escapeHandler'
 import { Box } from '@mui/material'
-import TemplateDetails from '@/app/manage-templates/ui/TemplateDetails'
-import { deleteTemplate, editTemplate } from '@/app/manage-templates/actions'
+import TemplateDetails from '@/app/configure-tasks-app/ui/TemplateDetails'
+import { deleteTemplate, editTemplate } from '@/app/configure-tasks-app/actions'
 import { UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { StyledBox, StyledTiptapDescriptionWrapper, TaskDetailsContainer } from '@/app/detail/ui/styledComponent'
 import { DynamicFieldInsertProvider } from '@/context/provider/DynamicFieldInsertProvider'
-import { TemplateSidebar } from '@/app/manage-templates/ui/TemplateSidebar'
-import { Subtemplates } from '@/app/manage-templates/ui/Subtemplates'
+import { TemplateSidebar } from '@/app/configure-tasks-app/ui/TemplateSidebar'
+import { Subtemplates } from '@/app/configure-tasks-app/ui/Subtemplates'
 import { HeaderBreadcrumbs } from '@/components/layouts/HeaderBreadcrumbs'
-import { ManageTemplateDetailsAppBridge } from '@/app/manage-templates/ui/ManageTemplatesDetailsAppBridge'
+import { ManageTemplateDetailsAppBridge } from '@/app/configure-tasks-app/ui/ManageTemplatesDetailsAppBridge'
 import { DeletedRedirectPage } from '@/components/layouts/DeletedRedirectPage'
 import { OneTemplateDataFetcher } from '@/app/_fetchers/OneTemplateDataFetcher'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
@@ -56,7 +56,7 @@ export default async function TaskDetailPage(props: {
   }
 
   const breadcrumbItems: { label: string; href: string }[] = [
-    { label: 'Manage templates', href: `/manage-templates?token=${token}` },
+    { label: 'Manage templates', href: `/configure-tasks-app?token=${token}` },
     ...breadcrumbTemplates.map((template) => ({
       label: template.title.length > 40 ? `${template.title.slice(0, 30)}...` : template.title,
       href: `/manage-templates/${template.id}?token=${token}`,

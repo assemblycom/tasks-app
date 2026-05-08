@@ -1,6 +1,7 @@
 'use server'
 import { apiUrl } from '@/config'
 import { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/dto/templates.dto'
+import { UpdateWorkspaceSettingsDTO } from '@/types/dto/workspaceSettings.dto'
 
 export const createNewTemplate = async (token: string, payload: CreateTemplateRequest) => {
   const resp = await fetch(`${apiUrl}/api/tasks/templates?token=${token}`, {
@@ -31,4 +32,15 @@ export async function editTemplate(token: string, templateId: string, payload: U
     method: 'PATCH',
     body: JSON.stringify(payload),
   })
+}
+
+export async function updateWorkspaceSettings(token: string, payload: UpdateWorkspaceSettingsDTO) {
+  const resp = await fetch(`${apiUrl}/api/workspace-settings?token=${token}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  if (!resp.ok) {
+    throw new Error(`Failed to update workspace settings: ${resp.status}`)
+  }
+  return await resp.json()
 }

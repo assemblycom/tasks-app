@@ -41,7 +41,7 @@ export const RealTimeTemplates = ({
     router.push(
       updatedTemplate?.parentId
         ? `/manage-templates/${updatedTemplate.parentId}?token=${token}`
-        : `/manage-templates?token=${token}`,
+        : `/configure-tasks-app?token=${token}`,
     )
   }
 

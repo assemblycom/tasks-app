@@ -59,7 +59,7 @@ export const DeletedRedirectPage = ({
               <Link
                 href={
                   entity == 'Template'
-                    ? `/manage-templates?token=${tokenstring}`
+                    ? `/configure-tasks-app?token=${tokenstring}`
                     : `/${userType === UserRole.Client ? 'client' : ''}?token=${tokenstring}`
                 }
               >
