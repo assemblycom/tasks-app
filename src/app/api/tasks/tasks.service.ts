@@ -52,7 +52,7 @@ export class TasksService extends TasksSharedService {
 
     // Build query filters based on role of user. IU can access all tasks related to a workspace
     // while clients can only view the tasks assigned to them or their company
-    const filters: Prisma.TaskWhereInput = this.buildTaskPermissions()
+    const filters: Prisma.TaskWhereInput = await this.buildTaskPermissions()
 
     let isArchived: boolean | undefined = false
     if (queryFilters.all) {
@@ -277,7 +277,7 @@ export class TasksService extends TasksSharedService {
 
     // Build query filters based on role of user. IU can access all tasks related to a workspace
     // while clients can only view the tasks assigned to them or their company
-    const where = this.buildTaskPermissions(id)
+    const where = await this.buildTaskPermissions(id)
 
     const task = await this.db.task.findFirst({ where })
     if (!task) throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
@@ -329,7 +329,7 @@ export class TasksService extends TasksSharedService {
     policyGate.authorize(UserAction.Update, Resource.Tasks)
 
     // Query previous task
-    const filters = this.buildTaskPermissions(id)
+    const filters = await this.buildTaskPermissions(id)
 
     const prevTask = await this.db.task.findFirst({
       where: filters,
@@ -622,7 +622,7 @@ export class TasksService extends TasksSharedService {
     const { completedBy, completedByUserType } = await this.getCompletionInfo(targetWorkflowStateId)
 
     // Query previous task
-    const filters = this.buildTaskPermissions(id, false) // condition 'false' to exclude associations from the query to get prev task. This will prevent association to update the task workflow status
+    const filters = await this.buildTaskPermissions(id, false) // condition 'false' to exclude associations from the query to get prev task. This will prevent association to update the task workflow status
     const prevTask = await this.db.task.findFirst({
       where: filters,
       relationLoadStrategy: 'join',

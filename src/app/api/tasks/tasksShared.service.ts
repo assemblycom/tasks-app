@@ -36,7 +36,7 @@ export abstract class TasksSharedService extends BaseService {
    * If user is a client, return filter for just the tasks assigned to this clientId.
    * If user is a client and has a companyId, return filter for just the tasks assigned to this clientId `OR` to this companyId
    */
-  protected buildTaskPermissions(id?: string, includeAssociatedTask: boolean = true) {
+  protected async buildTaskPermissions(id?: string, includeAssociatedTask: boolean = true) {
     const user = this.user
 
     // Default filters
@@ -46,7 +46,7 @@ export abstract class TasksSharedService extends BaseService {
     }
 
     if (user.clientId || user.companyId) {
-      filters = { ...filters, ...this.getClientOrCompanyAssigneeFilter(includeAssociatedTask) }
+      filters = { ...filters, ...(await this.getClientOrCompanyAssigneeFilter(includeAssociatedTask)) }
     }
 
     return filters
@@ -60,7 +60,7 @@ export abstract class TasksSharedService extends BaseService {
    */
   protected async getAccessFilterForTasks(): Promise<Prisma.TaskWhereInput> {
     if (this.user.clientId || this.user.companyId) {
-      return this.getClientOrCompanyAssigneeFilter()
+      return await this.getClientOrCompanyAssigneeFilter()
     }
 
     if (this.user.role === UserRole.IU && this.user.internalUserId) {
@@ -80,12 +80,13 @@ export abstract class TasksSharedService extends BaseService {
     return {}
   }
 
-  protected getClientOrCompanyAssigneeFilter(includeAssociatedTask: boolean = true): Prisma.TaskWhereInput {
+  protected async getClientOrCompanyAssigneeFilter(includeAssociatedTask: boolean = true): Promise<Prisma.TaskWhereInput> {
     const clientId = z.string().uuid().safeParse(this.user.clientId).data
-    const companyId = z.string().uuid().parse(this.user.companyId)
+    const companyId = z.string().uuid().safeParse(this.user.companyId).data
     const isCuPortal = !this.user.internalUserId && (clientId || companyId)
+    const isIuCompanyPreview = !!this.user.internalUserId && !clientId && !!companyId
 
-    const filters = []
+    const filters: Prisma.TaskWhereInput[] = []
 
     if (clientId && companyId) {
       filters.push(
@@ -119,6 +120,23 @@ export abstract class TasksSharedService extends BaseService {
         if (isCuPortal) tempCompanyFilter.isShared = true
         // Get tasks that includes the company as a viewer
         filters.push(tempCompanyFilter)
+      }
+
+      // OUT-2898: When an IU is previewing a company in the CRM, also include
+      // tasks belonging to clients of this company (TEAM TASKS) and IU tasks
+      // shared with those clients (SHARED WITH TEAM).
+      if (isIuCompanyPreview) {
+        const companyClientIds = (await this.copilot.getCompanyClients(companyId)).map((c) => c.id)
+        if (companyClientIds.length > 0) {
+          filters.push({ clientId: { in: companyClientIds }, companyId })
+          if (includeAssociatedTask) {
+            filters.push({
+              associations: {
+                hasSome: companyClientIds.map((cId) => ({ clientId: cId, companyId })),
+              },
+            })
+          }
+        }
       }
     }
     return filters.length > 0 ? { OR: filters } : {}
@@ -169,11 +187,12 @@ export abstract class TasksSharedService extends BaseService {
         }
       }
 
+      const accessFilter = await this.getClientOrCompanyAssigneeFilter()
       return {
         OR: [
           // Parent is not assigned to client
           {
-            ...this.getClientOrCompanyAssigneeFilter(), // Prevent overwriting of OR statement
+            ...accessFilter, // Prevent overwriting of OR statement
             parent: {
               AND: [
                 {
@@ -208,7 +227,7 @@ export abstract class TasksSharedService extends BaseService {
           },
           // Task is a parent / standalone task
           {
-            ...this.getClientOrCompanyAssigneeFilter(),
+            ...accessFilter,
             parentId: null,
           },
         ],
