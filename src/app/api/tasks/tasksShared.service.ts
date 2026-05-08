@@ -306,9 +306,11 @@ export abstract class TasksSharedService extends BaseService {
       if (task.companyId && !companyAccessList.includes(task.companyId)) {
         return false
       }
-      // If task is associated with a client/company, every association's company must be in access list
-      const associations = AssociationsSchema.parse(task.associations) || []
-      for (const association of associations) {
+      // If task is associated with a client/company, every association's company must be in access list.
+      // Fail closed on malformed `associations` rows so a single bad row can't tank the whole batch read.
+      const parsed = AssociationsSchema.safeParse(task.associations)
+      if (!parsed.success) return false
+      for (const association of parsed.data || []) {
         if (!companyAccessList.includes(association.companyId)) {
           return false
         }
