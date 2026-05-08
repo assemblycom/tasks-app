@@ -1,6 +1,6 @@
 import { maxSubTaskDepth } from '@/constants/tasks'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
-import { InternalUsers, TempClientFilter, Uuid } from '@/types/common'
+import { InternalUsers, Uuid } from '@/types/common'
 import { CreateAttachmentRequestSchema } from '@/types/dto/attachments.dto'
 import {
   CreateTaskRequest,
@@ -68,16 +68,38 @@ export abstract class TasksSharedService extends BaseService {
       if (currentInternalUser.isClientAccessLimited) {
         const companyAccessList = currentInternalUser.companyAccessList || []
         return {
-          OR: [
-            { internalUserId: { not: null } },
-            { internalUserId: null, clientId: null, companyId: null },
-            { companyId: { in: companyAccessList } },
+          AND: [
+            {
+              OR: [
+                { internalUserId: { not: null } },
+                { internalUserId: null, clientId: null, companyId: null },
+                { companyId: { in: companyAccessList } },
+              ],
+            },
+            this.getAccessibleAssociationsFilter(companyAccessList),
           ],
         }
       }
     }
 
     return {}
+  }
+
+  /**
+   * Prisma where fragment matching tasks whose `associations` is empty OR whose single association
+   * references a company within the access list. Uses `array_contains` (Postgres `@>`) so the
+   * `{companyId}` filter matches both stored `{companyId}` and `{clientId, companyId}` shapes.
+   * Relies on `AssociationsSchema.max(1)` — with a single element, "contains companyId" ≡ "all in scope".
+   */
+  private getAccessibleAssociationsFilter(companyAccessList: string[]): Prisma.TaskWhereInput {
+    return {
+      OR: [
+        { associations: { equals: [] } },
+        ...companyAccessList.map((companyId) => ({
+          associations: { array_contains: [{ companyId }] } as Prisma.JsonFilter,
+        })),
+      ],
+    }
   }
 
   protected async getClientOrCompanyAssigneeFilter(includeAssociatedTask: boolean = true): Promise<Prisma.TaskWhereInput> {
@@ -96,15 +118,20 @@ export abstract class TasksSharedService extends BaseService {
         { companyId, clientId: null },
       )
 
-      // Get tasks that includes the client as a association
+      // Get tasks that include the client as an association
       if (includeAssociatedTask) {
-        const tempClientFilter: TempClientFilter = {
-          associations: {
-            hasSome: [{ clientId, companyId }, { companyId }],
-          },
+        // Match tasks associated with this specific client+company OR with the company at large.
+        // `equals` preserves the prior exact-match semantics: tasks associated with a DIFFERENT
+        // client at the same company do not match.
+        const associationVariants: Prisma.TaskWhereInput[] = [
+          { associations: { equals: [{ clientId, companyId }] } },
+          { associations: { equals: [{ companyId }] } },
+        ]
+        if (isCuPortal) {
+          filters.push({ OR: associationVariants, isShared: true })
+        } else {
+          filters.push(...associationVariants)
         }
-        if (isCuPortal) tempClientFilter.isShared = true
-        filters.push(tempClientFilter)
       }
     } else if (companyId) {
       filters.push(
@@ -112,14 +139,14 @@ export abstract class TasksSharedService extends BaseService {
         { clientId: null, companyId },
       )
       if (includeAssociatedTask) {
-        const tempCompanyFilter: TempClientFilter = {
-          associations: {
-            hasSome: [{ companyId }],
-          },
+        const companyAssociationFilter: Prisma.TaskWhereInput = {
+          associations: { equals: [{ companyId }] },
         }
-        if (isCuPortal) tempCompanyFilter.isShared = true
-        // Get tasks that includes the company as a viewer
-        filters.push(tempCompanyFilter)
+        if (isCuPortal) {
+          filters.push({ ...companyAssociationFilter, isShared: true })
+        } else {
+          filters.push(companyAssociationFilter)
+        }
       }
 
       // OUT-2898: When an IU is previewing a company in the CRM, also include
@@ -130,11 +157,13 @@ export abstract class TasksSharedService extends BaseService {
         if (companyClientIds.length > 0) {
           filters.push({ clientId: { in: companyClientIds }, companyId })
           if (includeAssociatedTask) {
-            filters.push({
-              associations: {
-                hasSome: companyClientIds.map((cId) => ({ clientId: cId, companyId })),
-              },
-            })
+            // Match tasks whose single association is `{clientId, companyId}` for any client of this company.
+            // `equals` preserves the prior `hasSome` exact-match semantics.
+            filters.push(
+              ...companyClientIds.map((cId) => ({
+                associations: { equals: [{ clientId: cId, companyId }] } as Prisma.JsonFilter,
+              })),
+            )
           }
         }
       }
@@ -175,14 +204,21 @@ export abstract class TasksSharedService extends BaseService {
         if (!currentInternalUser.isClientAccessLimited) return {}
 
         const accesibleCompanyIds = currentInternalUser.companyAccessList || []
+        // Use a single `parent: {}` relation filter — splitting into two separate `parent: {}`
+        // references at this OR level causes Prisma to emit multiple parent joins and the
+        // matching subtask row gets returned twice.
         return {
           OR: [
             {
-              parent: { companyId: { notIn: accesibleCompanyIds } },
+              parent: {
+                OR: [
+                  { companyId: { notIn: accesibleCompanyIds } },
+                  // Parent inaccessible because its association is outside the access list
+                  { NOT: this.getAccessibleAssociationsFilter(accesibleCompanyIds) },
+                ],
+              },
             },
-            {
-              parentId: null,
-            },
+            { parentId: null },
           ],
         }
       }
@@ -213,14 +249,19 @@ export abstract class TasksSharedService extends BaseService {
                   ],
                 },
                 {
+                  // AND do not disjoint if parent is accessible to the client through association.
+                  // Uses `equals` (full-array exact match) to preserve the prior `hasSome` semantics
+                  // — tasks associated with a different client at the same company do not match.
                   NOT: {
-                    associations: {
-                      hasSome: [
-                        { clientId: this.user.clientId, companyId: this.user.companyId },
-                        { companyId: this.user.companyId },
-                      ],
-                    },
-                  }, //AND do not disjoint if parent is accesible to the client through client visibility.
+                    OR: [
+                      {
+                        associations: {
+                          equals: [{ clientId: this.user.clientId, companyId: this.user.companyId }],
+                        },
+                      },
+                      { associations: { equals: [{ companyId: this.user.companyId }] } },
+                    ],
+                  },
                 },
               ],
             },
@@ -245,22 +286,36 @@ export abstract class TasksSharedService extends BaseService {
     if (isLimitedTask) {
       throw new APIError(
         httpStatus.UNAUTHORIZED,
-        "This task's assignee is not included in your list of accessible clients / companies",
+        "This task's assignee or association is not included in your list of accessible clients / companies",
       )
     }
   }
 
   protected async filterTasksByClientAccess<T extends Task>(tasks: T[], currentInternalUser: InternalUsers): Promise<T[]> {
-    const hasClientOrCompanyTasks = tasks.some((task) => task.companyId)
+    const hasClientOrCompanyTasks = tasks.some(
+      (task) => task.companyId || (Array.isArray(task.associations) && task.associations.length > 0),
+    )
     if (!hasClientOrCompanyTasks) {
       return tasks
     }
 
+    const companyAccessList = currentInternalUser.companyAccessList || []
+
     return tasks.filter((task) => {
-      // Pass all tasks that are unassigned or are assigned to IU
-      if ((!task.internalUserId && !task.clientId && !task.companyId) || task.internalUserId) return true
-      // For remaining client or company tasks, check if companyAccessList includes this companyId
-      return currentInternalUser.companyAccessList?.includes(task.companyId || '')
+      // If task is assigned to a client/company, the assignee company must be in access list
+      if (task.companyId && !companyAccessList.includes(task.companyId)) {
+        return false
+      }
+      // If task is associated with a client/company, every association's company must be in access list.
+      // Fail closed on malformed `associations` rows so a single bad row can't tank the whole batch read.
+      const parsed = AssociationsSchema.safeParse(task.associations)
+      if (!parsed.success) return false
+      for (const association of parsed.data || []) {
+        if (!companyAccessList.includes(association.companyId)) {
+          return false
+        }
+      }
+      return true
     })
   }
 
@@ -601,7 +656,7 @@ export abstract class TasksSharedService extends BaseService {
     if (!finalIsShared) return false
 
     const hasInternalUser = !!finalInternalUser
-    const hasAssociations = !!finalAssociations?.length
+    const hasAssociations = Array.isArray(finalAssociations) && finalAssociations.length > 0
 
     if (!hasInternalUser || !hasAssociations) {
       throw new APIError(
