@@ -33,7 +33,7 @@ export const TaskBoardAppBridge = ({ token, role, isTaskBoardEmpty = false }: Ta
   }, [awake])
 
   const handleManageTemplatesClick = () => {
-    router.push(`/manage-templates?token=${token}`)
+    router.push(`/configure-tasks-app?token=${token}`)
   }
 
   usePrimaryCta(
@@ -55,7 +55,7 @@ export const TaskBoardAppBridge = ({ token, role, isTaskBoardEmpty = false }: Ta
       ? []
       : [
           {
-            label: 'Manage templates',
+            label: 'Configure Tasks App',
             icon: Icons.TEMPLATES,
             onClick: handleManageTemplatesClick,
           },

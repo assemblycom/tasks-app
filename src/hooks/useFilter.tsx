@@ -187,7 +187,11 @@ export const useFilter = (filterOptions: IFilterOptions, isPreviewMode: boolean)
     if (hasActiveFilter) {
       const subtasks = accessibleTasks.filter((t) => !!t.parentId && (t.isArchived ? showArchived : showUnarchived))
       const matchingSubtasks = applyFilters(subtasks, filterOptions)
-      standaloneSubtasks = matchingSubtasks.filter((t) => !filteredParentIds.has(t.parentId!))
+      // Also exclude subtasks already present in `filteredParentTasks` (e.g. limited-IU disjoint
+      // subtasks promoted to root in `tasks`), otherwise they'd appear twice on the board.
+      standaloneSubtasks = matchingSubtasks.filter(
+        (t) => !filteredParentIds.has(t.parentId!) && !filteredParentIds.has(t.id),
+      )
     }
 
     const filteredTasks = [...filteredParentTasks, ...standaloneSubtasks]
