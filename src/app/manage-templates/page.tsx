@@ -4,11 +4,9 @@ import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { TemplateBoard } from './ui/TemplateBoard'
 import { apiUrl } from '@/config'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
-import { IAssignee, ITemplate } from '@/types/interfaces'
-import { addTypeToAssignee } from '@/utils/addTypeToAssignee'
+import { ITemplate } from '@/types/interfaces'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { createNewTemplate, deleteTemplate, editTemplate } from './actions'
-import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
@@ -24,16 +22,6 @@ async function getAllWorkflowStates(token: string): Promise<WorkflowStateRespons
   const data = await res.json()
 
   return data.workflowStates
-}
-
-async function getAssigneeList(token: string): Promise<IAssignee> {
-  const res = await fetch(`${apiUrl}/api/users?token=${token}&limit=${MAX_FETCH_ASSIGNEE_COUNT}`, {
-    next: { tags: ['getAssigneeList'] },
-  })
-
-  const data = await res.json()
-
-  return data.users
 }
 
 async function getAllTemplates(token: string): Promise<ITemplate[]> {
@@ -61,21 +49,14 @@ interface ManageTemplatesPageProps {
 export default async function ManageTemplatesPage(props: ManageTemplatesPageProps) {
   const searchParams = await props.searchParams
   const { token } = searchParams
-  const [workflowStates, assignee, templates, tokenPayload] = await Promise.all([
+  const [workflowStates, templates, tokenPayload] = await Promise.all([
     getAllWorkflowStates(token),
-    addTypeToAssignee(await getAssigneeList(token)),
     getAllTemplates(token),
     getTokenPayload(token),
   ])
 
   return (
-    <ClientSideStateUpdate
-      workflowStates={workflowStates}
-      token={token}
-      assignee={assignee}
-      templates={templates}
-      tokenPayload={tokenPayload}
-    >
+    <ClientSideStateUpdate workflowStates={workflowStates} token={token} templates={templates} tokenPayload={tokenPayload}>
       <ManageTemplatesAppBridge token={token} role={UserRole.IU} />
       <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
         <TemplateBoard
