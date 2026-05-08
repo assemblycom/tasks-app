@@ -35,7 +35,6 @@ import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { AttachmentProvider } from '@/hoc/PostAttachmentProvider'
 import { RealTime } from '@/hoc/RealTime'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
-import { WorkspaceResponse } from '@/types/common'
 import { AncestorTaskResponse, SubTaskStatusResponse, TaskResponse } from '@/types/dto/tasks.dto'
 import { UserType } from '@/types/interfaces'
 import { getAssigneeCacheLookupKey, UserIdsWithAssociationSharedType } from '@/utils/assignee'
@@ -60,11 +59,6 @@ async function getOneTask(token: string, taskId: string): Promise<TaskResponse |
     }
     throw error
   }
-}
-
-async function getWorkspace(token: string): Promise<WorkspaceResponse> {
-  const copilot = new CopilotAPI(token)
-  return await copilot.getWorkspace()
 }
 
 async function getSubTasksStatus(token: string, taskId: string): Promise<SubTaskStatusResponse> {
@@ -94,10 +88,9 @@ export default async function TaskDetailPage(props: {
 
   const copilotClient = new CopilotAPI(token)
 
-  const [task, tokenPayload, workspace, subTaskStatus, taskPath, viewSettings] = await Promise.all([
+  const [task, tokenPayload, subTaskStatus, taskPath, viewSettings] = await Promise.all([
     getOneTask(token, task_id),
     copilotClient.getTokenPayload(),
-    getWorkspace(token),
     getSubTasksStatus(token, task_id),
     getTaskPath(token, task_id),
     getViewSettings(token),
@@ -135,7 +128,6 @@ export default async function TaskDetailPage(props: {
       token={token}
       tokenPayload={tokenPayload}
       task={task}
-      workspace={workspace}
       viewSettings={viewSettings}
     >
       {token && <OneTaskDataFetcher token={token} task_id={task_id} initialTask={task} />}
@@ -163,12 +155,7 @@ export default async function TaskDetailPage(props: {
                 </StyledBox>
               ) : (
                 <>
-                  <HeaderBreadcrumbs
-                    token={token}
-                    items={breadcrumbItems}
-                    userType={params.user_type}
-                    portalUrl={workspace.portalUrl}
-                  />
+                  <HeaderBreadcrumbs token={token} items={breadcrumbItems} userType={params.user_type} />
                   <ArchiveWrapper taskId={task_id} userType={user_type} />
                 </>
               )}
@@ -252,7 +239,6 @@ export default async function TaskDetailPage(props: {
                 task_id={task_id}
                 selectedAssigneeId={task?.assigneeId}
                 userType={user_type}
-                portalUrl={workspace.portalUrl}
                 selectedWorkflowState={task?.workflowState}
                 fromNotificationCenter={fromNotificationCenter}
                 updateWorkflowState={async (workflowState, skipSubtaskCascade) => {

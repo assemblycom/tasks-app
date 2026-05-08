@@ -711,28 +711,40 @@ export class TasksService extends TasksSharedService {
       LIMIT 1
     `
     )?.[0]
+
     if (!taskWithPath) {
       throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
     }
 
-    const parents = getIdsFromLtreePath(taskWithPath.path)
-    const parentTasks = await Promise.all(
-      parents.map((id) =>
-        this.db.task.findFirstOrThrow({
-          where: { id, workspaceId: this.user.workspaceId },
-          select: {
-            id: true,
-            title: true,
-            label: true,
-            clientId: true,
-            companyId: true,
-            internalUserId: true,
-            associations: true,
-            isShared: true,
-          },
-        }),
-      ) as Promise<AncestorTaskResponse>[],
-    )
+    const parentIds = getIdsFromLtreePath(taskWithPath.path)
+
+    const fetchedParents = (await this.db.task.findMany({
+      where: {
+        id: {
+          in: parentIds,
+        },
+        workspaceId: this.user.workspaceId,
+      },
+      select: {
+        id: true,
+        title: true,
+        label: true,
+        clientId: true,
+        companyId: true,
+        internalUserId: true,
+        associations: true,
+        isShared: true,
+      },
+    })) as AncestorTaskResponse[]
+
+    const parentTasksById = new Map(fetchedParents.map((task) => [task.id, task]))
+    const parentTasks = parentIds.map((parentId) => {
+      const task = parentTasksById.get(parentId)
+      if (!task) {
+        throw new APIError(httpStatus.EXPECTATION_FAILED, `Missing parent task ${parentId} in traversal path of ${id}`)
+      }
+      return task
+    })
 
     const subtaskService = new SubtaskService(this.user)
     return await subtaskService.getAccessiblePathTasks(parentTasks)
