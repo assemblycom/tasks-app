@@ -20,7 +20,7 @@ import { TaskResponse } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { View } from '@/types/interfaces'
 import { getOpenSubtaskIds, optimisticallyCascadeSubtasks } from '@/utils/cascadeOptimistic'
-import { sortTaskByDescendingOrder } from '@/utils/sortByDescending'
+import { sortSubtasksByPriority, sortTaskByDescendingOrder } from '@/utils/sortByDescending'
 import { prioritizeStartedStates } from '@/utils/workflowStates'
 import { UserRole } from '@api/core/types/user'
 import { Box, Stack } from '@mui/material'
@@ -137,7 +137,7 @@ export const TaskBoard = ({ mode, token }: TaskBoardProps) => {
     })
 
     Object.keys(grouped).forEach((id) => {
-      grouped[id] = sortTaskByDescendingOrder<TaskResponse>(grouped[id])
+      grouped[id] = sortSubtasksByPriority<TaskResponse>(grouped[id])
     })
 
     return grouped
