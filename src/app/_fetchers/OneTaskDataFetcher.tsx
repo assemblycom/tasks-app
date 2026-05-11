@@ -12,9 +12,16 @@ import useSWR from 'swr'
 interface OneTaskDataFetcherProps extends PropsWithToken {
   task_id: string
   initialTask: TaskResponse
+  /** When true, seed SWR with initialTask and skip the mount-time refetch. */
+  useFallback?: boolean
 }
 
-export const OneTaskDataFetcher = ({ token, task_id, initialTask }: OneTaskDataFetcherProps & PropsWithToken) => {
+export const OneTaskDataFetcher = ({
+  token,
+  task_id,
+  initialTask,
+  useFallback,
+}: OneTaskDataFetcherProps & PropsWithToken) => {
   const buildQueryString = (token: string) => {
     const queryParams = new URLSearchParams({ token })
 
@@ -26,6 +33,12 @@ export const OneTaskDataFetcher = ({ token, task_id, initialTask }: OneTaskDataF
   const { data } = useSWR(queryString ? `/api/tasks/${task_id}?${queryString}` : null, fetcher, {
     refreshInterval: 0,
     revalidateOnFocus: false,
+    ...(useFallback
+      ? {
+          fallbackData: { task: initialTask },
+          revalidateOnMount: false,
+        }
+      : {}),
   })
 
   useEffect(() => {
