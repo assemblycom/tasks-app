@@ -143,14 +143,14 @@ export class CopilotAPI {
 
     // Allow-listed workspaces use the durable cached fetcher and apply
     // companyId/limit filters post-fetch on the cached full list.
-    if (!args.companyId) {
-      const payload = await this._getTokenPayload()
-      if (payload && CACHED_CLIENT_WORKSPACES.has(payload.workspaceId)) {
-        const cached = await getAllClients(payload.workspaceId)
-        const data = args.limit && args.limit < cached.length ? cached.slice(0, args.limit) : cached
-        return ClientsResponseSchema.parse({ data })
-      }
-    }
+    // if (!args.companyId) {
+    //   const payload = await this._getTokenPayload()
+    //   if (payload && CACHED_CLIENT_WORKSPACES.has(payload.workspaceId)) {
+    //     const cached = await getAllClients(payload.workspaceId)
+    //     const data = args.limit && args.limit < cached.length ? cached.slice(0, args.limit) : cached
+    //     return ClientsResponseSchema.parse({ data })
+    //   }
+    // }
 
     const maxLimit = MAX_LIMIT_CLIENT_COUNT
     const requestedLimit = args.limit || maxLimit
