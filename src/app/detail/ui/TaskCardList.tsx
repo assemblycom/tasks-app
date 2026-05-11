@@ -18,6 +18,7 @@ import { useHandleSelectorComponent } from '@/hooks/useHandleSelectorComponent'
 import { useOpenSubtaskCount } from '@/hooks/useSubtaskCount'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import {
+  bulkUpdateWorkflowStateIdByTaskIds,
   selectTaskBoard,
   setAssigneeCache,
   setConfirmAssigneeModalId,
@@ -196,6 +197,8 @@ export const TaskCardList = ({
     updateStatusValue(value)
     if (variant === 'task') {
       store.dispatch(updateWorkflowStateIdByTaskId({ taskId: task.id, targetWorkflowStateId: value.id }))
+    } else if (variant === 'subtask-board') {
+      store.dispatch(bulkUpdateWorkflowStateIdByTaskIds({ taskIds: [task.id], targetWorkflowStateId: value.id }))
     }
     const runUpdate = async () => {
       if (mode === UserRole.Client && !previewMode) {
