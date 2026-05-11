@@ -1,6 +1,7 @@
 // export const fetchCache = 'force-no-store'
 // export const revalidate = 0
 
+import { AssigneesFetcher } from '@/app/_fetchers/AssigneesFetcher'
 import { WorkspaceFetcher } from '@/app/_fetchers/WorkspaceFetcher'
 import { ProgressLoad } from '@/components/TopLoader'
 import { InterrupCmdK } from '@/hoc/Interrupt_CmdK'
@@ -34,6 +35,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <SWRConfig value={swrConfig}>
                 <Suspense fallback={null}>
                   <WorkspaceFetcher />
+                </Suspense>
+                <Suspense fallback={null}>
+                  <AssigneesFetcher />
                 </Suspense>
                 {children}
               </SWRConfig>
