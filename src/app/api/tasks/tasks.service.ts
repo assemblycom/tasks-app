@@ -314,9 +314,7 @@ export class TasksService extends TasksSharedService {
         },
       }),
       this.getTaskAssignee(task),
-      bodyChanged
-        ? this.db.task.update({ where: { id: task.id }, data: { body: newBody } })
-        : Promise.resolve(undefined),
+      bodyChanged ? this.db.task.update({ where: { id: task.id }, data: { body: newBody } }) : Promise.resolve(undefined),
     ])
 
     return { ...task, body: newBody, subtaskCount: accessibleSubtaskCount, assignee }

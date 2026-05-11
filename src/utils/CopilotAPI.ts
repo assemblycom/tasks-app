@@ -394,9 +394,7 @@ const cachedFetchInternalUser = cache(
   },
 )
 
-const cachedFetchWorkspace = cache(
-  async (token: string, customApiKey: string | undefined): Promise<WorkspaceResponse> => {
-    const copilot = new CopilotAPI(token, customApiKey)
-    return withRetry(copilot._getWorkspace.bind(copilot), [])
-  },
-)
+const cachedFetchWorkspace = cache(async (token: string, customApiKey: string | undefined): Promise<WorkspaceResponse> => {
+  const copilot = new CopilotAPI(token, customApiKey)
+  return withRetry(copilot._getWorkspace.bind(copilot), [])
+})
