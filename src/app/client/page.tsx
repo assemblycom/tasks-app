@@ -4,7 +4,6 @@ import { createMultipleAttachments } from '@/app/(home)/actions'
 import { getViewSettings } from '@/app/(home)/page'
 import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'
 import { AllTasksFetcher } from '@/app/_fetchers/AllTasksFetcher'
-import { AssigneeFetcher } from '@/app/_fetchers/AssigneeFetcher'
 import { TemplatesFetcher } from '@/app/_fetchers/TemplatesFetcher'
 import { ValidateNotificationCountFetcher } from '@/app/_fetchers/ValidateNotificationCountFetcher'
 import { ModalNewTaskForm } from '@/app/ui/Modal_NewTaskForm'
@@ -85,14 +84,6 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
         pf={searchParams?.pf}
       >
         {/* Async fetchers */}
-        <Suspense fallback={null}>
-          <AssigneeFetcher
-            token={token}
-            userType={previewMode ? UserType.INTERNAL_USER : UserType.CLIENT_USER}
-            isPreview={!!getPreviewMode(tokenPayload)}
-            tokenPayload={tokenPayload}
-          />
-        </Suspense>
         <Suspense fallback={null}>{previewMode && <TemplatesFetcher token={token} />}</Suspense>
         <Suspense fallback={null}>
           <AllTasksFetcher token={token} />
