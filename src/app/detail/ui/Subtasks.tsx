@@ -16,9 +16,9 @@ import { fetcher } from '@/utils/fetcher'
 import { generateRandomString } from '@/utils/generateRandomString'
 import { checkOptimisticStableId } from '@/utils/optimisticCommentUtils'
 import { getTempTask } from '@/utils/optimisticTaskUtils'
-import { sortTaskByDescendingOrder } from '@/utils/sortByDescending'
+import { sortSubtasksByPriority } from '@/utils/sortByDescending'
 import { Box, Stack, Typography } from '@mui/material'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import useSWR, { useSWRConfig } from 'swr'
 
@@ -58,6 +58,10 @@ export const Subtasks = ({
     refreshInterval: 0,
     revalidateOnFocus: false,
   })
+  const sortedSubtasks = useMemo<TaskResponse[]>(
+    () => (subTasks?.tasks ? sortSubtasksByPriority<TaskResponse>(subTasks.tasks) : []),
+    [subTasks?.tasks],
+  )
   const didMount = useRef(false)
   const shouldRefetchRef = useRef(true) //preventing double fetching from subtask update apis. Due to optimistic update revalidation, we are already fetching logs there. So no need to refetch in case for subtask update.
 
@@ -98,7 +102,7 @@ export const Subtasks = ({
       tokenPayload?.internalUserId ?? '',
       task_id,
     )
-    const optimisticData = subTasks?.tasks ? sortTaskByDescendingOrder([...subTasks.tasks, tempSubtask]) : [tempSubtask]
+    const optimisticData = subTasks?.tasks ? sortSubtasksByPriority([...subTasks.tasks, tempSubtask]) : [tempSubtask]
     try {
       mutate(
         cacheKey,
@@ -153,7 +157,7 @@ export const Subtasks = ({
     >
       {canCreateSubtasks && (
         <>
-          {subTasks && subTasks?.tasks?.length > 0 ? (
+          {subTasks && sortedSubtasks.length > 0 ? (
             <Stack
               direction="row"
               sx={{
@@ -177,7 +181,7 @@ export const Subtasks = ({
           )}
         </>
       )}
-      {!canCreateSubtasks && subTasks?.tasks?.length > 0 && (
+      {!canCreateSubtasks && sortedSubtasks.length > 0 && (
         <Stack
           direction="row"
           sx={{
@@ -194,7 +198,7 @@ export const Subtasks = ({
 
       {openTaskForm && <NewTaskCard handleClose={handleFormCancel} handleSubTaskCreation={handleSubTaskCreation} />}
       <Box>
-        {subTasks?.tasks?.map((item: TaskResponse) => {
+        {sortedSubtasks.map((item: TaskResponse) => {
           const isTempId = item.id.includes('temp')
 
           return (
