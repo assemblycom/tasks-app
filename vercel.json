@@ -9,11 +9,11 @@
     }
   ],
   "functions": {
-    "app/api/**/*": {
+    "src/app/api/**/*": {
       "maxDuration": 300
     },
-    "app/**/page.tsx": {
-      "maxDuration": 300
+    "src/app/**/page.tsx": {
+      "maxDuration": 60
     }
   }
 }
