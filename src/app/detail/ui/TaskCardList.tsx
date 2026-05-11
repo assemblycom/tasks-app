@@ -186,7 +186,9 @@ export const TaskCardList = ({
       return NoAssignee
     }
     const assigneeId = getAssigneeId(userIds)
-    const match = assignee.find((assignee) => assignee.id === assigneeId)
+    const match = assignee.find((a) =>
+      userIds.clientId ? a.id === assigneeId && a.companyId === userIds.companyId : a.id === assigneeId,
+    )
     return match ?? NoAssignee
   }
 
