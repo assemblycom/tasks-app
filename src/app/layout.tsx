@@ -28,22 +28,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ProgressLoad />
-        <InterrupCmdK>
-          <ProviderWrapper>
-            <ThemeRegistry options={{ key: 'mui' }}>
-              <SWRConfig value={swrConfig}>
-                <Suspense fallback={null}>
-                  <WorkspaceFetcher />
-                </Suspense>
-                <Suspense fallback={null}>
-                  <AssigneesFetcher />
-                </Suspense>
-                {children}
-              </SWRConfig>
-            </ThemeRegistry>
-          </ProviderWrapper>
-        </InterrupCmdK>
+        <Suspense fallback={null}>
+          <ProgressLoad />
+          <InterrupCmdK>
+            <ProviderWrapper>
+              <ThemeRegistry options={{ key: 'mui' }}>
+                <SWRConfig value={swrConfig}>
+                  <Suspense fallback={null}>
+                    <WorkspaceFetcher />
+                  </Suspense>
+                  <Suspense fallback={null}>
+                    <AssigneesFetcher />
+                  </Suspense>
+                  {children}
+                </SWRConfig>
+              </ThemeRegistry>
+            </ProviderWrapper>
+          </InterrupCmdK>
+        </Suspense>
       </body>
     </html>
   )
