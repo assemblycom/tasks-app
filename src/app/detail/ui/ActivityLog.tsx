@@ -14,7 +14,7 @@ import { LogResponse } from '@api/activity-logs/schemas/LogResponseSchema'
 import { TaskAssignedResponse, TaskAssignedResponseSchema } from '@api/activity-logs/schemas/TaskAssignedSchema'
 import { TitleUpdatedSchema } from '@api/activity-logs/schemas/TitleUpdatedSchema'
 import { WorkflowStateUpdatedSchema } from '@api/activity-logs/schemas/WorkflowStateUpdatedSchema'
-import { Stack, Typography } from '@mui/material'
+import { Box, Stack, Typography } from '@mui/material'
 import { ActivityType } from '@prisma/client'
 import { useCallback, useMemo } from 'react'
 import { useSelector } from 'react-redux'
@@ -160,23 +160,37 @@ export const ActivityLog = ({ log }: Prop) => {
     ),
   }
 
-  const activityUser = assignee.find((assignee) => assignee.id == log.userId)
+  const activityUser = log.userId ? assignee.find((assignee) => assignee.id == log.userId) : undefined
+  const isAutoArchived = log.userId === null && log.type === ActivityType.ARCHIVE_STATE_UPDATED
 
   return (
     <Stack direction="row" columnGap={4} position="relative">
       <VerticalLine />
 
       <Stack direction="row" columnGap={4} padding={'11px 0px 11px 0px'} width={'100%'} sx={{ alignItems: 'center' }}>
-        <CopilotAvatar size="xs" currentAssignee={activityUser} />
+        {isAutoArchived ? (
+          <Box sx={{ width: 20, height: 20, flexShrink: 0 }} />
+        ) : (
+          <CopilotAvatar size="xs" currentAssignee={activityUser} />
+        )}
         <TypographyContainer direction="row" columnGap={1}>
-          {activityUser ? (
-            <BoldTypography>{getAssigneeName(activityUser, '')}</BoldTypography>
+          {isAutoArchived ? (
+            <>
+              <StyledTypography>Task was auto-archived</StyledTypography>
+              <DotSeparator />
+            </>
           ) : (
-            <Typography variant="md" sx={{ fontStyle: 'italic' }}>
-              Deleted User
-            </Typography>
+            <>
+              {activityUser ? (
+                <BoldTypography>{getAssigneeName(activityUser, '')}</BoldTypography>
+              ) : (
+                <Typography variant="md" sx={{ fontStyle: 'italic' }}>
+                  Deleted User
+                </Typography>
+              )}{' '}
+              {activityDescription[log.type as ActivityType](...logEntities)}
+            </>
           )}{' '}
-          {activityDescription[log.type as ActivityType](...logEntities)}{' '}
           <StyledTypography> {getTimeDifference(log.createdAt)}</StyledTypography>
         </TypographyContainer>
       </Stack>

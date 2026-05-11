@@ -15,6 +15,15 @@ const nextConfig = {
   experimental: {
     turbopackFileSystemCacheForDev: true,
   },
+  async redirects() {
+    return [
+      {
+        source: '/manage-templates',
+        destination: '/configure-tasks-app',
+        permanent: true,
+      },
+    ]
+  },
 }
 
 module.exports = withSentryConfig(nextConfig, {

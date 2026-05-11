@@ -1,7 +1,6 @@
 import { createMultipleAttachments } from '@/app/(home)/actions'
 import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'
 import { AllTasksFetcher } from '@/app/_fetchers/AllTasksFetcher'
-import { AssigneeFetcher } from '@/app/_fetchers/AssigneeFetcher'
 import { TemplatesFetcher } from '@/app/_fetchers/TemplatesFetcher'
 import { ModalNewTaskForm } from '@/app/ui/Modal_NewTaskForm'
 import { TaskBoard } from '@/app/ui/TaskBoard'
@@ -114,9 +113,6 @@ export default async function Main(props: {
         pf={searchParams?.pf}
       >
         {/* Async fetchers */}
-        <Suspense fallback={null}>
-          <AssigneeFetcher token={token} viewSettings={viewSettings} tokenPayload={tokenPayload} />
-        </Suspense>
         <Suspense fallback={null}>
           <TemplatesFetcher token={token} />
         </Suspense>

@@ -3,7 +3,6 @@
 import { useState } from 'react'
 
 import { TemplateIcon } from '@/icons'
-import { truncateText } from '@/utils/truncateText'
 import { Box, Stack, Typography } from '@mui/material'
 
 interface TemplateCardProps {
@@ -30,9 +29,21 @@ export const TemplateCard = ({ title }: TemplateCardProps) => {
       onMouseEnter={handleMouseHover}
       onMouseLeave={handleMouseLeave}
     >
-      <Box sx={{ display: 'flex', gap: '8px', alignItems: 'center', height: '20px' }}>
-        <TemplateIcon />
-        <Typography variant="bodyMd">{truncateText(title, 38)}</Typography>
+      <Box sx={{ display: 'flex', gap: '8px', alignItems: 'center', height: '20px', flex: 1, minWidth: 0 }}>
+        <Box sx={{ flexShrink: 0, display: 'flex' }}>
+          <TemplateIcon />
+        </Box>
+        <Typography
+          variant="bodyMd"
+          sx={{
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {title}
+        </Typography>
       </Box>
     </Stack>
   )

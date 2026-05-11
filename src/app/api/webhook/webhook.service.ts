@@ -217,9 +217,7 @@ class WebhookService extends BaseService {
     // Find and reset tasks shared to previous company+client
     const prevSharedTasks = await this.db.task.findMany({
       where: {
-        associations: {
-          hasSome: [{ clientId, companyId: prevCompanyId }],
-        },
+        associations: { equals: [{ clientId, companyId: prevCompanyId }] },
         workspaceId: this.user.workspaceId,
       },
       select: { id: true },

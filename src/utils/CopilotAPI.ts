@@ -45,9 +45,7 @@ import { z } from 'zod'
 
 // Workspaces that route _getClients through the durable Next.js cache.
 // All other workspaces continue to use the SDK pagination path.
-const CACHED_CLIENT_WORKSPACES = new Set<string>(
-  (process.env.CACHED_CLIENT_WORKSPACES ?? 'us-west-2_lg5zB-Utp').split(',').filter(Boolean),
-)
+const CACHED_CLIENT_WORKSPACES = new Set<string>((process.env.CACHED_CLIENT_WORKSPACES || '').split(',').filter(Boolean))
 
 export class CopilotAPI {
   copilot: SDK
