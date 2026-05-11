@@ -271,7 +271,9 @@ export class TasksService extends TasksSharedService {
     return newTask
   }
 
-  async getOneTask(id: string): Promise<Task & { workflowState: WorkflowState }> {
+  async getOneTask(
+    id: string,
+  ): Promise<Task & { workflowState: WorkflowState; assignee?: InternalUsers | ClientResponse | CompanyResponse }> {
     const policyGate = new PoliciesService(this.user)
     policyGate.authorize(UserAction.Read, Resource.Tasks)
 
@@ -279,7 +281,9 @@ export class TasksService extends TasksSharedService {
     // while clients can only view the tasks assigned to them or their company
     const where = await this.buildTaskPermissions(id)
 
-    const task = await this.db.task.findFirst({ where })
+    // Include workflowState in the initial findFirst so we don't need a
+    // second query to fetch it when the body update path is skipped.
+    const task = await this.db.task.findFirst({ where, include: { workflowState: true } })
     if (!task) throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
 
     if (this.user.internalUserId) {
@@ -287,15 +291,20 @@ export class TasksService extends TasksSharedService {
     }
 
     const accessWhere = await this.getAccessFilterForTasks()
-    const [updatedTask, accessibleSubtaskCount] = await Promise.all([
-      this.db.task.update({
-        where: { id: task.id },
-        data: {
-          body: task.body && (await replaceImageSrc(task.body, getSignedUrl)),
-        },
-        relationLoadStrategy: 'join',
-        include: { workflowState: true },
-      }),
+
+    // Only re-sign image URLs if the body actually contains <img> tags worth
+    // re-signing. For text-only tasks this saves an entire task.update
+    // round-trip on every read. `replaceImageSrc` returns the same string
+    // when there are no img tags to rewrite, so the string equality check is
+    // cheap and correctly detects the no-op case.
+    const newBody = task.body ? await replaceImageSrc(task.body, getSignedUrl) : task.body
+    const bodyChanged = newBody !== task.body
+
+    // Parallelize count + assignee + (optional) body update. `getTaskAssignee`
+    // only needs task.assigneeId/assigneeType, both already known from the
+    // findFirst above, so it can run alongside the DB writes/reads instead of
+    // after them.
+    const [accessibleSubtaskCount, assignee] = await Promise.all([
       this.db.task.count({
         where: {
           ...accessWhere,
@@ -304,9 +313,13 @@ export class TasksService extends TasksSharedService {
           deletedAt: null,
         },
       }),
+      this.getTaskAssignee(task),
+      bodyChanged
+        ? this.db.task.update({ where: { id: task.id }, data: { body: newBody } })
+        : Promise.resolve(undefined),
     ])
 
-    return { ...updatedTask, subtaskCount: accessibleSubtaskCount }
+    return { ...task, body: newBody, subtaskCount: accessibleSubtaskCount, assignee }
   }
 
   async getTaskAssignee(task: Task): Promise<InternalUsers | ClientResponse | CompanyResponse | undefined> {

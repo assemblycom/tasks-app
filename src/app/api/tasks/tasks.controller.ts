@@ -53,9 +53,10 @@ export const getTask = async (req: NextRequest, { params }: IdParams) => {
   const { id } = await params
   const user = await authenticate(req)
   const tasksService = new TasksService(user)
+  // getOneTask now returns assignee from its internal Promise.all, no need
+  // for a second sequential call.
   const task = await tasksService.getOneTask(id)
-  const assignee = await tasksService.getTaskAssignee(task)
-  return NextResponse.json({ task: { ...task, assignee } })
+  return NextResponse.json({ task })
 }
 
 export const updateTask = async (req: NextRequest, { params }: IdParams) => {
