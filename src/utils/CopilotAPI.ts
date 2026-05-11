@@ -40,6 +40,7 @@ import { DISPATCHABLE_EVENT } from '@/types/webhook'
 import Bottleneck from 'bottleneck'
 import type { CopilotAPI as SDK } from 'copilot-node-sdk'
 import { copilotApi } from 'copilot-node-sdk'
+import { cache } from 'react'
 import { z } from 'zod'
 
 export class CopilotAPI {
@@ -47,7 +48,7 @@ export class CopilotAPI {
 
   constructor(
     private token: string,
-    customApiKey?: string,
+    private customApiKey?: string,
   ) {
     this.copilot = copilotApi({ apiKey: customApiKey ?? apiKey, token })
   }
@@ -353,7 +354,7 @@ export class CopilotAPI {
   // Methods wrapped with retry
   getTokenPayload = this.wrapWithRetry(this._getTokenPayload)
   me = this.wrapWithRetry(this._me)
-  getWorkspace = this.wrapWithRetry(this._getWorkspace)
+  getWorkspace = (): Promise<WorkspaceResponse> => cachedFetchWorkspace(this.token, this.customApiKey)
   getClientTokenPayload = this.wrapWithRetry(this._getClientTokenPayload)
   getIUTokenPayload = this.wrapWithRetry(this._getIUTokenPayload)
   createClient = this.wrapWithRetry(this._createClient)
@@ -367,7 +368,7 @@ export class CopilotAPI {
   getCompanyClients = this.wrapWithRetry(this._getCompanyClients)
   getCustomFields = this.wrapWithRetry(this._getCustomFields)
   getInternalUsers = this.wrapWithRetry(this._getInternalUsers)
-  getInternalUser = this.wrapWithRetry(this._getInternalUser)
+  getInternalUser = (id: string): Promise<InternalUsers> => cachedFetchInternalUser(this.token, this.customApiKey, id)
   createNotification = this.wrapWithRetry(this._createNotification)
   getClientNotifications = this.wrapWithRetry(this._getClientNotifications)
   markNotificationAsRead = this.wrapWithRetry(this._markNotificationAsRead)
@@ -377,3 +378,25 @@ export class CopilotAPI {
   manualFetch = this.wrapWithRetry(this._manualFetch)
   getIUNotification = this.wrapWithRetry(this._getIUNotification)
 }
+
+// Module-level per-request memoizers using React's `cache`. In a Next.js
+// Server Component / Route Handler / Server Action, React isolates the cache
+// to the current request, so concurrent requests on the same Fluid Compute
+// instance (different users / workspaces / tokens) never see each other's
+// values. Outside of a request context (CLI scripts, Trigger.dev jobs), the
+// cache degrades to a per-call no-op, preserving prior behavior. The cache
+// key is `(token, customApiKey, ...args)` — token already partitions per
+// user, customApiKey covers the rare workspace-key override path.
+const cachedFetchInternalUser = cache(
+  async (token: string, customApiKey: string | undefined, id: string): Promise<InternalUsers> => {
+    const copilot = new CopilotAPI(token, customApiKey)
+    return withRetry(copilot._getInternalUser.bind(copilot), [id])
+  },
+)
+
+const cachedFetchWorkspace = cache(
+  async (token: string, customApiKey: string | undefined): Promise<WorkspaceResponse> => {
+    const copilot = new CopilotAPI(token, customApiKey)
+    return withRetry(copilot._getWorkspace.bind(copilot), [])
+  },
+)
