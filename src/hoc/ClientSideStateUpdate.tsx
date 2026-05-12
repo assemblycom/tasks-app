@@ -71,8 +71,27 @@ export const ClientSideStateUpdate = ({
   pf,
   template,
 }: ClientSideStateUpdateProps) => {
-  const { tasks: tasksInStore, viewSettingsTemp, accessibleTasks: accessibleTaskInStore } = useSelector(selectTaskBoard)
+  const {
+    tasks: tasksInStore,
+    viewSettingsTemp,
+    accessibleTasks: accessibleTaskInStore,
+    activeTask: activeTaskInStore,
+  } = useSelector(selectTaskBoard)
   const { templates: templatesInStore } = useSelector(selectCreateTemplate)
+
+  // Self-healing guard for `activeTask`. Under React 18 concurrent rendering,
+  // the unmount cleanup below (or a stale cleanup from a previous mount) can
+  // land AFTER this component's mount effect, leaving `activeTask` undefined
+  // even though the SSR-rendered `task` prop is defined — Sidebar then sticks
+  // on the loading skeleton because its gate is `!activeTask || !isHydrated`.
+  // We can't safely drop the cleanup (other navigation flows depend on it),
+  // so we re-sync whenever a task prop is present but Redux drifted away.
+  // Idempotent: once `activeTaskInStore.id === task.id`, this effect no-ops.
+  useEffect(() => {
+    if (task && (!activeTaskInStore || activeTaskInStore.id !== task.id)) {
+      store.dispatch(setActiveTask(task))
+    }
+  }, [task, activeTaskInStore])
 
   useEffect(() => {
     if (workflowStates) {
@@ -157,16 +176,9 @@ export const ClientSideStateUpdate = ({
       store.dispatch(setActiveTemplate(template))
     }
     return () => {
-      // NOTE: deliberately NOT dispatching `setActiveTask(undefined)` here.
-      // Under React 18 concurrent rendering, this cleanup can be scheduled
-      // to run AFTER the next mount's `setActiveTask(task)` dispatch on
-      // rapid navigation (e.g. Esc → click task → Esc → click task), which
-      // leaves Sidebar's `useSelector` reading `undefined` and the skeleton
-      // stuck. The "navigate away from detail" case is already handled by
-      // the `else` branch above when the next page (e.g. home) mounts a
-      // ClientSideStateUpdate without a `task` prop.
+      store.dispatch(setActiveTask(undefined))
       store.dispatch(setActiveTemplate(null))
-    }
+    } //when component is unmounted, we need to clear the active task.
   }, [
     workflowStates,
     tasks,
