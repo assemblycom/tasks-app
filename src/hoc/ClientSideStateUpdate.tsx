@@ -157,9 +157,16 @@ export const ClientSideStateUpdate = ({
       store.dispatch(setActiveTemplate(template))
     }
     return () => {
-      store.dispatch(setActiveTask(undefined))
+      // NOTE: deliberately NOT dispatching `setActiveTask(undefined)` here.
+      // Under React 18 concurrent rendering, this cleanup can be scheduled
+      // to run AFTER the next mount's `setActiveTask(task)` dispatch on
+      // rapid navigation (e.g. Esc → click task → Esc → click task), which
+      // leaves Sidebar's `useSelector` reading `undefined` and the skeleton
+      // stuck. The "navigate away from detail" case is already handled by
+      // the `else` branch above when the next page (e.g. home) mounts a
+      // ClientSideStateUpdate without a `task` prop.
       store.dispatch(setActiveTemplate(null))
-    } //when component is unmounted, we need to clear the active task.
+    }
   }, [
     workflowStates,
     tasks,
