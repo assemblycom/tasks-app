@@ -231,6 +231,8 @@ const taskBoardSlice = createSlice({
     },
 
     setAccessibleTasks: (state, action: { payload: TaskResponse[] }) => {
+      //also append workflowState object while setting setAccessibleTasks. setAccessibleTasks is triggered from realtime updates which do not contain the workflowState in their payload.
+      // Since subtasks sorting relies on workflowState, we need this object appended on each real time updated task.
       const workflowStateById = new Map(state.workflowStates.map((s) => [s.id, s]))
       state.accessibleTasks = action.payload.map((task) => {
         if (task.workflowState || !task.workflowStateId) return task
