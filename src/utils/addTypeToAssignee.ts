@@ -81,7 +81,11 @@ export function parseAssigneeToSelectorOption(assignees?: IAssigneeCombined[]): 
     const optionBase = {
       value: item.id,
       label: getAssigneeName(item),
-      avatarSrc: item.avatarImageUrl ?? item.iconImageUrl,
+      // Coerce empty strings to undefined so Copilot's selector renders a
+      // placeholder/initials avatar instead of <img src="">. `??` only
+      // handles null/undefined and lets "" pass through, which Next.js
+      // flags and re-downloads the page over the network.
+      avatarSrc: item.avatarImageUrl || item.iconImageUrl || undefined,
       avatarFallbackColor: item.fallbackColor,
 
       companyId: item.companyId,
