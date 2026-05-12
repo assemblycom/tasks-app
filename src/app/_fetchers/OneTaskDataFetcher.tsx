@@ -6,22 +6,15 @@ import { TaskResponse } from '@/types/dto/tasks.dto'
 import { PropsWithToken } from '@/types/interfaces'
 import { fetcher } from '@/utils/fetcher'
 import { extractImgSrcs, replaceImgSrcs } from '@/utils/signedUrlReplacer'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import useSWR from 'swr'
 
 interface OneTaskDataFetcherProps extends PropsWithToken {
   task_id: string
   initialTask: TaskResponse
-  /** When true, seed SWR with initialTask and skip the mount-time refetch. */
-  useFallback?: boolean
 }
 
-export const OneTaskDataFetcher = ({
-  token,
-  task_id,
-  initialTask,
-  useFallback,
-}: OneTaskDataFetcherProps & PropsWithToken) => {
+export const OneTaskDataFetcher = ({ token, task_id, initialTask }: OneTaskDataFetcherProps) => {
   const buildQueryString = (token: string) => {
     const queryParams = new URLSearchParams({ token })
 
@@ -33,7 +26,7 @@ export const OneTaskDataFetcher = ({
   const { data } = useSWR(queryString ? `/api/tasks/${task_id}?${queryString}` : null, fetcher, {
     refreshInterval: 0,
     revalidateOnFocus: false,
-    ...(useFallback
+    ...(initialTask
       ? {
           fallbackData: { task: initialTask },
           revalidateOnMount: false,
@@ -43,7 +36,6 @@ export const OneTaskDataFetcher = ({
 
   useEffect(() => {
     if (data?.task) {
-      //only invalidate cache on mount.
       const newTask = structuredClone(data.task)
       if (initialTask?.body && newTask.body === undefined) {
         newTask.body = initialTask?.body
@@ -57,7 +49,7 @@ export const OneTaskDataFetcher = ({
       }
       store.dispatch(setActiveTask(newTask))
     }
-  }, [data])
+  }, [data, initialTask])
 
   return null
 }

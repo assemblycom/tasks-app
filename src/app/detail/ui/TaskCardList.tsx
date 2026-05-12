@@ -133,11 +133,13 @@ export const TaskCardList = ({
     const hasNoAssignee = !internalUserId && !isAssigneeClient
     const associations = isAssigneeClient ? [] : undefined
     const isShared = hasNoAssignee || isAssigneeClient ? false : undefined
+    const nextAssignee = getAssigneeValue(userIds)
     store.dispatch(setConfirmAssigneeModalId(undefined))
     store.dispatch(setConfirmAssociationModalId(undefined))
+    setAssigneeValue(nextAssignee)
     if (handleUpdate) {
       token &&
-        handleUpdate(task.id, { internalUserId, clientId, companyId }, () =>
+        handleUpdate(task.id, { assigneeId: getAssigneeId(userIds), internalUserId, clientId, companyId }, () =>
           updateAssignee(token, task.id, internalUserId, clientId, companyId, associations, isShared),
         )
     } else {
@@ -169,7 +171,7 @@ export const TaskCardList = ({
       const isShared = hasNoAssignee || isAssigneeClient ? false : undefined
       if (handleUpdate) {
         token &&
-          handleUpdate(task.id, { assigneeId: nextAssignee?.id }, () =>
+          handleUpdate(task.id, { assigneeId: nextAssignee?.id, internalUserId, clientId, companyId }, () =>
             updateAssignee(token, task.id, internalUserId, clientId, companyId, associations, isShared),
           )
       } else {
@@ -184,7 +186,9 @@ export const TaskCardList = ({
       return NoAssignee
     }
     const assigneeId = getAssigneeId(userIds)
-    const match = assignee.find((assignee) => assignee.id === assigneeId)
+    const match = assignee.find((a) =>
+      userIds.clientId ? a.id === assigneeId && a.companyId === userIds.companyId : a.id === assigneeId,
+    )
     return match ?? NoAssignee
   }
 

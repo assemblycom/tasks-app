@@ -170,7 +170,7 @@ export class CopilotAPI {
 
   async _deleteClient(id: string) {
     console.info('CopilotAPI#_deleteClient', this.token)
-    return await this.copilot.deleteClient({ id })
+    return this.copilot.deleteClient({ id })
   }
 
   async _createCompany(requestBody: CompanyCreateRequest) {
@@ -224,7 +224,7 @@ export class CopilotAPI {
     const markAsReadPromises = []
     const bottleneck = new Bottleneck({ minTime: 250, maxConcurrent: 2 })
 
-    for (let notification of notificationIds) {
+    for (const notification of notificationIds) {
       markAsReadPromises.push(
         bottleneck
           .schedule(() => {
@@ -379,14 +379,6 @@ export class CopilotAPI {
   getIUNotification = this.wrapWithRetry(this._getIUNotification)
 }
 
-// Module-level per-request memoizers using React's `cache`. In a Next.js
-// Server Component / Route Handler / Server Action, React isolates the cache
-// to the current request, so concurrent requests on the same Fluid Compute
-// instance (different users / workspaces / tokens) never see each other's
-// values. Outside of a request context (CLI scripts, Trigger.dev jobs), the
-// cache degrades to a per-call no-op, preserving prior behavior. The cache
-// key is `(token, customApiKey, ...args)` — token already partitions per
-// user, customApiKey covers the rare workspace-key override path.
 const cachedFetchInternalUser = cache(
   async (token: string, customApiKey: string | undefined, id: string): Promise<InternalUsers> => {
     const copilot = new CopilotAPI(token, customApiKey)
