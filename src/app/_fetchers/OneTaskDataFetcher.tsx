@@ -7,7 +7,7 @@ import { PropsWithToken } from '@/types/interfaces'
 import { fetcher } from '@/utils/fetcher'
 import { extractImgSrcs, replaceImgSrcs } from '@/utils/signedUrlReplacer'
 import { useEffect, useRef, useState } from 'react'
-import useSWR from 'swr'
+import useSWR, { useSWRConfig } from 'swr'
 
 interface OneTaskDataFetcherProps extends PropsWithToken {
   task_id: string
@@ -29,8 +29,22 @@ export const OneTaskDataFetcher = ({
   }
 
   const queryString = token ? buildQueryString(token) : null
+  const swrKey = queryString ? `/api/tasks/${task_id}?${queryString}` : null
 
-  const { data } = useSWR(queryString ? `/api/tasks/${task_id}?${queryString}` : null, fetcher, {
+  const { mutate } = useSWRConfig()
+
+  // When falling back to SSR data, overwrite any stale SWR cache entry from a
+  // prior visit with the fresh initialTask before SWR reads from it. Without
+  // this, fallbackData would be ignored on revisit (cache already populated)
+  // and revalidateOnMount: false would suppress the refetch — letting stale
+  // data win over the newer SSR render.
+  useEffect(() => {
+    if (useFallback && swrKey && initialTask) {
+      mutate(swrKey, { task: initialTask }, { revalidate: false })
+    }
+  }, [swrKey, useFallback, initialTask, mutate])
+
+  const { data } = useSWR(swrKey, fetcher, {
     refreshInterval: 0,
     revalidateOnFocus: false,
     ...(useFallback
