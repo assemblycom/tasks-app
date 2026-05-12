@@ -40,11 +40,30 @@ export const loadTask = async (user: User, taskId: string): Promise<TaskResponse
   }
 }
 
-export const loadTaskPath = async (user: User, taskId: string): Promise<AncestorTaskResponse[]> =>
-  toJsonSafe(await new TasksService(user).getTraversalPath(taskId))
+// Loaders that run in parallel with `loadTask` must not reject when the task
+// row is missing (hard-deleted or bad id). Otherwise `Promise.all` rejects
+// before the page's `if (!task)` guard runs and the user sees an unhandled
+// error instead of `DeletedRedirectPage`. `getTraversalPath` throws 404 and
+// `getSubtaskCounts` throws 500 ("Path for task was not set") in that case —
+// swallow them and return safe defaults; the canonical "missing task" signal
+// is `loadTask` returning null, which still triggers the redirect.
+export const loadTaskPath = async (user: User, taskId: string): Promise<AncestorTaskResponse[]> => {
+  try {
+    return toJsonSafe(await new TasksService(user).getTraversalPath(taskId))
+  } catch (err) {
+    if (err instanceof APIError && err.status === httpStatus.NOT_FOUND) return []
+    throw err
+  }
+}
 
-export const loadSubtaskStatus = (user: User, taskId: string): Promise<SubTaskStatusResponse> =>
-  new SubtaskService(user).getSubtaskStatus(taskId)
+export const loadSubtaskStatus = async (user: User, taskId: string): Promise<SubTaskStatusResponse> => {
+  try {
+    return await new SubtaskService(user).getSubtaskStatus(taskId)
+  } catch (err) {
+    if (err instanceof APIError) return { count: 0, canCreateSubtask: false }
+    throw err
+  }
+}
 
 export const loadViewSettings = async (user: User): Promise<CreateViewSettingsDTO> =>
   toJsonSafe(await new ViewSettingsService(user).getViewSettingsForUser()) as unknown as CreateViewSettingsDTO
