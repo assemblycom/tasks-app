@@ -5,6 +5,7 @@ import { OneTaskDataFetcher } from '@/app/_fetchers/OneTaskDataFetcher'
 import { TemplatesFetcher } from '@/app/_fetchers/TemplatesFetcher'
 import { WorkflowStateFetcher } from '@/app/_fetchers/WorkflowStateFetcher'
 import { UserRole } from '@/app/api/core/types/user'
+import { authenticateWithToken } from '@/app/api/core/utils/authenticate'
 import { loadSubtaskStatus, loadTask, loadTaskPath, loadViewSettings } from '@/app/detail/[task_id]/[user_type]/loaders'
 import {
   clientUpdateTask,
@@ -28,14 +29,13 @@ import { TaskEditor } from '@/app/detail/ui/TaskEditor'
 import { DeletedRedirectPage } from '@/components/layouts/DeletedRedirectPage'
 import { HeaderBreadcrumbs } from '@/components/layouts/HeaderBreadcrumbs'
 import { SilentError } from '@/components/templates/SilentError'
-import { apiUrl } from '@/config'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { AttachmentProvider } from '@/hoc/PostAttachmentProvider'
 import { RealTime } from '@/hoc/RealTime'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
+import { Token } from '@/types/common'
 import { UserType } from '@/types/interfaces'
 import { getAssigneeCacheLookupKey, UserIdsWithAssociationSharedType } from '@/utils/assignee'
-import { CopilotAPI } from '@/utils/CopilotAPI'
 import EscapeHandler from '@/utils/escapeHandler'
 import { getPreviewMode } from '@/utils/previewMode'
 import { checkIfTaskViewer } from '@/utils/taskViewer'
@@ -56,24 +56,25 @@ export default async function TaskDetailPage(props: {
     return <SilentError message="Please provide a Valid Token" />
   }
 
-  const copilotClient = new CopilotAPI(token)
+  // PERF: authenticate once and reuse the resulting `user` across every loader.
+  // `authenticateWithToken` already fetched + validated the Copilot token
+  // payload, so we reconstruct a Token-shaped object from the user fields
+  // downstream consumers actually read (no second `getTokenPayload` call).
+  const user = await authenticateWithToken(token)
+  const tokenPayload: Token = {
+    internalUserId: user.internalUserId,
+    clientId: user.clientId,
+    companyId: user.companyId,
+    workspaceId: user.workspaceId,
+  }
 
-  // PERF: replaced HTTP loopback fetches with direct service-method calls.
-  // All loaders now share a single Vercel function invocation, a single
-  // authenticate() pass, and a single `react.cache` scope — so the duplicate
-  // Copilot calls that used to fire across separate `/api/...` invocations
-  // now dedup down to one per unique id per page load.
-  const [task, tokenPayload, subTaskStatus, taskPath, viewSettings] = await Promise.all([
-    loadTask(token, task_id),
-    copilotClient.getTokenPayload(),
-    loadSubtaskStatus(token, task_id),
-    loadTaskPath(token, task_id),
-    loadViewSettings(token),
+  const [task, subTaskStatus, taskPath, viewSettings] = await Promise.all([
+    loadTask(user, task_id),
+    loadSubtaskStatus(user, task_id),
+    loadTaskPath(user, task_id),
+    loadViewSettings(user),
   ])
 
-  if (!tokenPayload) {
-    throw new Error('Please provide a Valid Token')
-  }
   const fromNotificationCenter = !!searchParams.fromNotificationCenter
 
   console.info(`app/detail/${task_id}/${user_type}/page.tsx | Serving user ${token} with payload`, tokenPayload)

@@ -7,38 +7,34 @@
 //   - Collapses 5 separate Vercel function invocations into 1
 //   - Lets `react.cache` deduplicate Copilot calls across loaders (each
 //     /api invocation had its own request scope, so dedup couldn't span them)
-//   - Skips redundant authenticate() round-trips
 //   - Removes serialization/deserialization at the HTTP boundary
+//
+// Authentication is hoisted to the page so all loaders share a single
+// `authenticateWithToken` call (one Copilot `getTokenPayload` round-trip).
 
-import { authenticateWithToken } from '@api/core/utils/authenticate'
-import { TasksService } from '@api/tasks/tasks.service'
+import APIError from '@api/core/exceptions/api'
+import User from '@api/core/models/User.model'
 import { SubtaskService } from '@api/tasks/subtasks.service'
+import { TasksService } from '@api/tasks/tasks.service'
 import { ViewSettingsService } from '@api/view-settings/viewSettings.service'
+import httpStatus from 'http-status'
 import type { AncestorTaskResponse, SubTaskStatusResponse, TaskResponse } from '@/types/dto/tasks.dto'
 import type { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
 
-export const loadTask = async (token: string, taskId: string): Promise<TaskResponse | null> => {
-  const user = await authenticateWithToken(token)
+export const loadTask = async (user: User, taskId: string): Promise<TaskResponse | null> => {
   try {
     return (await new TasksService(user).getOneTask(taskId)) as unknown as TaskResponse
   } catch (err) {
-    if (err instanceof Error && /404|not found/i.test(err.message)) return null
+    if (err instanceof APIError && err.status === httpStatus.NOT_FOUND) return null
     throw err
   }
 }
 
-export const loadTaskPath = async (token: string, taskId: string): Promise<AncestorTaskResponse[]> => {
-  const user = await authenticateWithToken(token)
-  return new TasksService(user).getTraversalPath(taskId)
-}
+export const loadTaskPath = (user: User, taskId: string): Promise<AncestorTaskResponse[]> =>
+  new TasksService(user).getTraversalPath(taskId)
 
-export const loadSubtaskStatus = async (token: string, taskId: string): Promise<SubTaskStatusResponse> => {
-  const user = await authenticateWithToken(token)
-  const count = await new SubtaskService(user).getSubtaskCounts(taskId)
-  return { count, canCreateSubtask: count < 2 } as SubTaskStatusResponse
-}
+export const loadSubtaskStatus = (user: User, taskId: string): Promise<SubTaskStatusResponse> =>
+  new SubtaskService(user).getSubtaskStatus(taskId)
 
-export const loadViewSettings = async (token: string): Promise<CreateViewSettingsDTO> => {
-  const user = await authenticateWithToken(token)
-  return (await new ViewSettingsService(user).getViewSettingsForUser()) as unknown as CreateViewSettingsDTO
-}
+export const loadViewSettings = (user: User): Promise<CreateViewSettingsDTO> =>
+  new ViewSettingsService(user).getViewSettingsForUser() as unknown as Promise<CreateViewSettingsDTO>
