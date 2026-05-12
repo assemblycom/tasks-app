@@ -48,7 +48,7 @@ export class CopilotAPI {
 
   constructor(
     private token: string,
-    private customApiKey?: string,
+    customApiKey?: string,
   ) {
     this.copilot = copilotApi({ apiKey: customApiKey ?? apiKey, token })
   }
