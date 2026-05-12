@@ -2,6 +2,7 @@ export const fetchCache = 'force-no-store'
 
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
+import { SeedActiveTask } from '@/hoc/state-seeders'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { PropsWithToken } from '@/types/interfaces'
@@ -25,7 +26,8 @@ export const WorkflowStateFetcher = async ({ token, children, task }: WorkflowSt
   const workflowStates = await getAllWorkflowStates(token)
 
   return (
-    <ClientSideStateUpdate workflowStates={workflowStates} task={task}>
+    <ClientSideStateUpdate workflowStates={workflowStates}>
+      <SeedActiveTask task={task} />
       {children}
     </ClientSideStateUpdate>
   )
