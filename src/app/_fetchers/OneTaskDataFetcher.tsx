@@ -16,12 +16,7 @@ interface OneTaskDataFetcherProps extends PropsWithToken {
   useFallback?: boolean
 }
 
-export const OneTaskDataFetcher = ({
-  token,
-  task_id,
-  initialTask,
-  useFallback,
-}: OneTaskDataFetcherProps & PropsWithToken) => {
+export const OneTaskDataFetcher = ({ token, task_id, initialTask, useFallback }: OneTaskDataFetcherProps) => {
   const buildQueryString = (token: string) => {
     const queryParams = new URLSearchParams({ token })
 
@@ -40,7 +35,7 @@ export const OneTaskDataFetcher = ({
   // data win over the newer SSR render.
   useEffect(() => {
     if (useFallback && swrKey && initialTask) {
-      mutate(swrKey, { task: initialTask }, { revalidate: false })
+      mutate(swrKey, { task: initialTask }, { revalidate: false }).then()
     }
   }, [swrKey, useFallback, initialTask, mutate])
 
