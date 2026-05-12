@@ -1,12 +1,11 @@
 export const fetchCache = 'force-no-store'
 
 import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'
-import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { OneTaskDataFetcher } from '@/app/_fetchers/OneTaskDataFetcher'
-import { getViewSettings } from '@/app/(home)/page'
 import { TemplatesFetcher } from '@/app/_fetchers/TemplatesFetcher'
 import { WorkflowStateFetcher } from '@/app/_fetchers/WorkflowStateFetcher'
 import { UserRole } from '@/app/api/core/types/user'
+import { loadSubtaskStatus, loadTask, loadTaskPath, loadViewSettings } from '@/app/detail/[task_id]/[user_type]/loaders'
 import {
   clientUpdateTask,
   deleteAttachment,
@@ -34,7 +33,6 @@ import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { AttachmentProvider } from '@/hoc/PostAttachmentProvider'
 import { RealTime } from '@/hoc/RealTime'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
-import { AncestorTaskResponse, SubTaskStatusResponse, TaskResponse } from '@/types/dto/tasks.dto'
 import { UserType } from '@/types/interfaces'
 import { getAssigneeCacheLookupKey, UserIdsWithAssociationSharedType } from '@/utils/assignee'
 import { CopilotAPI } from '@/utils/CopilotAPI'
@@ -44,32 +42,6 @@ import { checkIfTaskViewer } from '@/utils/taskViewer'
 import { Box, Stack } from '@mui/material'
 import { Suspense } from 'react'
 import { z } from 'zod'
-
-async function getOneTask(token: string, taskId: string): Promise<TaskResponse | null> {
-  try {
-    const data = await fetchWithErrorHandler<{ task: TaskResponse }>(`${apiUrl}/api/tasks/${taskId}?token=${token}`, {
-      cache: 'no-store',
-    })
-    return data.task
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('(404)')) {
-      //the message surely includes 404 if the task is not found.
-      return null
-    }
-    throw error
-  }
-}
-
-async function getSubTasksStatus(token: string, taskId: string): Promise<SubTaskStatusResponse> {
-  const res = await fetch(`${apiUrl}/api/tasks/${taskId}/subtask-count?token=${token}`, {})
-  return res.json()
-}
-
-async function getTaskPath(token: string, taskId: string): Promise<AncestorTaskResponse[]> {
-  const res = await fetch(`${apiUrl}/api/tasks/${taskId}/path?token=${token}`)
-  const { path } = await res.json()
-  return path
-}
 
 export default async function TaskDetailPage(props: {
   params: Promise<{ task_id: string; task_name: string; user_type: UserType }>
@@ -86,12 +58,17 @@ export default async function TaskDetailPage(props: {
 
   const copilotClient = new CopilotAPI(token)
 
+  // PERF: replaced HTTP loopback fetches with direct service-method calls.
+  // All loaders now share a single Vercel function invocation, a single
+  // authenticate() pass, and a single `react.cache` scope — so the duplicate
+  // Copilot calls that used to fire across separate `/api/...` invocations
+  // now dedup down to one per unique id per page load.
   const [task, tokenPayload, subTaskStatus, taskPath, viewSettings] = await Promise.all([
-    getOneTask(token, task_id),
+    loadTask(token, task_id),
     copilotClient.getTokenPayload(),
-    getSubTasksStatus(token, task_id),
-    getTaskPath(token, task_id),
-    getViewSettings(token),
+    loadSubtaskStatus(token, task_id),
+    loadTaskPath(token, task_id),
+    loadViewSettings(token),
   ])
 
   if (!tokenPayload) {
