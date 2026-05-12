@@ -18,6 +18,7 @@ import { useHandleSelectorComponent } from '@/hooks/useHandleSelectorComponent'
 import { useOpenSubtaskCount } from '@/hooks/useSubtaskCount'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import {
+  bulkUpdateWorkflowStateIdByTaskIds,
   selectTaskBoard,
   setAssigneeCache,
   setConfirmAssigneeModalId,
@@ -196,15 +197,24 @@ export const TaskCardList = ({
     updateStatusValue(value)
     if (variant === 'task') {
       store.dispatch(updateWorkflowStateIdByTaskId({ taskId: task.id, targetWorkflowStateId: value.id }))
+    } else if (variant === 'subtask-board') {
+      store.dispatch(bulkUpdateWorkflowStateIdByTaskIds({ taskIds: [task.id], targetWorkflowStateId: value.id }))
     }
-    if (mode === UserRole.Client && !previewMode) {
-      clientUpdateTask(z.string().parse(token), task.id, value.id, skipSubtaskCascade)
+    const runUpdate = async () => {
+      if (mode === UserRole.Client && !previewMode) {
+        await clientUpdateTask(z.string().parse(token), task.id, value.id, skipSubtaskCascade)
+      } else {
+        await updateTask({
+          token: z.string().parse(token),
+          taskId: task.id,
+          payload: { workflowStateId: value.id, skipSubtaskCascade },
+        })
+      }
+    }
+    if (handleUpdate) {
+      handleUpdate(task.id, { workflowStateId: value.id, workflowState: value }, runUpdate)
     } else {
-      updateTask({
-        token: z.string().parse(token),
-        taskId: task.id,
-        payload: { workflowStateId: value.id, skipSubtaskCascade },
-      })
+      void runUpdate()
     }
   }
 
