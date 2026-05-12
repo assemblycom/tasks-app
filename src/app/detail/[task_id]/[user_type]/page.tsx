@@ -1,7 +1,6 @@
 export const fetchCache = 'force-no-store'
 
 import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'
-import { AssigneeFetcher } from '@/app/_fetchers/AssigneeFetcher'
 import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { OneTaskDataFetcher } from '@/app/_fetchers/OneTaskDataFetcher'
 import { getViewSettings } from '@/app/(home)/page'
@@ -227,13 +226,6 @@ export default async function TaskDetailPage(props: {
                 : {})}
             >
               <AssigneeCacheGetter lookupKey={getAssigneeCacheLookupKey(user_type, tokenPayload, isPreviewMode)} />
-              <AssigneeFetcher
-                token={token}
-                userType={params.user_type}
-                isPreview={!!getPreviewMode(tokenPayload)}
-                task={task}
-                tokenPayload={tokenPayload}
-              />
               <WorkflowStateFetcher token={token} task={task} />
               <Sidebar
                 task_id={task_id}
