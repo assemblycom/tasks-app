@@ -44,8 +44,6 @@ export const parseAssigneeToSelectorOptions = (assignee: IAssigneeCombined): ISe
     {
       value: assignee.id,
       label: getAssigneeName(assignee),
-      // Coerce empty strings to undefined to avoid `<img src="">` warnings.
-      // See addTypeToAssignee.ts for the same guard on the bulk mapper.
       avatarSrc: assignee.avatarImageUrl || undefined,
       avatarFallbackColor: assignee.fallbackColor,
       companyId: assignee.companyId,

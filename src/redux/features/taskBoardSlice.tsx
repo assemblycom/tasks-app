@@ -223,13 +223,6 @@ const taskBoardSlice = createSlice({
       state.previewClientCompany = action.payload
     },
 
-    /**
-     * @deprecated - Use `accessibleTasks` state instead
-     */
-    setAccesibleTaskIds: (state, action: { payload: string[] }) => {
-      state.accesibleTaskIds = action.payload
-    },
-
     setAccessibleTasks: (state, action: { payload: TaskResponse[] }) => {
       //also append workflowState object while setting setAccessibleTasks. setAccessibleTasks is triggered from realtime updates which do not contain the workflowState in their payload.
       // Since subtasks sorting relies on workflowState, we need this object appended on each real time updated task.
@@ -277,7 +270,6 @@ export const {
   setIsTasksLoading,
   setActiveTask,
   setPreviewMode,
-  setAccesibleTaskIds,
   setAccessibleTasks,
   setConfirmAssigneeModalId,
   setConfirmAssociationModalId,

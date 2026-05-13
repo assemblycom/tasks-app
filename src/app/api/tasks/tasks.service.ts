@@ -292,18 +292,9 @@ export class TasksService extends TasksSharedService {
 
     const accessWhere = await this.getAccessFilterForTasks()
 
-    // Only re-sign image URLs if the body actually contains <img> tags worth
-    // re-signing. For text-only tasks this saves an entire task.update
-    // round-trip on every read. `replaceImageSrc` returns the same string
-    // when there are no img tags to rewrite, so the string equality check is
-    // cheap and correctly detects the no-op case.
     const newBody = task.body ? await replaceImageSrc(task.body, getSignedUrl) : task.body
     const bodyChanged = newBody !== task.body
 
-    // Parallelize count + assignee + (optional) body update. `getTaskAssignee`
-    // only needs task.assigneeId/assigneeType, both already known from the
-    // findFirst above, so it can run alongside the DB writes/reads instead of
-    // after them.
     const [accessibleSubtaskCount, assignee] = await Promise.all([
       this.db.task.count({
         where: {

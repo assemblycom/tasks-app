@@ -56,10 +56,6 @@ export default async function TaskDetailPage(props: {
     return <SilentError message="Please provide a Valid Token" />
   }
 
-  // PERF: authenticate once and reuse the resulting `user` across every loader.
-  // `authenticateWithToken` already fetched + validated the Copilot token
-  // payload, so we reconstruct a Token-shaped object from the user fields
-  // downstream consumers actually read (no second `getTokenPayload` call).
   const user = await authenticateWithToken(token)
   const tokenPayload: Token = {
     internalUserId: user.internalUserId,
@@ -106,7 +102,7 @@ export default async function TaskDetailPage(props: {
       task={task}
       viewSettings={viewSettings}
     >
-      {token && <OneTaskDataFetcher token={token} task_id={task_id} initialTask={task} />}
+      {!!token && <OneTaskDataFetcher token={token} task_id={task_id} initialTask={task} />}
       <Suspense fallback={null}>
         <TemplatesFetcher token={token} />
       </Suspense>

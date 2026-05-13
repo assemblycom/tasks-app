@@ -29,7 +29,6 @@ export const OneTaskDataFetcher = ({ token, task_id, initialTask }: OneTaskDataF
     ...(initialTask
       ? {
           fallbackData: { task: initialTask },
-          revalidateOnMount: false,
         }
       : {}),
   })

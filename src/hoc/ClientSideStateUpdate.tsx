@@ -3,7 +3,6 @@
 import { setTokenPayload, setWorkspace } from '@/redux/features/authDetailsSlice'
 import {
   selectTaskBoard,
-  setAccesibleTaskIds,
   setAccessibleTasks,
   setAssigneeList,
   setFilteredAssigneeList,
@@ -39,18 +38,10 @@ type ClientSideStateUpdateProps = {
   templates?: ITemplate[]
   assigneeSuggestions?: IAssigneeSuggestions[]
   clearExpandedComments?: boolean
-  accesibleTaskIds?: string[]
   accessibleTasks?: TaskResponse[]
   workspace?: WorkspaceResponse
 } & UrlActionParamsType
 
-/**
- * Updates client-side Redux state from server-fetched props.
- *
- * `activeTask` and `activeTemplate` are handled by dedicated `SeedActiveTask`
- * / `SeedActiveTemplate` components — they have stricter lifecycle requirements
- * (race-safe reconcile, scoped cleanup) that the umbrella effect can't provide.
- */
 export const ClientSideStateUpdate = ({
   children,
   workflowStates,
@@ -62,7 +53,6 @@ export const ClientSideStateUpdate = ({
   templates,
   assigneeSuggestions,
   clearExpandedComments,
-  accesibleTaskIds,
   accessibleTasks,
   workspace,
   action,
@@ -75,20 +65,6 @@ export const ClientSideStateUpdate = ({
     activeTask: activeTaskInStore,
   } = useSelector(selectTaskBoard)
   const { templates: templatesInStore } = useSelector(selectCreateTemplate)
-
-  // Self-healing guard for `activeTask`. Under React 18 concurrent rendering,
-  // the unmount cleanup below (or a stale cleanup from a previous mount) can
-  // land AFTER this component's mount effect, leaving `activeTask` undefined
-  // even though the SSR-rendered `task` prop is defined — Sidebar then sticks
-  // on the loading skeleton because its gate is `!activeTask || !isHydrated`.
-  // We can't safely drop the cleanup (other navigation flows depend on it),
-  // so we re-sync whenever a task prop is present but Redux drifted away.
-  // Idempotent: once `activeTaskInStore.id === task.id`, this effect no-ops.
-  useEffect(() => {
-    if (task && (!activeTaskInStore || activeTaskInStore.id !== task.id)) {
-      store.dispatch(setActiveTask(task))
-    }
-  }, [task, activeTaskInStore])
 
   useEffect(() => {
     if (workflowStates) {
@@ -149,10 +125,6 @@ export const ClientSideStateUpdate = ({
       store.dispatch(setExpandedComments([]))
     }
 
-    if (accesibleTaskIds) {
-      store.dispatch(setAccesibleTaskIds(accesibleTaskIds))
-    }
-
     if (accessibleTasks) {
       const accessibleTaskData = accessibleTaskInStore.length ? accessibleTaskInStore : accessibleTasks
       store.dispatch(setAccessibleTasks(accessibleTaskData))
@@ -161,18 +133,7 @@ export const ClientSideStateUpdate = ({
     if (workspace) {
       store.dispatch(setWorkspace(workspace))
     }
-  }, [
-    workflowStates,
-    tasks,
-    token,
-    assignee,
-    viewSettings,
-    tokenPayload,
-    templates,
-    assigneeSuggestions,
-    accesibleTaskIds,
-    accessibleTasks,
-  ])
+  }, [workflowStates, tasks, token, assignee, viewSettings, tokenPayload, templates, assigneeSuggestions, accessibleTasks])
 
   return children
 }
