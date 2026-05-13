@@ -303,10 +303,16 @@ export class RealtimeHandler {
 
     // CASE I: Task is deleted
     if (updatedTask.deletedAt) {
+      // Deferred to the next tick to let any racing create event for this
+      // task land first. Read FRESH state inside the callback — by the time
+      // it fires, the user may have been redirected to the board and CSU
+      // may have seeded fresh tasks from SSR. Using the captured snapshot
+      // would clobber that.
       setTimeout(() => {
-        store.dispatch(setTasks(filterOutUpdatedTask(tasks)))
-        store.dispatch(setAccessibleTasks(filterOutUpdatedTask(accessibleTasks)))
-      }, 0) //simple patch for race condition when update event fires before create event
+        const fresh = selectTaskBoard(store.getState())
+        store.dispatch(setTasks(filterOutUpdatedTask(fresh.tasks)))
+        store.dispatch(setAccessibleTasks(filterOutUpdatedTask(fresh.accessibleTasks)))
+      }, 0)
 
       //if a user is in the details page when the task is deleted then we want the user to get redirected to '/' route
       if (updatedTask.id === activeTask?.id) {
