@@ -226,7 +226,7 @@ export default async function TaskDetailPage(props: {
                 : {})}
             >
               <AssigneeCacheGetter lookupKey={getAssigneeCacheLookupKey(user_type, tokenPayload, isPreviewMode)} />
-              <WorkflowStateFetcher token={token} task={task} />
+              <WorkflowStateFetcher token={token} />
               <Sidebar
                 task_id={task_id}
                 selectedAssigneeId={task?.assigneeId}
