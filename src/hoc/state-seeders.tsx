@@ -1,7 +1,7 @@
 'use client'
 
 import { selectTaskBoard, setActiveTask, setTasks } from '@/redux/features/taskBoardSlice'
-import { setActiveTemplate } from '@/redux/features/templateSlice'
+import { selectCreateTemplate, setActiveTemplate } from '@/redux/features/templateSlice'
 import store from '@/redux/store'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { ITemplate } from '@/types/interfaces'
@@ -38,12 +38,26 @@ export const SeedActiveTask = ({ task }: { task?: TaskResponse }) => {
 }
 
 export const SeedActiveTemplate = ({ template }: { template?: ITemplate }) => {
+  const { activeTemplate } = useSelector(selectCreateTemplate)
+
+  // Same shape as SeedActiveTask: reconcile-on-render heals drift if a stale
+  // cleanup from a previous mount lands after this one's dispatch.
   useEffect(() => {
-    if (template) store.dispatch(setActiveTemplate(template))
+    if (template) {
+      if (!activeTemplate || activeTemplate.id !== template.id) {
+        store.dispatch(setActiveTemplate(template))
+      }
+    } else if (activeTemplate !== null) {
+      store.dispatch(setActiveTemplate(null))
+    }
+  }, [template, activeTemplate])
+
+  // Empty deps so the clear fires only on true unmount.
+  useEffect(() => {
     return () => {
       store.dispatch(setActiveTemplate(null))
     }
-  }, [template])
+  }, [])
 
   return null
 }
