@@ -2,6 +2,7 @@ import { getAllWorkflowStates, getTokenPayload } from '@/app/(home)/page'
 import { ResponsiveStack } from '@/app/detail/ui/ResponsiveStack'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
+import { SeedActiveTemplate } from '@/hoc/state-seeders'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
 import { ITemplate, UserType } from '@/types/interfaces'
 import EscapeHandler from '@/utils/escapeHandler'
@@ -65,7 +66,8 @@ export default async function TaskDetailPage(props: {
   const isPreviewMode = !!getPreviewMode(tokenPayload)
 
   return (
-    <ClientSideStateUpdate workflowStates={workflowStates} token={token} template={template} tokenPayload={tokenPayload}>
+    <ClientSideStateUpdate workflowStates={workflowStates} token={token} tokenPayload={tokenPayload}>
+      <SeedActiveTemplate template={template} />
       {token && <OneTemplateDataFetcher token={token} template_id={template_id} initialTemplate={template} />}
       <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
         <EscapeHandler />
