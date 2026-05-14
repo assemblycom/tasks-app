@@ -303,15 +303,13 @@ export class RealtimeHandler {
 
     // CASE I: Task is deleted
     if (updatedTask.deletedAt) {
-      setTimeout(() => {
-        store.dispatch(setTasks(filterOutUpdatedTask(tasks)))
-        store.dispatch(setAccessibleTasks(filterOutUpdatedTask(accessibleTasks)))
-      }, 0) //simple patch for race condition when update event fires before create event
-
+      store.dispatch(setTasks(filterOutUpdatedTask(tasks)))
+      store.dispatch(setAccessibleTasks(filterOutUpdatedTask(accessibleTasks)))
       //if a user is in the details page when the task is deleted then we want the user to get redirected to '/' route
       if (updatedTask.id === activeTask?.id) {
         return this.redirectToBoard(updatedTask)
       }
+      return
     }
 
     // CASE II: REASSIGNMENT OUT OF SCOPE
