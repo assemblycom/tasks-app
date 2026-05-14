@@ -75,9 +75,24 @@ async function getSubTasksStatus(token: string, taskId: string): Promise<SubTask
 }
 
 async function getTaskPath(token: string, taskId: string): Promise<AncestorTaskResponse[]> {
-  const res = await fetch(`${apiUrl}/api/tasks/${taskId}/path?token=${token}`)
-  const { path } = await res.json()
-  return path
+  try {
+    const res = await fetch(`${apiUrl}/api/tasks/${taskId}/path?token=${token}`, { cache: 'no-store' })
+    if (!res.ok) {
+      console.error(`Failed to fetch task path for ${taskId}: ${res.status} ${res.statusText}`)
+      return []
+    }
+
+    const data: { path?: unknown } = await res.json()
+    if (!Array.isArray(data.path)) {
+      console.error(`Task path response for ${taskId} did not include a path array`, data)
+      return []
+    }
+
+    return data.path as AncestorTaskResponse[]
+  } catch (error) {
+    console.error(`Failed to fetch task path for ${taskId}`, error)
+    return []
+  }
 }
 
 export default async function TaskDetailPage(props: {
@@ -122,11 +137,14 @@ export default async function TaskDetailPage(props: {
 
   const isPreviewMode = !!getPreviewMode(tokenPayload)
 
-  const breadcrumbItems: { label: string; mobileLabel: string; href: string }[] = taskPath.map(({ title, label, id }) => ({
-    label: truncateText(title, 25),
-    mobileLabel: label,
-    href: `/detail/${id}/${user_type}?token=${token}`,
-  }))
+  const breadcrumbTasks: Pick<TaskResponse, 'id' | 'title' | 'label'>[] = taskPath.length ? taskPath : [task]
+  const breadcrumbItems: { label: string; mobileLabel: string; href: string }[] = breadcrumbTasks.map(
+    ({ title, label, id }) => ({
+      label: truncateText(title || label, 25),
+      mobileLabel: label,
+      href: `/detail/${id}/${user_type}?token=${token}`,
+    }),
+  )
 
   // flag that determines if the current user is the task viewer
   const isViewer = checkIfTaskViewer(task.associations, tokenPayload)
