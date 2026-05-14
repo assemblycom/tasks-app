@@ -4,11 +4,12 @@ import { StyledKeyboardIcon, StyledTypography } from '@/app/detail/ui/styledComp
 import { SecondaryBtn } from '@/components/buttons/SecondaryBtn'
 import { CustomLink } from '@/hoc/CustomLink'
 import { useBreadcrumbs } from '@/hooks/app-bridge/useBreadcrumbs'
+import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { UserType } from '@/types/interfaces'
 import { Stack, Typography } from '@mui/material'
 import { useRouter } from 'next/navigation'
-import { Fragment } from 'react'
+import { Fragment, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 
 type ValidTasksBoardLink = '/' | '/client'
@@ -20,12 +21,25 @@ export const HeaderBreadcrumbs = ({
   portalUrl,
 }: {
   token: string | undefined
-  items: { label: string; href?: string }[]
+  items: { label: string; mobileLabel?: string; href?: string }[]
   userType: UserType
   portalUrl?: string
 }) => {
   const { previewMode } = useSelector(selectTaskBoard)
   const router = useRouter()
+  const windowWidth = useWindowWidth()
+  // Below 600px the platform-rendered header overflows with long titles,
+  // so fall back to the shorter task label that we send via app-bridge.
+  const isMobile = windowWidth < 600 && windowWidth !== 0
+
+  const displayItems = useMemo(
+    () =>
+      items.map(({ label, mobileLabel, href }) => ({
+        label: isMobile && mobileLabel ? mobileLabel : label,
+        href,
+      })),
+    [items, isMobile],
+  )
 
   const getTasksLink = (userType: UserType): ValidTasksBoardLink => {
     if (previewMode) return '/client'
@@ -37,9 +51,9 @@ export const HeaderBreadcrumbs = ({
     return tasksLinks[userType]
   }
   useBreadcrumbs(
-    items.map(({ label, href }, index) => ({
+    displayItems.map(({ label, href }, index) => ({
       label,
-      onClick: index === items.length - 1 ? undefined : href ? () => router.push(href) : undefined,
+      onClick: index === displayItems.length - 1 ? undefined : href ? () => router.push(href) : undefined,
     })),
     { portalUrl },
   )
@@ -59,8 +73,8 @@ export const HeaderBreadcrumbs = ({
           variant="breadcrumb"
         />
       </CustomLink>
-      {items.map((item, index) => {
-        const isLast = index === items.length - 1
+      {displayItems.map((item, index) => {
+        const isLast = index === displayItems.length - 1
 
         return (
           <Fragment key={item.label}>

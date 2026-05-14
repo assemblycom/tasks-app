@@ -122,8 +122,9 @@ export default async function TaskDetailPage(props: {
 
   const isPreviewMode = !!getPreviewMode(tokenPayload)
 
-  const breadcrumbItems: { label: string; href: string }[] = taskPath.map(({ title, id }) => ({
+  const breadcrumbItems: { label: string; mobileLabel: string; href: string }[] = taskPath.map(({ title, label, id }) => ({
     label: truncateText(title, 25),
+    mobileLabel: label,
     href: `/detail/${id}/${user_type}?token=${token}`,
   }))
 
