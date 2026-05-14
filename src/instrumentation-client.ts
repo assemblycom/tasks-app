@@ -25,12 +25,7 @@ if (dsn) {
     // replaysOnErrorSampleRate: 1.0,
     // replaysSessionSampleRate: 0,
     integrations: [
-      Sentry.browserTracingIntegration({
-        beforeStartSpan: (e) => {
-          console.info('SentryBrowserTracingSpan', e.name)
-          return e
-        },
-      }),
+      Sentry.browserTracingIntegration(),
       //   Sentry.replayIntegration({
       // Additional Replay configuration goes in here, for example:
       //     maskAllText: true,
@@ -54,3 +49,5 @@ if (dsn) {
     },
   })
 }
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart

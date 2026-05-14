@@ -54,12 +54,12 @@ module.exports = withSentryConfig(nextConfig, {
   // This can increase server load as well as your hosting bill but prevent ad-blockers from blocking error repotrs
   tunnelRoute: '/tel',
 
-  // Hides source maps from generated client bundles
-  hideSourceMaps: true,
-
-  // Automatically tree-shake Sentry logger statements to reduce bundle size
-  disableLogger: true,
-
-  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-  automaticVercelMonitors: true,
+  webpack: {
+    // Automatically tree-shake Sentry logger statements to reduce bundle size
+    treeshake: {
+      removeDebugLogging: true,
+    },
+    // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
+    automaticVercelMonitors: true,
+  },
 })
