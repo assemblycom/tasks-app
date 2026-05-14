@@ -109,7 +109,7 @@ export default async function TaskDetailPage(props: {
   }
   const fromNotificationCenter = !!searchParams.fromNotificationCenter
 
-  console.info(`app/detail/${task_id}/${user_type}/page.tsx | Serving user ${token} with payload`, tokenPayload)
+  console.info('app/detail/[task_id]/[user_type]/page.tsx | Serving request', { taskId: task_id, userType: user_type })
   if (!task) {
     return (
       <DeletedRedirectPage

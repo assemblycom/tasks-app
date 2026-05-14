@@ -72,7 +72,7 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
 
   const previewMode = getPreviewMode(tokenPayload)
 
-  console.info(`app/client/page.tsx | Serving user ${token} with payload`, tokenPayload)
+  console.info('app/client/page.tsx | Serving request', { previewMode: Boolean(previewMode) })
 
   return (
     <>
