@@ -18,6 +18,7 @@ import { useHandleSelectorComponent } from '@/hooks/useHandleSelectorComponent'
 import { useOpenSubtaskCount } from '@/hooks/useSubtaskCount'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import {
+  bulkUpdateWorkflowStateIdByTaskIds,
   selectTaskBoard,
   setAssigneeCache,
   setConfirmAssigneeModalId,
@@ -133,11 +134,13 @@ export const TaskCardList = ({
     const hasNoAssignee = !internalUserId && !isAssigneeClient
     const associations = isAssigneeClient ? [] : undefined
     const isShared = hasNoAssignee || isAssigneeClient ? false : undefined
+    const nextAssignee = getAssigneeValue(userIds)
     store.dispatch(setConfirmAssigneeModalId(undefined))
     store.dispatch(setConfirmAssociationModalId(undefined))
+    setAssigneeValue(nextAssignee)
     if (handleUpdate) {
       token &&
-        handleUpdate(task.id, { internalUserId, clientId, companyId }, () =>
+        handleUpdate(task.id, { assigneeId: getAssigneeId(userIds), internalUserId, clientId, companyId }, () =>
           updateAssignee(token, task.id, internalUserId, clientId, companyId, associations, isShared),
         )
     } else {
@@ -169,7 +172,7 @@ export const TaskCardList = ({
       const isShared = hasNoAssignee || isAssigneeClient ? false : undefined
       if (handleUpdate) {
         token &&
-          handleUpdate(task.id, { assigneeId: nextAssignee?.id }, () =>
+          handleUpdate(task.id, { assigneeId: nextAssignee?.id, internalUserId, clientId, companyId }, () =>
             updateAssignee(token, task.id, internalUserId, clientId, companyId, associations, isShared),
           )
       } else {
@@ -184,7 +187,9 @@ export const TaskCardList = ({
       return NoAssignee
     }
     const assigneeId = getAssigneeId(userIds)
-    const match = assignee.find((assignee) => assignee.id === assigneeId)
+    const match = assignee.find((a) =>
+      userIds.clientId ? a.id === assigneeId && a.companyId === userIds.companyId : a.id === assigneeId,
+    )
     return match ?? NoAssignee
   }
 
@@ -192,15 +197,24 @@ export const TaskCardList = ({
     updateStatusValue(value)
     if (variant === 'task') {
       store.dispatch(updateWorkflowStateIdByTaskId({ taskId: task.id, targetWorkflowStateId: value.id }))
+    } else if (variant === 'subtask-board') {
+      store.dispatch(bulkUpdateWorkflowStateIdByTaskIds({ taskIds: [task.id], targetWorkflowStateId: value.id }))
     }
-    if (mode === UserRole.Client && !previewMode) {
-      clientUpdateTask(z.string().parse(token), task.id, value.id, skipSubtaskCascade)
+    const runUpdate = async () => {
+      if (mode === UserRole.Client && !previewMode) {
+        await clientUpdateTask(z.string().parse(token), task.id, value.id, skipSubtaskCascade)
+      } else {
+        await updateTask({
+          token: z.string().parse(token),
+          taskId: task.id,
+          payload: { workflowStateId: value.id, skipSubtaskCascade },
+        })
+      }
+    }
+    if (handleUpdate) {
+      handleUpdate(task.id, { workflowStateId: value.id, workflowState: value }, runUpdate)
     } else {
-      updateTask({
-        token: z.string().parse(token),
-        taskId: task.id,
-        payload: { workflowStateId: value.id, skipSubtaskCascade },
-      })
+      void runUpdate()
     }
   }
 
@@ -308,6 +322,7 @@ export const TaskCardList = ({
               flexShrink: 1,
               width: '100%',
             }}
+            draggable={false}
           >
             <Stack
               direction="row"

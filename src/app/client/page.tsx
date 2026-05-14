@@ -13,7 +13,6 @@ import { TaskBoardAppBridge } from '@/app/ui/TaskBoardAppBridge'
 import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
-import { DndWrapper } from '@/hoc/DndWrapper'
 import { RealTime } from '@/hoc/RealTime'
 import { Token, TokenSchema, UrlActionParamsType, WorkspaceResponse } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
@@ -27,7 +26,7 @@ import { UserRole } from '@api/core/types/user'
 import { Suspense } from 'react'
 import { z } from 'zod'
 
-export const maxDuration = 60 //just to be safe. the validate count job might take longer that 15 seconds(default max duration of server components) which will make the app crash. Increasing the duration to 60.
+export const maxDuration = 300 //just to be safe. the validate count job might take longer that 15 seconds(default max duration of server components) which will make the app crash. Increasing the duration to 60.
 
 async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
   const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
@@ -108,9 +107,7 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
 
         <TaskBoardAppBridge token={token} role={UserRole.Client} portalUrl={workspace.portalUrl} />
         <RealTime tokenPayload={tokenPayload}>
-          <DndWrapper>
-            <TaskBoard mode={UserRole.Client} token={token} />
-          </DndWrapper>
+          <TaskBoard mode={UserRole.Client} token={token} />
           <ModalNewTaskForm
             handleCreateMultipleAttachments={async (attachments: CreateAttachmentRequest[]) => {
               'use server'

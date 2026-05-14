@@ -10,7 +10,6 @@ import { TaskBoard } from '@/app/ui/TaskBoard'
 import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
-import { DndWrapper } from '@/hoc/DndWrapper'
 import { RealTime } from '@/hoc/RealTime'
 import { UrlActionParamsType, Token, TokenSchema, WorkspaceResponse } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
@@ -25,6 +24,8 @@ import { Suspense } from 'react'
 import { z } from 'zod'
 import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
+
+export const maxDuration = 300
 
 export async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
   const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
@@ -134,9 +135,7 @@ export default async function Main(props: {
 
         <RealTime tokenPayload={tokenPayload}>
           <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
-            <DndWrapper>
-              <TaskBoard mode={UserRole.IU} workspace={workspace} token={token} />
-            </DndWrapper>
+            <TaskBoard mode={UserRole.IU} workspace={workspace} token={token} />
             <ModalNewTaskForm
               handleCreateMultipleAttachments={async (attachments: CreateAttachmentRequest[]) => {
                 'use server'

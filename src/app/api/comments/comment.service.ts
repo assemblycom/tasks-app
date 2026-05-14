@@ -2,7 +2,7 @@ import { AttachmentsService } from '@/app/api/attachments/attachments.service'
 import { PublicCommentSerializer } from '@/app/api/comments/public/public.serializer'
 import { sendCommentCreateNotifications } from '@/jobs/notifications'
 import { sendReplyCreateNotifications } from '@/jobs/notifications/send-reply-create-notifications'
-import { InitiatedEntity, TempClientFilter } from '@/types/common'
+import { InitiatedEntity } from '@/types/common'
 import { CreateAttachmentRequestSchema } from '@/types/dto/attachments.dto'
 import { CommentsPublicFilterType, CommentWithAttachments, CreateComment, UpdateComment } from '@/types/dto/comment.dto'
 import { DISPATCHABLE_EVENT } from '@/types/webhook'
@@ -413,7 +413,7 @@ export class CommentService extends BaseService {
 
     const pagination = getBasicPaginationAttributes(limit, lastIdCursor)
     if (this.user.clientId || this.user.companyId) {
-      where.task = this.getClientOrCompanyAssigneeFilter()
+      where.task = await this.getClientOrCompanyAssigneeFilter()
     }
 
     return await this.db.comment.findMany({
@@ -430,7 +430,7 @@ export class CommentService extends BaseService {
       workspaceId: this.user.workspaceId,
     }
     if (this.user.clientId || this.user.companyId) {
-      where.task = this.getClientOrCompanyAssigneeFilter()
+      where.task = await this.getClientOrCompanyAssigneeFilter()
     }
     const newComment = await this.db.comment.findFirst({
       where,
@@ -463,12 +463,13 @@ export class CommentService extends BaseService {
     }
   }
 
-  protected getClientOrCompanyAssigneeFilter(includeAssociatedTask: boolean = true): Prisma.TaskWhereInput {
-    const clientId = z.string().uuid().parse(this.user.clientId)
-    const companyId = z.string().uuid().parse(this.user.companyId)
+  protected async getClientOrCompanyAssigneeFilter(includeAssociatedTask: boolean = true): Promise<Prisma.TaskWhereInput> {
+    const clientId = z.string().uuid().safeParse(this.user.clientId).data
+    const companyId = z.string().uuid().safeParse(this.user.companyId).data
     const isCuPortal = !this.user.internalUserId && (clientId || companyId)
+    const isIuCompanyPreview = !!this.user.internalUserId && !clientId && !!companyId
 
-    const filters = []
+    const filters: Prisma.TaskWhereInput[] = []
 
     if (clientId && companyId) {
       filters.push(
@@ -478,14 +479,17 @@ export class CommentService extends BaseService {
         { companyId, clientId: null },
       )
       if (includeAssociatedTask) {
-        const tempClientFilter: TempClientFilter = {
-          associations: {
-            hasSome: [{ clientId, companyId }, { companyId }],
-          },
+        // Match tasks associated with this specific client+company OR with the company at large.
+        // `equals` preserves the prior exact-match semantics.
+        const associationVariants: Prisma.TaskWhereInput[] = [
+          { associations: { equals: [{ clientId, companyId }] } },
+          { associations: { equals: [{ companyId }] } },
+        ]
+        if (isCuPortal) {
+          filters.push({ OR: associationVariants, isShared: true })
+        } else {
+          filters.push(...associationVariants)
         }
-        if (isCuPortal) tempClientFilter.isShared = true
-        // Get tasks that includes the client as a association
-        filters.push(tempClientFilter)
       }
     } else if (companyId) {
       filters.push(
@@ -493,15 +497,35 @@ export class CommentService extends BaseService {
         { clientId: null, companyId },
       )
 
-      // Get tasks that includes the company as a association
+      // Get tasks that include the company as an association
       if (includeAssociatedTask) {
-        const tempCompanyFilter: TempClientFilter = {
-          associations: {
-            hasSome: [{ companyId }],
-          },
+        const companyAssociationFilter: Prisma.TaskWhereInput = {
+          associations: { equals: [{ companyId }] },
         }
-        if (isCuPortal) tempCompanyFilter.isShared = true
-        filters.push(tempCompanyFilter)
+        if (isCuPortal) {
+          filters.push({ ...companyAssociationFilter, isShared: true })
+        } else {
+          filters.push(companyAssociationFilter)
+        }
+      }
+
+      // OUT-2898: When an IU is previewing a company in the CRM, also include
+      // comments on tasks belonging to clients of this company and on IU tasks
+      // shared with those clients — mirrors the task visibility rules.
+      if (isIuCompanyPreview) {
+        const companyClientIds = (await this.copilot.getCompanyClients(companyId)).map((c) => c.id)
+        if (companyClientIds.length > 0) {
+          filters.push({ clientId: { in: companyClientIds }, companyId })
+          if (includeAssociatedTask) {
+            // Match tasks whose single association is `{clientId, companyId}` for any client of this company.
+            // `equals` preserves the prior `hasSome` exact-match semantics.
+            filters.push(
+              ...companyClientIds.map((cId) => ({
+                associations: { equals: [{ clientId: cId, companyId }] } as Prisma.JsonFilter,
+              })),
+            )
+          }
+        }
       }
     }
     return filters.length > 0 ? { OR: filters } : {}
