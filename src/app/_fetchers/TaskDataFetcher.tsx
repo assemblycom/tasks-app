@@ -3,44 +3,39 @@ import store from '@/redux/store'
 import { DisplayOptions } from '@/types/dto/viewSettings.dto'
 import { PropsWithToken } from '@/types/interfaces'
 import { fetcher } from '@/utils/fetcher'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSelector } from 'react-redux'
-import useSWR from 'swr'
+import useSWR, { mutate } from 'swr'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 
-interface Props extends PropsWithToken {
-  showArchived?: boolean
-  showUnarchived?: boolean
-}
+const TASK_LIST_KEY_PREFIX = '/api/tasks/?'
 
-export const TaskDataFetcher = ({ token, ...props }: Props) => {
-  const { showArchived, showUnarchived, showSubtasks } = useSelector(selectTaskBoard)
-
-  const buildQueryString = (token: string, displayOptions?: DisplayOptions) => {
-    const queryParams = new URLSearchParams({ token })
-    if (displayOptions?.showArchived !== undefined && displayOptions.showArchived) {
-      queryParams.append('showArchived', displayOptions.showArchived.toString())
-    }
-    if (displayOptions?.showUnarchived !== undefined) {
-      queryParams.append('showUnarchived', displayOptions.showUnarchived.toString())
-    }
-
-    return queryParams.toString()
+const buildQueryString = (token: string, displayOptions?: DisplayOptions) => {
+  const queryParams = new URLSearchParams({ token })
+  if (displayOptions?.showArchived !== undefined && displayOptions.showArchived) {
+    queryParams.append('showArchived', displayOptions.showArchived.toString())
+  }
+  if (displayOptions?.showUnarchived !== undefined) {
+    queryParams.append('showUnarchived', displayOptions.showUnarchived.toString())
   }
 
-  const hasChanged = useMemo(() => {
-    if (props.showArchived !== showArchived) {
-      return true
-    }
+  return queryParams.toString()
+}
 
-    if (props.showUnarchived !== showUnarchived) {
-      return true
-    }
-  }, [props.showArchived, props.showUnarchived, showUnarchived, showArchived])
+export const TaskDataFetcher = ({ token }: PropsWithToken) => {
+  const { showArchived, showUnarchived, showSubtasks, tasks: tasksInStore } = useSelector(selectTaskBoard)
 
-  const queryString = token ? buildQueryString(token, { showArchived, showUnarchived, showSubtasks }) : null
+  const skipFetch = !showArchived && !showUnarchived
+  const queryString = token && !skipFetch ? buildQueryString(token, { showArchived, showUnarchived, showSubtasks }) : null
+  const swrKey = queryString ? `${TASK_LIST_KEY_PREFIX}${queryString}` : null
 
-  const { isLoading, data } = useSWR<{ tasks: TaskResponse[] }>(queryString ? `/api/tasks/?${queryString}` : null, fetcher, {
+  // Tracks the `tasks` array this component last wrote into Redux. Realtime is the only
+  // other writer for this slice, so when Redux's `tasks` ref diverges from this we know
+  // realtime updated the store and every cached task-list response is now stale.
+  const lastWrittenTasksRef = useRef<TaskResponse[]>(tasksInStore)
+
+  const { isLoading, data } = useSWR<{ tasks: TaskResponse[] }>(swrKey, fetcher, {
+    fallbackData: { tasks: tasksInStore },
     revalidateOnMount: false,
     revalidateOnFocus: false,
     refreshInterval: 0,
@@ -51,10 +46,16 @@ export const TaskDataFetcher = ({ token, ...props }: Props) => {
   }, [isLoading])
 
   useEffect(() => {
-    if (data?.tasks && hasChanged) {
-      store.dispatch(setTasks(data.tasks))
-    }
-  }, [data, hasChanged])
+    if (!data?.tasks) return
+    lastWrittenTasksRef.current = data.tasks
+    store.dispatch(setTasks(data.tasks))
+  }, [data])
+
+  useEffect(() => {
+    if (tasksInStore === lastWrittenTasksRef.current) return
+    lastWrittenTasksRef.current = tasksInStore
+    mutate((key) => typeof key === 'string' && key.startsWith(TASK_LIST_KEY_PREFIX), undefined, { revalidate: false })
+  }, [tasksInStore])
 
   return null
 }
