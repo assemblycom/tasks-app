@@ -120,7 +120,7 @@ export const StatusCustomizationSection = ({ initialWorkflowStates, token }: Sta
                 px: '12px',
                 py: '12px',
                 minHeight: '52px',
-                borderTop: (theme) => (index === 0 ? 'none' : `1px solid ${theme.color.borders.border}`),
+                boxShadow: (theme) => (index === 0 ? 'none' : `inset 0 1px 0 0 ${theme.color.borders.border}`),
                 '&:hover': isEditing
                   ? undefined
                   : {

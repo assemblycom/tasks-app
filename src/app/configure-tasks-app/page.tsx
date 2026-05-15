@@ -98,6 +98,7 @@ export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPage
             token={token}
             portalUrl={workspace.portalUrl}
           />
+          <StatusCustomizationSection initialWorkflowStates={workflowStates} token={token} />
           <TemplateBoard
             handleCreateTemplate={async (payload: CreateTemplateRequest) => {
               'use server'
@@ -112,7 +113,6 @@ export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPage
               await editTemplate(token, templateId, payload)
             }}
           />
-          <StatusCustomizationSection initialWorkflowStates={workflowStates} token={token} />
         </Stack>
       </RealTimeTemplates>
     </ClientSideStateUpdate>
