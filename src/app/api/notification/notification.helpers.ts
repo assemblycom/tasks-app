@@ -1,7 +1,7 @@
 import { WorkspaceResponse } from '@/types/common'
 import { getWorkspaceLabels } from '@/utils/getWorkspaceLabels'
 import { NotificationTaskActions } from '@api/core/types/tasks'
-import { Task } from '@prisma/client'
+import { Task, TaskReminderType } from '@prisma/client'
 
 /**
  * Helper function that sets the in-product notification title and body for a given notification trigger
@@ -197,6 +197,82 @@ export const getEmailDetails = (
       header: `A task was shared with you by ${actionUser}`,
       title: 'View task',
       body: `${actionUser} shared the task '${task?.title}'. View the task below to see updates and leave comments.`,
+      ctaParams,
+    },
+  }
+}
+
+/**
+ * Helper function that returns reminder email content for each TaskReminderType variant.
+ * Lifecycle is independent from `getEmailDetails` (which is keyed by NotificationTaskActions).
+ * @param {WorkspaceResponse} workspace - Workspace whose brandName fronts the subject and
+ *   whose labels resolve the company term.
+ * @param {Pick<Task, 'id' | 'title'>} task - Task being reminded about. Used for ctaParams and body interpolation.
+ * @param {boolean} isCompanyRecipient - True if recipient is a company (header reads "your {groupTerm}"),
+ *   false for an individual recipient (header reads "you").
+ * @returns Reminder email content keyed by TaskReminderType.
+ */
+export const getReminderEmailDetails = (
+  workspace: WorkspaceResponse,
+  task: Pick<Task, 'id' | 'title'>,
+  isCompanyRecipient: boolean,
+): Record<
+  TaskReminderType,
+  {
+    title: string
+    subject: string
+    header: string
+    body: string
+    ctaParams: { taskId: string }
+  }
+> => {
+  const portalPrefix = `${workspace.brandName ?? ''} portal:`.trimStart()
+  const labels = getWorkspaceLabels(workspace)
+  const header = isCompanyRecipient ? `A task was assigned to your ${labels.groupTerm}` : 'A task was assigned to you'
+  const ctaParams = { taskId: task.id }
+  const title = 'View task'
+
+  return {
+    [TaskReminderType.NO_DUE_DATE_3D]: {
+      subject: `${portalPrefix} [Reminder] You have a task to complete`,
+      header,
+      title,
+      body: `This is a friendly reminder that you have a task ‘${task.title}’ assigned to you that's still pending completion.\n\nIf you've already completed this task, please mark it as done in the portal.`,
+      ctaParams,
+    },
+    [TaskReminderType.NO_DUE_DATE_7D]: {
+      subject: `${portalPrefix} [Reminder] Task still pending`,
+      header,
+      title,
+      body: `This is a friendly reminder that you have a task ‘${task.title}’ that was assigned to you a week ago and is still pending.\n\nIf you've already completed this task, please mark it as done in the portal.`,
+      ctaParams,
+    },
+    [TaskReminderType.DUE_DATE_BEFORE_3D]: {
+      subject: `${portalPrefix} [Due Soon] Task due in 3 days`,
+      header,
+      title,
+      body: `This is a friendly reminder that you have a task ‘${task.title}’ due in 3 days.\n\nPlease make sure to complete this task by the due date.`,
+      ctaParams,
+    },
+    [TaskReminderType.DUE_DATE_TODAY]: {
+      subject: `${portalPrefix} [Due Soon] Task due today`,
+      header,
+      title,
+      body: `This is a friendly reminder that you have a task ‘${task.title}’ due today.\n\nPlease complete this task as soon as possible.`,
+      ctaParams,
+    },
+    [TaskReminderType.DUE_DATE_OVERDUE_3D]: {
+      subject: `${portalPrefix} [Overdue] Task was due 3 days ago`,
+      header,
+      title,
+      body: `This is a friendly reminder that the task ‘${task.title}’ is now overdue. It was due 3 days ago and is still pending completion.`,
+      ctaParams,
+    },
+    [TaskReminderType.DUE_DATE_OVERDUE_7D]: {
+      subject: `${portalPrefix} [Overdue] Task overdue by one week`,
+      header,
+      title,
+      body: `This is a friendly reminder that the task ‘${task.title}’ is now one week overdue.\n\nPlease complete this task as soon as possible.`,
       ctaParams,
     },
   }
