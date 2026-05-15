@@ -120,6 +120,7 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
     !archivedOptions.showArchived
 
   const [hasInitialized, setHasInitialized] = useState(false)
+
   useEffect(() => {
     if (!isTasksLoading && !hasInitialized) {
       setHasInitialized(true)
@@ -146,13 +147,13 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
   }, [accessibleTasks, showSubtasks, showArchived, showUnarchived])
 
   if (!hasInitialized) {
-    return <TaskDataFetcher token={token} />
+    return <TaskDataFetcher token={token} showArchived={showArchived} showUnarchived={showUnarchived} />
   } //fix this logic as soon as copilot API natively supports access scopes by creating an endpoint which shows the count of filteredTask and total tasks.
 
   if (tasks && !tasks.length && userHasNoFilter && mode === UserRole.Client && !previewMode && !isTasksLoading) {
     return (
       <>
-        <TaskDataFetcher token={token ?? ''} />
+        <TaskDataFetcher token={token ?? ''} showArchived={showArchived} showUnarchived={showUnarchived} />
         <DashboardEmptyState userType={mode} />
       </>
     )
@@ -160,7 +161,7 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
 
   return (
     <>
-      <TaskDataFetcher token={token} />
+      <TaskDataFetcher token={token} showArchived={showArchived} showUnarchived={showUnarchived} />
 
       {mode == UserRole.IU && <TaskBoardAppBridge token={token} role={UserRole.IU} portalUrl={workspace?.portalUrl} />}
 
