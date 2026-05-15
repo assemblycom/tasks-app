@@ -10,7 +10,7 @@ interface WithDueDate extends BaseSortable {
 }
 
 interface WithSubtaskSort extends WithDueDate {
-  workflowState: { type: StateType }
+  workflowState?: { type: StateType }
 }
 
 const getTimestamp = (date: string | Date) => new Date(date).getTime()
@@ -22,6 +22,8 @@ const subtaskStatePriority: Record<StateType, number> = {
   [StateType.backlog]: 3,
   [StateType.cancelled]: 4,
 }
+
+const UNKNOWN_STATE_PRIORITY = Number.MAX_SAFE_INTEGER
 
 export const sortByDescendingOrder = <T extends BaseSortable, K extends keyof T = never>(
   items: T[],
@@ -49,8 +51,10 @@ export const sortTaskByDescendingOrder = <T extends WithDueDate>(tasks: T[]) => 
 export const sortTemplatesByDescendingOrder = <T extends BaseSortable>(templates: T[]) => sortByDescendingOrder(templates)
 
 export const sortSubtasksByPriority = <T extends WithSubtaskSort>(subtasks: T[]): T[] => {
+  const priorityOf = (state?: { type: StateType }) =>
+    state ? (subtaskStatePriority[state.type] ?? UNKNOWN_STATE_PRIORITY) : UNKNOWN_STATE_PRIORITY
   return [...subtasks].sort((a, b) => {
-    const priorityDiff = subtaskStatePriority[a.workflowState.type] - subtaskStatePriority[b.workflowState.type]
+    const priorityDiff = priorityOf(a.workflowState) - priorityOf(b.workflowState)
     if (priorityDiff !== 0) return priorityDiff
 
     if (a.dueDate && !b.dueDate) return -1
