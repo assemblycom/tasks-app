@@ -15,6 +15,7 @@ import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
 import { Token, TokenSchema, WorkspaceResponse } from '@/types/common'
 import { ConfigureTasksAppBridge } from '@/app/configure-tasks-app/ui/ConfigureTasksAppBridge'
 import { AutoArchiveSection } from '@/app/configure-tasks-app/ui/AutoArchiveSection'
+import { StatusCustomizationSection } from '@/app/configure-tasks-app/ui/StatusCustomizationSection'
 import { Stack } from '@mui/material'
 
 async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
@@ -97,6 +98,7 @@ export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPage
             token={token}
             portalUrl={workspace.portalUrl}
           />
+          <StatusCustomizationSection initialWorkflowStates={workflowStates} token={token} />
           <TemplateBoard
             handleCreateTemplate={async (payload: CreateTemplateRequest) => {
               'use server'
