@@ -11,6 +11,11 @@ export const CreateWorkflowStateRequestSchema = z.object({
 })
 export type CreateWorkflowStateRequest = z.infer<typeof CreateWorkflowStateRequestSchema>
 
+export const UpdateWorkflowStateRequestSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+})
+export type UpdateWorkflowStateRequest = z.infer<typeof UpdateWorkflowStateRequestSchema>
+
 export const WorkflowStateResponseSchema = z.object({
   id: z.string(),
   workspaceId: z.string(),
