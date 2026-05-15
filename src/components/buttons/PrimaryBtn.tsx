@@ -9,6 +9,7 @@ export const PrimaryBtn = ({
   buttonBackground,
   disabled,
   padding,
+  height,
   variant = 'default',
 }: {
   startIcon?: ReactNode
@@ -17,6 +18,7 @@ export const PrimaryBtn = ({
   buttonBackground?: string
   disabled?: boolean
   padding?: string
+  height?: string
   variant?: 'default' | 'danger'
 }) => {
   return (
@@ -35,6 +37,7 @@ export const PrimaryBtn = ({
         borderRadius: '4px',
         cursor: 'pointer',
         padding: padding ?? 'none',
+        height: height ?? 'auto',
       })}
       onClick={() => handleClick()}
       disableRipple

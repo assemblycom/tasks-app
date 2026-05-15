@@ -77,8 +77,8 @@ export const AutoArchiveSection = ({ initialAutoArchiveAfterDays, token, portalU
 
       <Box
         sx={{
-          border: (theme) => `1px solid ${theme.color.borders.borderDisabled}`,
-          borderRadius: '8px',
+          border: (theme) => `1px solid ${theme.color.borders.border}`,
+          borderRadius: '4px',
           background: (theme) => theme.color.base.white,
         }}
       >
@@ -90,7 +90,7 @@ export const AutoArchiveSection = ({ initialAutoArchiveAfterDays, token, portalU
         {isEnabled && (
           <Box
             sx={{
-              borderTop: (theme) => `1px solid ${theme.color.borders.borderDisabled}`,
+              borderTop: (theme) => `1px solid ${theme.color.borders.border}`,
               px: '16px',
               py: '14px',
             }}
