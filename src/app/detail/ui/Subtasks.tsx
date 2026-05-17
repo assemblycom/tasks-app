@@ -108,6 +108,9 @@ export const Subtasks = ({
         cacheKey,
         async () => {
           const subTask = await handleCreate(token, payload, { disableSubtaskTemplates: true })
+          if (!subTask || 'error' in subTask) {
+            throw new Error(subTask?.error ?? 'Failed to create subtask')
+          }
           setOptimisticUpdates((prev) =>
             prev.map((update) => (update.tempId === tempId ? { ...update, serverId: subTask.id } : update)),
           )

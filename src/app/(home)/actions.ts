@@ -2,7 +2,7 @@
 
 import { apiUrl } from '@/config'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
-import { CreateTaskRequest, UpdateTaskRequest } from '@/types/dto/tasks.dto'
+import { CreateTaskRequest, TaskResponse, UpdateTaskRequest } from '@/types/dto/tasks.dto'
 import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
 import { ISignedUrlUpload } from '@/types/interfaces'
 import { getForwardedAssemblyHeaders } from '@/utils/serverHeaders'
@@ -59,7 +59,7 @@ export const handleCreate = async (
       },
     )
 
-    return await parseApiResponse(response, 'Failed to create task')
+    return await parseApiResponse<TaskResponse>(response, 'Failed to create task')
   } catch (e: unknown) {
     console.error('Something went wrong while creating task!', e)
     return { error: getErrorMessage(e) }
