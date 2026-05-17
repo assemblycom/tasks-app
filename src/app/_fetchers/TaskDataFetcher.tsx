@@ -7,6 +7,13 @@ import { useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import useSWR from 'swr'
 
+// Stable cache tag for the tasks-list query. Used as the first element of every SWR cache key
+// in this file so realtime invalidation can wipe every filter-combo cache entry with a single
+// matcher (see `src/hoc/RealTime.tsx`). Do not change without updating the realtime invalidator.
+export const TASKS_LIST_SWR_KEY = 'tasks-list'
+
+type TasksListSwrKey = [typeof TASKS_LIST_SWR_KEY, string, boolean | undefined, boolean | undefined, boolean | undefined]
+
 export const TaskDataFetcher = ({ token }: PropsWithToken) => {
   const { showArchived, showUnarchived, showSubtasks, hasArchiveFilterChanged } = useSelector(selectTaskBoard)
 
@@ -30,16 +37,23 @@ export const TaskDataFetcher = ({ token }: PropsWithToken) => {
     return queryParams.toString()
   }
 
-  // Only fetch when the user has actually toggled an archive filter. SSR + realtime
-  // keep `tasks` fresh; refetching on mount would clobber realtime updates with stale cache.
+  // Only fetch when the user has actually toggled an archive filter. SSR + realtime keep
+  // `tasks` fresh; refetching on mount would clobber realtime updates with stale cache.
   const shouldFetch = !!token && hasArchiveFilterChanged
-  const queryString = shouldFetch ? buildQueryString(token, { showArchived, showUnarchived, showSubtasks }) : null
+  const swrKey: TasksListSwrKey | null = shouldFetch
+    ? [TASKS_LIST_SWR_KEY, token, showArchived, showUnarchived, showSubtasks]
+    : null
 
-  const { data, isLoading } = useSWR(queryString ? `/api/tasks/?${queryString}` : null, fetcher, {
-    revalidateOnMount: false,
-    revalidateOnFocus: false,
-    refreshInterval: 0,
-  })
+  const { data, isLoading } = useSWR(
+    swrKey,
+    ([, t, sa, su, ss]: TasksListSwrKey) =>
+      fetcher(`/api/tasks/?${buildQueryString(t, { showArchived: sa, showUnarchived: su, showSubtasks: ss })}`),
+    {
+      revalidateOnMount: false,
+      revalidateOnFocus: false,
+      refreshInterval: 0,
+    },
+  )
 
   useEffect(() => {
     store.dispatch(setIsTasksLoading(isLoading))
