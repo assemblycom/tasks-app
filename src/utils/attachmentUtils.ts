@@ -33,11 +33,14 @@ export const uploadAttachmentHandler = async (
   const supabaseActions = new SupabaseActions()
 
   const fileName = generateRandomString(file.name)
-  const signedUrl: ISignedUrlUpload = await getSignedUrlUpload(
+  const signedUrl: ISignedUrlUpload | undefined = await getSignedUrlUpload(
     token,
     fileName,
     buildFilePath(workspaceId, type, entityId, parentTaskId),
   )
+  if (!signedUrl) {
+    return undefined
+  }
 
   const { filePayload, error } = await supabaseActions.uploadAttachment(file, signedUrl, entityId)
 
