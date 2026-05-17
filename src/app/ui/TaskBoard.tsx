@@ -120,7 +120,6 @@ export const TaskBoard = ({ mode, workspace, token }: TaskBoardProps) => {
     !archivedOptions.showArchived
 
   const [hasInitialized, setHasInitialized] = useState(false)
-
   useEffect(() => {
     if (!isTasksLoading && !hasInitialized) {
       setHasInitialized(true)
