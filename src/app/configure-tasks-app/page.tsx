@@ -1,5 +1,6 @@
 export const fetchCache = 'force-no-store'
 
+import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { TemplateBoard } from './ui/TemplateBoard'
 import { apiUrl } from '@/config'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
@@ -11,9 +12,10 @@ import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
-import { Token, TokenSchema } from '@/types/common'
+import { Token, TokenSchema, WorkspaceResponse } from '@/types/common'
 import { ConfigureTasksAppBridge } from '@/app/configure-tasks-app/ui/ConfigureTasksAppBridge'
 import { AutoArchiveSection } from '@/app/configure-tasks-app/ui/AutoArchiveSection'
+import { StatusCustomizationSection } from '@/app/configure-tasks-app/ui/StatusCustomizationSection'
 import { Stack } from '@mui/material'
 
 async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
@@ -86,6 +88,7 @@ export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPage
       <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
         <Stack direction="column" rowGap="32px" sx={{ paddingTop: '24px', paddingBottom: '12px', paddingX: '12px' }}>
           <AutoArchiveSection initialAutoArchiveAfterDays={workspaceSetting.autoArchiveAfterDays} token={token} />
+          <StatusCustomizationSection initialWorkflowStates={workflowStates} token={token} />
           <TemplateBoard
             handleCreateTemplate={async (payload: CreateTemplateRequest) => {
               'use server'

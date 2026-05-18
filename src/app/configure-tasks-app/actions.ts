@@ -2,6 +2,7 @@
 import { apiUrl } from '@/config'
 import { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { UpdateWorkspaceSettingsDTO } from '@/types/dto/workspaceSettings.dto'
+import { UpdateWorkflowStateRequest } from '@/types/dto/workflowStates.dto'
 
 export const createNewTemplate = async (token: string, payload: CreateTemplateRequest) => {
   const resp = await fetch(`${apiUrl}/api/tasks/templates?token=${token}`, {
@@ -43,4 +44,16 @@ export async function updateWorkspaceSettings(token: string, payload: UpdateWork
     throw new Error(`Failed to update workspace settings: ${resp.status}`)
   }
   return await resp.json()
+}
+
+export async function updateWorkflowState(token: string, id: string, payload: UpdateWorkflowStateRequest) {
+  const resp = await fetch(`${apiUrl}/api/workflow-states/${id}?token=${token}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  if (!resp.ok) {
+    throw new Error(`Failed to update workflow state: ${resp.status}`)
+  }
+  const { updatedWorkflowState } = await resp.json()
+  return updatedWorkflowState
 }
