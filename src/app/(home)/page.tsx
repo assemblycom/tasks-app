@@ -28,11 +28,13 @@ import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
 export const maxDuration = 300
 
 export async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
-  const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
-    next: { tags: ['getAllWorkflowStates'] },
-  })
+  const data = await fetchWithErrorHandler<{ workflowStates: WorkflowStateResponse[] }>(
+    `${apiUrl}/api/workflow-states?token=${token}`,
+    {
+      next: { tags: ['getAllWorkflowStates'] },
+    },
+  )
 
-  const data = await res.json()
   return data.workflowStates
 }
 
@@ -67,10 +69,9 @@ export async function getWorkspace(token: string): Promise<WorkspaceResponse> {
 }
 
 export async function getViewSettings(token: string): Promise<CreateViewSettingsDTO> {
-  const res = await fetch(`${apiUrl}/api/view-settings?token=${token}`, {
+  const resp = await fetchWithErrorHandler<CreateViewSettingsDTO>(`${apiUrl}/api/view-settings?token=${token}`, {
     next: { tags: ['getViewSettings'] },
   })
-  const resp = await res.json()
 
   return resp
 }

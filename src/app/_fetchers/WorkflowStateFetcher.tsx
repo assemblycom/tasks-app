@@ -1,6 +1,7 @@
 export const fetchCache = 'force-no-store'
 
 import { apiUrl } from '@/config'
+import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
@@ -12,11 +13,12 @@ interface WorkflowStateFetcherProps extends PropsWithToken, PropsWithChildren {
 }
 
 const getAllWorkflowStates = async (token: string): Promise<WorkflowStateResponse[]> => {
-  const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
-    next: { tags: ['getAllWorkflowStates'] },
-  })
-
-  const data = await res.json()
+  const data = await fetchWithErrorHandler<{ workflowStates: WorkflowStateResponse[] }>(
+    `${apiUrl}/api/workflow-states?token=${token}`,
+    {
+      next: { tags: ['getAllWorkflowStates'] },
+    },
+  )
 
   return data.workflowStates
 }

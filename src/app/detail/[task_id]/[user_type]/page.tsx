@@ -69,14 +69,13 @@ async function getWorkspace(token: string): Promise<WorkspaceResponse> {
 }
 
 async function getSubTasksStatus(token: string, taskId: string): Promise<SubTaskStatusResponse> {
-  const res = await fetch(`${apiUrl}/api/tasks/${taskId}/subtask-count?token=${token}`, {})
-  const data = await res.json()
-  return data
+  return await fetchWithErrorHandler<SubTaskStatusResponse>(`${apiUrl}/api/tasks/${taskId}/subtask-count?token=${token}`, {})
 }
 
 async function getTaskPath(token: string, taskId: string): Promise<AncestorTaskResponse[]> {
-  const res = await fetch(`${apiUrl}/api/tasks/${taskId}/path?token=${token}`)
-  const { path } = await res.json()
+  const { path } = await fetchWithErrorHandler<{ path: AncestorTaskResponse[] }>(
+    `${apiUrl}/api/tasks/${taskId}/path?token=${token}`,
+  )
   return path
 }
 

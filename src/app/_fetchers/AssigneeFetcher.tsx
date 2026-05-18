@@ -1,6 +1,7 @@
 export const fetchCache = 'force-no-store'
 
 import { AssigneeCacheSetter } from '@/app/_cache/AssigneeCacheSetter'
+import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { apiUrl } from '@/config'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
@@ -9,9 +10,6 @@ import { TaskResponse } from '@/types/dto/tasks.dto'
 import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
 import { IAssignee, PropsWithToken, UserType } from '@/types/interfaces'
 import { addTypeToAssignee } from '@/utils/addTypeToAssignee'
-import fetchRetry from 'fetch-retry'
-
-const fetchWithRetry = fetchRetry(globalThis.fetch)
 
 interface AssigneeFetcherProps extends PropsWithToken {
   viewSettings?: CreateViewSettingsDTO
@@ -23,21 +21,23 @@ interface AssigneeFetcherProps extends PropsWithToken {
 
 const fetchAssignee = async (token: string, userType?: UserType, isPreview?: boolean): Promise<IAssignee> => {
   if (userType === UserType.CLIENT_USER && !isPreview) {
-    const res = await fetchWithRetry(`${apiUrl}/api/users/client?token=${token}&limit=${MAX_FETCH_ASSIGNEE_COUNT}`, {
-      next: { tags: ['getAssigneeList'] },
-      retries: 3,
-      retryDelay: 100,
-    })
-
-    const data = await res.json()
+    const data = await fetchWithErrorHandler<{ clients: IAssignee }>(
+      `${apiUrl}/api/users/client?token=${token}&limit=${MAX_FETCH_ASSIGNEE_COUNT}`,
+      {
+        next: { tags: ['getAssigneeList'] },
+      },
+    )
 
     return data.clients
   }
 
-  const res = await fetch(`${apiUrl}/api/users?token=${token}&limit=${MAX_FETCH_ASSIGNEE_COUNT}`, {
-    next: { tags: ['getAssigneeList'] },
-  })
-  return (await res.json()).users as IAssignee
+  const data = await fetchWithErrorHandler<{ users: IAssignee }>(
+    `${apiUrl}/api/users?token=${token}&limit=${MAX_FETCH_ASSIGNEE_COUNT}`,
+    {
+      next: { tags: ['getAssigneeList'] },
+    },
+  )
+  return data.users
 }
 export const AssigneeFetcher = async ({
   token,

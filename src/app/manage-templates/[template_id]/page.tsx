@@ -1,4 +1,5 @@
 import { getAllWorkflowStates, getTokenPayload, getWorkspace } from '@/app/(home)/page'
+import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { ResponsiveStack } from '@/app/detail/ui/ResponsiveStack'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
@@ -21,11 +22,10 @@ import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { getPreviewMode } from '@/utils/previewMode'
 
 async function getTemplate(id: string, token: string): Promise<ITemplate> {
-  const res = await fetch(`${apiUrl}/api/tasks/templates/${id}?token=${token}`, {
+  const templates = await fetchWithErrorHandler<{ data: ITemplate }>(`${apiUrl}/api/tasks/templates/${id}?token=${token}`, {
     cache: 'no-store',
   })
 
-  const templates = await res.json()
   return templates.data
 }
 

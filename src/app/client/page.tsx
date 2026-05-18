@@ -5,6 +5,7 @@ import { getViewSettings } from '@/app/(home)/page'
 import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'
 import { AllTasksFetcher } from '@/app/_fetchers/AllTasksFetcher'
 import { AssigneeFetcher } from '@/app/_fetchers/AssigneeFetcher'
+import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { TemplatesFetcher } from '@/app/_fetchers/TemplatesFetcher'
 import { ValidateNotificationCountFetcher } from '@/app/_fetchers/ValidateNotificationCountFetcher'
 import { ModalNewTaskForm } from '@/app/ui/Modal_NewTaskForm'
@@ -29,18 +30,18 @@ import { z } from 'zod'
 export const maxDuration = 300 //just to be safe. the validate count job might take longer that 15 seconds(default max duration of server components) which will make the app crash. Increasing the duration to 60.
 
 async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
-  const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
-    next: { tags: ['getAllWorkflowStates'] },
-  })
-
-  const data = await res.json()
+  const data = await fetchWithErrorHandler<{ workflowStates: WorkflowStateResponse[] }>(
+    `${apiUrl}/api/workflow-states?token=${token}`,
+    {
+      next: { tags: ['getAllWorkflowStates'] },
+    },
+  )
 
   return data.workflowStates
 }
 
 async function getAllTasks(token: string): Promise<TaskResponse[]> {
-  const res = await fetch(`${apiUrl}/api/tasks?token=${token}`)
-  const data = await res.json()
+  const data = await fetchWithErrorHandler<{ tasks: TaskResponse[] }>(`${apiUrl}/api/tasks?token=${token}`)
   return data.tasks
 }
 

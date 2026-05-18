@@ -3,6 +3,7 @@ export const fetchCache = 'force-no-store'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { TemplateBoard } from './ui/TemplateBoard'
 import { apiUrl } from '@/config'
+import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { IAssignee, ITemplate } from '@/types/interfaces'
 import { addTypeToAssignee } from '@/utils/addTypeToAssignee'
@@ -19,31 +20,31 @@ import { StatusCustomizationSection } from '@/app/configure-tasks-app/ui/StatusC
 import { Stack } from '@mui/material'
 
 async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
-  const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
-    next: { tags: ['getAllWorkflowStates'] },
-  })
-
-  const data = await res.json()
+  const data = await fetchWithErrorHandler<{ workflowStates: WorkflowStateResponse[] }>(
+    `${apiUrl}/api/workflow-states?token=${token}`,
+    {
+      next: { tags: ['getAllWorkflowStates'] },
+    },
+  )
 
   return data.workflowStates
 }
 
 async function getAssigneeList(token: string): Promise<IAssignee> {
-  const res = await fetch(`${apiUrl}/api/users?token=${token}&limit=${MAX_FETCH_ASSIGNEE_COUNT}`, {
-    next: { tags: ['getAssigneeList'] },
-  })
-
-  const data = await res.json()
+  const data = await fetchWithErrorHandler<{ users: IAssignee }>(
+    `${apiUrl}/api/users?token=${token}&limit=${MAX_FETCH_ASSIGNEE_COUNT}`,
+    {
+      next: { tags: ['getAssigneeList'] },
+    },
+  )
 
   return data.users
 }
 
 async function getAllTemplates(token: string): Promise<ITemplate[]> {
-  const res = await fetch(`${apiUrl}/api/tasks/templates?token=${token}`, {
+  const templates = await fetchWithErrorHandler<{ data: ITemplate[] }>(`${apiUrl}/api/tasks/templates?token=${token}`, {
     next: { tags: ['getAllTemplates'] },
   })
-
-  const templates = await res.json()
 
   return templates.data
 }
@@ -60,8 +61,9 @@ async function getWorkspace(token: string): Promise<WorkspaceResponse> {
 }
 
 async function getWorkspaceSetting(token: string): Promise<{ autoArchiveAfterDays: number }> {
-  const res = await fetch(`${apiUrl}/api/workspace-settings?token=${token}`, { cache: 'no-store' })
-  return await res.json()
+  return await fetchWithErrorHandler<{ autoArchiveAfterDays: number }>(`${apiUrl}/api/workspace-settings?token=${token}`, {
+    cache: 'no-store',
+  })
 }
 
 interface ConfigureTasksAppPageProps {
