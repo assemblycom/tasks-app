@@ -58,7 +58,7 @@ import { resolveAutofillTags, resolveDynamicFields } from '@/utils/dynamicFields
 import { trimAllTags } from '@/utils/trimTags'
 import { Box, Stack, styled, Typography } from '@mui/material'
 import { marked } from 'marked'
-import { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react'
+import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Tapwrite } from 'tapwrite'
 import { useAssociationLabelForWorkspace } from '@/hooks/useWorkspaceLabel'
@@ -479,6 +479,9 @@ const NewTaskHeader = ({
   const { token, workflowStates } = useSelector(selectTaskBoard)
   const { templates } = useSelector(selectCreateTemplate)
   const { title, showModal, description, appliedDescription, appliedTitle } = useSelector(selectCreateTask)
+  const activeApplyTemplateRequest = useRef<{ id: number; controller: AbortController } | null>(null)
+  const applyTemplateRequestId = useRef(0)
+  const showModalRef = useRef(showModal)
 
   const { renderingItem: _templateValue, updateRenderingItem: updateTemplateValue } = useHandleSelectorComponent({
     item: undefined, //initially we don't want any value to be selected
@@ -486,13 +489,33 @@ const NewTaskHeader = ({
   })
   const templateValue = _templateValue as ITemplate //typecasting
 
+  useEffect(() => {
+    showModalRef.current = showModal
+    if (!showModal) {
+      activeApplyTemplateRequest.current?.controller.abort()
+      activeApplyTemplateRequest.current = null
+      setIsEditorReadonly?.(false)
+    }
+  }, [showModal, setIsEditorReadonly])
+
+  useEffect(() => {
+    return () => {
+      activeApplyTemplateRequest.current?.controller.abort()
+    }
+  }, [])
+
   const applyTemplate = useCallback(
     (id: string, templateTitle: string, subTaskTemplates: ITemplate[]) => {
       const controller = new AbortController()
+      const requestId = applyTemplateRequestId.current + 1
+      applyTemplateRequestId.current = requestId
+      activeApplyTemplateRequest.current?.controller.abort()
+      activeApplyTemplateRequest.current = { id: requestId, controller }
+      const isLatestRequest = () => activeApplyTemplateRequest.current?.id === requestId
 
       const fetchTemplate = async () => {
         try {
-          if (!showModal) {
+          if (!showModalRef.current) {
             controller.abort()
             return
           }
@@ -510,8 +533,14 @@ const NewTaskHeader = ({
           const resp = await fetch(`/api/tasks/templates/${id}/apply?token=${token}`, {
             signal: controller.signal,
           })
+          if (!isLatestRequest() || !showModalRef.current) return
+          if (!resp.ok) {
+            console.error('Failed to apply template', await resp.text())
+            setSubtasksCount(0)
+            return
+          }
           const { data: template } = await resp.json()
-          if (!showModal) return
+          if (!isLatestRequest() || !showModalRef.current) return
 
           setIsEditorReadonly?.(false)
           updateWorkflowStatusValue(workflowStates.find((state) => state.id === template.workflowStateId))
@@ -531,9 +560,17 @@ const NewTaskHeader = ({
           store.dispatch(setErrors({ key: CreateTaskErrors.TITLE, value: false }))
         } catch (error) {
           if (error instanceof DOMException && error.name === 'AbortError') {
+            return
+          }
+          console.error('Failed to apply template', error)
+          if (isLatestRequest()) {
+            setSubtasksCount(0)
           }
         } finally {
-          setIsEditorReadonly?.(false)
+          if (isLatestRequest()) {
+            activeApplyTemplateRequest.current = null
+            setIsEditorReadonly?.(false)
+          }
         }
       }
       fetchTemplate()
