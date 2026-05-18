@@ -1,10 +1,12 @@
 import { BoardViewIcon, DisplayOptionsIcon, ListViewIcon } from '@/icons'
-import { Menu, MenuItem, Stack, styled, Typography } from '@mui/material'
+import { Menu, Stack, styled, Typography } from '@mui/material'
 import { ViewMode } from '@prisma/client'
 import { SecondaryBtn } from '@/components/buttons/SecondaryBtn'
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { StyledSwitch } from '@/components/inputs/StyledSwitch'
-import { DisplayOptions } from '@/types/dto/viewSettings.dto'
+import type { DisplayOptions } from '@/types/dto/viewSettings.dto'
+import { setHasArchiveFilterChanged } from '@/redux/features/taskBoardSlice'
+import store from '@/redux/store'
 
 interface DisplaySelectorProps {
   handleModeChange: (mode: ViewMode) => void
@@ -24,11 +26,16 @@ export const DisplaySelector = ({
   const [anchorEl, setAnchorEl] = useState<null | Element>(null)
   const open = Boolean(anchorEl)
 
-  const handleClick = (event: React.MouseEvent) => {
+  const handleClick = (event: MouseEvent) => {
     setAnchorEl(event.currentTarget)
   }
   const handleClose = () => {
     setAnchorEl(null)
+  }
+
+  const handleArchiveFilterChange = (options: DisplayOptions) => {
+    handleDisplayOptionsChange(options)
+    store.dispatch(setHasArchiveFilterChanged(true))
   }
 
   return (
@@ -157,7 +164,7 @@ export const DisplaySelector = ({
           <StyledSwitch
             checked={displayOptions.showUnarchived}
             onChange={(e) =>
-              handleDisplayOptionsChange({
+              handleArchiveFilterChange({
                 ...displayOptions,
                 showUnarchived: e.target.checked,
               })
@@ -180,7 +187,7 @@ export const DisplaySelector = ({
           <StyledSwitch
             checked={displayOptions.showArchived}
             onChange={(e) =>
-              handleDisplayOptionsChange({
+              handleArchiveFilterChange({
                 ...displayOptions,
                 showArchived: e.target.checked,
               })
