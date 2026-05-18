@@ -29,7 +29,7 @@ describe('fetchWithErrorHandler', () => {
       }),
     )
 
-    await expect(fetchWithErrorHandler('https://example.test/api?token=secret')).rejects.toThrow(
+    await expect(fetchWithErrorHandler('https://example.test/api?token=secret', undefined, 0)).rejects.toThrow(
       'Expected JSON response from https://example.test/api?token=[redacted] but received text/plain (200): An error occurred while rendering',
     )
   })
@@ -42,7 +42,7 @@ describe('fetchWithErrorHandler', () => {
       }),
     )
 
-    await expect(fetchWithErrorHandler('https://example.test/api?token=secret')).rejects.toThrow(
+    await expect(fetchWithErrorHandler('https://example.test/api?token=secret', undefined, 0)).rejects.toThrow(
       'Fetch failed (500) for https://example.test/api?token=[redacted]: An error occurred during retry for token=[redacted]',
     )
   })
