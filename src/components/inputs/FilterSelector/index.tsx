@@ -125,7 +125,7 @@ export const FilterSelector = ({ disabled }: FilterSelectorProps) => {
           {!filterMode ? (
             <FilterTypeSection setFilterMode={setFilterMode} filterModes={filterModes} />
           ) : (
-            <FilterAssigneeSection filterMode={filterMode} setAnchorEl={setAnchorEl} />
+            <FilterAssigneeSection filterMode={filterMode} setAnchorEl={setAnchorEl} autoFocus />
           )}
         </Popper>
       </Box>

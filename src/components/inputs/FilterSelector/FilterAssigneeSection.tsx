@@ -8,12 +8,14 @@ import { parseAssigneeToSelectorOption } from '@/utils/addTypeToAssignee'
 import { getWorkspaceLabels } from '@/utils/getWorkspaceLabels'
 import { getSelectedUserIds } from '@/utils/selector'
 import { Box } from '@mui/material'
-import { Dispatch, SetStateAction } from 'react'
+import { Dispatch, SetStateAction, useEffect, useRef } from 'react'
 import { useSelector } from 'react-redux'
+import { userCompanySelectorStyles } from '@/components/inputs/UserCompanySelectorStyles'
 
 interface FilterAssigneeSectionProps {
   filterMode: FilterType
   setAnchorEl: Dispatch<SetStateAction<HTMLElement | null>>
+  autoFocus?: boolean
 }
 
 export const filterOptionsMap = {
@@ -22,7 +24,7 @@ export const filterOptionsMap = {
   [FilterType.Association]: FilterOptions.ASSOCIATION,
 }
 
-export const FilterAssigneeSection = ({ filterMode, setAnchorEl }: FilterAssigneeSectionProps) => {
+export const FilterAssigneeSection = ({ filterMode, setAnchorEl, autoFocus = false }: FilterAssigneeSectionProps) => {
   const {
     assignee: assignees,
     filterOptions: { type },
@@ -43,8 +45,15 @@ export const FilterAssigneeSection = ({ filterMode, setAnchorEl }: FilterAssigne
     setAnchorEl(null)
   }
 
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!autoFocus) return
+    const input = containerRef.current?.querySelector<HTMLInputElement>('input')
+    input?.focus({ preventScroll: true })
+  }, [autoFocus])
+
   return (
-    <Box>
+    <Box ref={containerRef}>
       <StyledUserCompanySelector
         menuShouldScrollIntoView={false}
         menuIsOpen={true}
@@ -59,6 +68,7 @@ export const FilterAssigneeSection = ({ filterMode, setAnchorEl }: FilterAssigne
         grouped={true}
         limitSelectedOptions={1}
         customLabels={getWorkspaceLabels(workspace, true)}
+        styles={userCompanySelectorStyles}
       />
     </Box>
   )
