@@ -55,7 +55,7 @@ export const FilterBar = ({ mode }: FilterBarProps) => {
       ...displayOptions,
     }
     store.dispatch(setViewSettings(newViewSettings))
-    updateViewModeSetting(newViewSettings).then()
+    updateViewModeSetting(newViewSettings)
     store.dispatch(setViewSettingsTemp(newViewSettings))
   }
 
@@ -111,10 +111,10 @@ export const FilterBar = ({ mode }: FilterBarProps) => {
             <SearchBar
               value={viewModeFilterOptions.keyword}
               getSearchKeyword={(keyword) => {
-                handleFilterOptionsChange(FilterOptions.KEYWORD, keyword).then()
+                handleFilterOptionsChange(FilterOptions.KEYWORD, keyword)
               }}
               onClear={() => {
-                handleFilterOptionsChange(FilterOptions.KEYWORD, '').then()
+                handleFilterOptionsChange(FilterOptions.KEYWORD, '')
               }}
             />
             <DisplaySelector
@@ -135,7 +135,7 @@ export const FilterBar = ({ mode }: FilterBarProps) => {
                   showArchived,
                   showUnarchived,
                   showSubtasks,
-                }).then()
+                })
                 store.dispatch(
                   setViewSettingsTemp({
                     viewMode: mode,
