@@ -3,7 +3,6 @@
 import { setTokenPayload, setWorkspace } from '@/redux/features/authDetailsSlice'
 import {
   selectTaskBoard,
-  setAccesibleTaskIds,
   setAccessibleTasks,
   setAssigneeList,
   setFilteredAssigneeList,
@@ -39,18 +38,10 @@ type ClientSideStateUpdateProps = {
   templates?: ITemplate[]
   assigneeSuggestions?: IAssigneeSuggestions[]
   clearExpandedComments?: boolean
-  accesibleTaskIds?: string[]
   accessibleTasks?: TaskResponse[]
   workspace?: WorkspaceResponse
 } & UrlActionParamsType
 
-/**
- * Updates client-side Redux state from server-fetched props.
- *
- * `activeTask` and `activeTemplate` are handled by dedicated `SeedActiveTask`
- * / `SeedActiveTemplate` components — they have stricter lifecycle requirements
- * (race-safe reconcile, scoped cleanup) that the umbrella effect can't provide.
- */
 export const ClientSideStateUpdate = ({
   children,
   workflowStates,
@@ -62,13 +53,17 @@ export const ClientSideStateUpdate = ({
   templates,
   assigneeSuggestions,
   clearExpandedComments,
-  accesibleTaskIds,
   accessibleTasks,
   workspace,
   action,
   pf,
 }: ClientSideStateUpdateProps) => {
-  const { tasks: tasksInStore, viewSettingsTemp, accessibleTasks: accessibleTaskInStore } = useSelector(selectTaskBoard)
+  const {
+    tasks: tasksInStore,
+    viewSettingsTemp,
+    accessibleTasks: accessibleTaskInStore,
+    activeTask: activeTaskInStore,
+  } = useSelector(selectTaskBoard)
   const { templates: templatesInStore } = useSelector(selectCreateTemplate)
 
   useEffect(() => {
@@ -130,10 +125,6 @@ export const ClientSideStateUpdate = ({
       store.dispatch(setExpandedComments([]))
     }
 
-    if (accesibleTaskIds) {
-      store.dispatch(setAccesibleTaskIds(accesibleTaskIds))
-    }
-
     if (accessibleTasks) {
       const accessibleTaskData = accessibleTaskInStore.length ? accessibleTaskInStore : accessibleTasks
       store.dispatch(setAccessibleTasks(accessibleTaskData))
@@ -142,18 +133,7 @@ export const ClientSideStateUpdate = ({
     if (workspace) {
       store.dispatch(setWorkspace(workspace))
     }
-  }, [
-    workflowStates,
-    tasks,
-    token,
-    assignee,
-    viewSettings,
-    tokenPayload,
-    templates,
-    assigneeSuggestions,
-    accesibleTaskIds,
-    accessibleTasks,
-  ])
+  }, [workflowStates, tasks, token, assignee, viewSettings, tokenPayload, templates, assigneeSuggestions, accessibleTasks])
 
   return children
 }

@@ -81,7 +81,7 @@ export function parseAssigneeToSelectorOption(assignees?: IAssigneeCombined[]): 
     const optionBase = {
       value: item.id,
       label: getAssigneeName(item),
-      avatarSrc: item.avatarImageUrl ?? item.iconImageUrl,
+      avatarSrc: item.avatarImageUrl || item.iconImageUrl || undefined,
       avatarFallbackColor: item.fallbackColor,
 
       companyId: item.companyId,
