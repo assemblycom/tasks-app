@@ -13,7 +13,7 @@ import { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import { usePathname, useRouter } from 'next/navigation'
 import { ReactNode, useEffect } from 'react'
 import { useSelector } from 'react-redux'
-import { mutate as globalMutate } from 'swr'
+import { mutate } from 'swr'
 
 export interface RealTimeTaskResponse extends TaskResponse {
   assigneeId: string
@@ -69,10 +69,7 @@ export const RealTime = ({
     const user = assignee.find((el) => el.id === userId)
     if (!user || !userRole) return
 
-    // Realtime changed task state — clear every tasks-list cache entry (one per filter combo)
-    // without refetching. Next archive-filter toggle becomes a cache miss and fetches fresh
-    // data instead of replaying stale cache and clobbering realtime-updated Redux state.
-    globalMutate((key) => Array.isArray(key) && key[0] === TASKS_LIST_SWR_KEY, undefined, { revalidate: false })
+    mutate([TASKS_LIST_SWR_KEY], undefined, { revalidate: false }).then()
 
     const realtimeHandler = new RealtimeHandler(payload, user, userRole, redirectToBoard, tokenPayload)
     const isSubtask =

@@ -7,13 +7,7 @@ import SearchBar from '@/components/searchBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { AddLargeIcon } from '@/icons'
 import { setShowModal } from '@/redux/features/createTaskSlice'
-import {
-  selectTaskBoard,
-  setHasArchiveFilterChanged,
-  setIsTasksLoading,
-  setViewSettings,
-  setViewSettingsTemp,
-} from '@/redux/features/taskBoardSlice'
+import { selectTaskBoard, setIsTasksLoading, setViewSettings, setViewSettingsTemp } from '@/redux/features/taskBoardSlice'
 import store from '@/redux/store'
 import { DisplayOptions } from '@/types/dto/viewSettings.dto'
 import { FilterOptions, IFilterOptions } from '@/types/interfaces'
@@ -24,10 +18,8 @@ import {
 } from '@/types/objectMaps'
 import { UserRole } from '@api/core/types/user'
 import { Box, Stack } from '@mui/material'
-import { useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 import { useSelector } from 'react-redux'
-
-const ARCHIVE_FILTER_DEBOUNCE_MS = 300
 
 interface FilterBarProps {
   mode: UserRole
@@ -55,12 +47,7 @@ export const FilterBar = ({ mode }: FilterBarProps) => {
       ? (filterTypeToButtonIndexMap[viewModeFilterOptions.type] ?? 0)
       : (clientFilterTypeToButtonIndexMap[viewModeFilterOptions.type] ?? 0)
 
-  const archiveFilterFlagTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
   const handleDisplayOptionsChange = (displayOptions: DisplayOptions) => {
-    const archiveFiltersChanged =
-      displayOptions.showArchived !== showArchived || displayOptions.showUnarchived !== showUnarchived
-
     store.dispatch(setIsTasksLoading(true))
     const newViewSettings = {
       viewMode,
@@ -68,16 +55,8 @@ export const FilterBar = ({ mode }: FilterBarProps) => {
       ...displayOptions,
     }
     store.dispatch(setViewSettings(newViewSettings))
-    updateViewModeSetting(newViewSettings)
+    updateViewModeSetting(newViewSettings).then()
     store.dispatch(setViewSettingsTemp(newViewSettings))
-
-    if (archiveFiltersChanged) {
-      // Debounce so rapid toggling settles to a single fetch trigger.
-      if (archiveFilterFlagTimer.current) clearTimeout(archiveFilterFlagTimer.current)
-      archiveFilterFlagTimer.current = setTimeout(() => {
-        store.dispatch(setHasArchiveFilterChanged(true))
-      }, ARCHIVE_FILTER_DEBOUNCE_MS)
-    }
   }
 
   // handles click on filter by type buttons
@@ -132,10 +111,10 @@ export const FilterBar = ({ mode }: FilterBarProps) => {
             <SearchBar
               value={viewModeFilterOptions.keyword}
               getSearchKeyword={(keyword) => {
-                handleFilterOptionsChange(FilterOptions.KEYWORD, keyword)
+                handleFilterOptionsChange(FilterOptions.KEYWORD, keyword).then()
               }}
               onClear={() => {
-                handleFilterOptionsChange(FilterOptions.KEYWORD, '')
+                handleFilterOptionsChange(FilterOptions.KEYWORD, '').then()
               }}
             />
             <DisplaySelector
@@ -156,7 +135,7 @@ export const FilterBar = ({ mode }: FilterBarProps) => {
                   showArchived,
                   showUnarchived,
                   showSubtasks,
-                })
+                }).then()
                 store.dispatch(
                   setViewSettingsTemp({
                     viewMode: mode,
