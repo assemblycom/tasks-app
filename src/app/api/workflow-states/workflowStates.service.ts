@@ -1,11 +1,12 @@
 import { BaseService } from '@api/core/services/base.service'
-import { CreateWorkflowStateRequest } from '@/types/dto/workflowStates.dto'
+import { CreateWorkflowStateRequest, UpdateWorkflowStateRequest } from '@/types/dto/workflowStates.dto'
 import { Resource } from '@api/core/types/api'
 import { generateRandomString, toCamelCase } from '@/utils/string'
 import { PoliciesService } from '@api/core/services/policies.service'
 import { UserAction } from '@api/core/types/user'
 import { WorkflowState } from '@prisma/client'
 import { getWorkflowStatesByWorkspace } from '@/utils/workflowStates'
+import { DEFAULT_WORKFLOW_STATE_NAMES } from '@/constants/workflowStates'
 
 class WorkflowStatesService extends BaseService {
   async getAllWorkflowStates() {
@@ -45,15 +46,35 @@ class WorkflowStatesService extends BaseService {
     })
   }
 
+  async updateWorkflowState(id: string, data: UpdateWorkflowStateRequest) {
+    const policyGate = new PoliciesService(this.user)
+    policyGate.authorize(UserAction.Update, Resource.Tasks)
+
+    return await this.db.workflowState.update({
+      where: { id, workspaceId: this.user.workspaceId },
+      data,
+    })
+  }
+
   /**
    * Sets default workflow states for a fresh workspace
    */
   private async setDefaultWorkflowStates() {
     return await this.db.workflowState.createMany({
       data: [
-        { type: 'unstarted', name: 'To Do', key: 'todo', workspaceId: this.user.workspaceId },
-        { type: 'started', name: 'In Progress', key: 'inProgress', workspaceId: this.user.workspaceId },
-        { type: 'completed', name: 'Done', key: 'completed', workspaceId: this.user.workspaceId },
+        { type: 'unstarted', name: DEFAULT_WORKFLOW_STATE_NAMES.unstarted, key: 'todo', workspaceId: this.user.workspaceId },
+        {
+          type: 'started',
+          name: DEFAULT_WORKFLOW_STATE_NAMES.started,
+          key: 'inProgress',
+          workspaceId: this.user.workspaceId,
+        },
+        {
+          type: 'completed',
+          name: DEFAULT_WORKFLOW_STATE_NAMES.completed,
+          key: 'completed',
+          workspaceId: this.user.workspaceId,
+        },
       ],
       skipDuplicates: true, //doesnt create if there is an existing workflowState.
     })

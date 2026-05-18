@@ -31,6 +31,7 @@ interface IInitialState {
   assigneeCache: Record<string, IAssigneeCombined>
   previewClientCompany: PreviewClientCompanyType
   urlActionParams: UrlActionParamsType
+  hasArchiveFilterChanged: boolean
 }
 
 const initialState: IInitialState = {
@@ -70,6 +71,7 @@ const initialState: IInitialState = {
     pf: '',
     oldPf: '', // to avoid re-open of the modal when navigating
   },
+  hasArchiveFilterChanged: false,
 }
 
 const taskBoardSlice = createSlice({
@@ -143,6 +145,10 @@ const taskBoardSlice = createSlice({
       state.showUnarchived = showUnarchived
       state.showSubtasks = showSubtasks
       state.filterOptions = filterOptions
+    },
+
+    setHasArchiveFilterChanged: (state, action: { payload: boolean }) => {
+      state.hasArchiveFilterChanged = action.payload
     },
 
     setViewSettingsTemp: (state, action: { payload: CreateViewSettingsDTO }) => {
@@ -277,6 +283,7 @@ export const {
   setPreviewClientCompany,
   setUrlActionParams,
   updateFilterOption,
+  setHasArchiveFilterChanged,
 } = taskBoardSlice.actions
 
 export default taskBoardSlice.reducer

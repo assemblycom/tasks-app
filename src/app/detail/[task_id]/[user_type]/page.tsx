@@ -87,11 +87,13 @@ export default async function TaskDetailPage(props: {
 
   const isPreviewMode = !!getPreviewMode(tokenPayload)
 
-  const breadcrumbItems: { label: string; mobileLabel: string; href: string }[] = taskPath.map(({ title, label, id }) => ({
-    label: truncateText(title, 25),
-    mobileLabel: label,
-    href: `/detail/${id}/${user_type}?token=${token}`,
-  }))
+  const breadcrumbItems: { label: string; mobileLabel: string; href: string }[] = (taskPath || []).map(
+    ({ title, label, id }) => ({
+      label: truncateText(title, 25),
+      mobileLabel: label,
+      href: `/detail/${id}/${user_type}?token=${token}`,
+    }),
+  )
 
   // flag that determines if the current user is the task viewer
   const isViewer = checkIfTaskViewer(task.associations, tokenPayload)
