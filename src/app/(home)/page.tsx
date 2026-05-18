@@ -106,7 +106,7 @@ export default async function Main(props: {
     redirectToClientPortal(token)
   }
 
-  console.info(`app/page.tsx | Serving user ${token} with payload`, tokenPayload)
+  console.info('app/page.tsx | Serving request', { userRole })
 
   return (
     <>

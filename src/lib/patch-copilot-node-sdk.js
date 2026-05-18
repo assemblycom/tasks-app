@@ -60,20 +60,27 @@ export function assemblyApi({ apiKey, token: tokenString }) {
   }
   if (tokenString) {
     if (isDebug) {
-      console.log({ tokenString, apiKey })
+      console.log({ hasToken: Boolean(tokenString), hasApiKey: Boolean(apiKey) })
     }
     try {
       const decipherKey = generate128BitKey(apiKey)
       const decryptedPayload = decryptAES128BitToken(decipherKey, tokenString)
       if (isDebug) {
-        console.log('Decrypted Payload:', decryptedPayload)
+        console.log('Decrypted payload parsed')
       }
       const payload = processToken(decryptedPayload)
       if (!payload) {
         throw new Error('Invalid token payload.')
       }
       if (isDebug) {
-        console.log('Payload:', payload)
+        console.log('Payload:', {
+          hasCompanyId: Boolean(payload.companyId),
+          hasClientId: Boolean(payload.clientId),
+          hasInternalUserId: Boolean(payload.internalUserId),
+          hasNotificationId: Boolean(payload.notificationId),
+          hasTokenId: Boolean(payload.tokenId),
+          workspaceId: payload.workspaceId,
+        })
       }
       if (payload.baseUrl) {
         OpenAPI.BASE = payload.baseUrl
@@ -107,7 +114,7 @@ export function assemblyApi({ apiKey, token: tokenString }) {
   // TEMPORARY FIX END
 
   if (isDebug) {
-    console.log(`Authorizing with key: ${key}`)
+    console.log('Authorizing SDK request headers')
   }
 
   OpenAPI.HEADERS = {

@@ -64,7 +64,7 @@ export class CopilotAPI {
       accept: 'application/json',
     }
 
-    console.info('CopilotAPI#manualFetch |', url, headers)
+    console.info('CopilotAPI#manualFetch |', url.toString(), { hasWorkspaceId: Boolean(workspaceId) })
     const resp = await fetch(url, { headers })
     const body = await resp.json()
     if (!resp.ok) {
@@ -81,7 +81,7 @@ export class CopilotAPI {
   async _getTokenPayload(): Promise<Token | null> {
     const getTokenPayload = this.copilot.getTokenPayload
     if (!getTokenPayload) {
-      console.error(`CopilotAPI#getTokenPayload | Could not parse token payload for token ${this.token}`)
+      console.error('CopilotAPI#getTokenPayload | Could not parse token payload')
       return null
     }
 
@@ -89,7 +89,7 @@ export class CopilotAPI {
   }
 
   async _me(): Promise<MeResponse | null> {
-    console.info('CopilotAPI#_me', this.token)
+    console.info('CopilotAPI#_me')
     const tokenPayload = await this.getTokenPayload()
     const id = tokenPayload?.internalUserId || tokenPayload?.clientId
     if (!tokenPayload || !id) return null
@@ -103,12 +103,12 @@ export class CopilotAPI {
   }
 
   async _getWorkspace(): Promise<WorkspaceResponse> {
-    console.info('CopilotAPI#_getWorkspace', this.token)
+    console.info('CopilotAPI#_getWorkspace')
     return WorkspaceResponseSchema.parse(await this.copilot.retrieveWorkspace())
   }
 
   async _getClientTokenPayload(): Promise<ClientToken | null> {
-    console.info('CopilotAPI#_getClientTokenPayload', this.token)
+    console.info('CopilotAPI#_getClientTokenPayload')
     const tokenPayload = await this.getTokenPayload()
     if (!tokenPayload) return null
 
@@ -116,7 +116,7 @@ export class CopilotAPI {
   }
 
   async _getIUTokenPayload(): Promise<IUToken | null> {
-    console.info('CopilotAPI#_getIUTokenPayload', this.token)
+    console.info('CopilotAPI#_getIUTokenPayload')
     const tokenPayload = await this.getTokenPayload()
     if (!tokenPayload) return null
 
@@ -124,17 +124,17 @@ export class CopilotAPI {
   }
 
   async _createClient(requestBody: ClientRequest, sendInvite: boolean = false): Promise<ClientResponse> {
-    console.info('CopilotAPI#_createClient', this.token)
+    console.info('CopilotAPI#_createClient')
     return ClientResponseSchema.parse(await this.copilot.createClient({ sendInvite, requestBody }))
   }
 
   async _getClient(id: string): Promise<ClientResponse> {
-    console.info('CopilotAPI#_getClient', this.token)
+    console.info('CopilotAPI#_getClient')
     return ClientResponseSchema.parse(await this.copilot.retrieveClient({ id }))
   }
 
   async _getClients(args: CopilotListArgs & { companyId?: string } = {}) {
-    console.info('CopilotAPI#_getClients', this.token)
+    console.info('CopilotAPI#_getClients')
     const maxLimit = MAX_LIMIT_CLIENT_COUNT
     const requestedLimit = args.limit || maxLimit
     let clients: ClientResponse[] = []
@@ -162,64 +162,64 @@ export class CopilotAPI {
   }
 
   async _updateClient(id: string, requestBody: ClientRequest): Promise<ClientResponse> {
-    console.info('CopilotAPI#_updateClient', this.token)
+    console.info('CopilotAPI#_updateClient')
     // @ts-ignore
     return ClientResponseSchema.parse(await this.copilot.updateClient({ id, requestBody }))
   }
 
   async _deleteClient(id: string) {
-    console.info('CopilotAPI#_deleteClient', this.token)
+    console.info('CopilotAPI#_deleteClient')
     return await this.copilot.deleteClient({ id })
   }
 
   async _createCompany(requestBody: CompanyCreateRequest) {
-    console.info('CopilotAPI#_createCompany', this.token)
+    console.info('CopilotAPI#_createCompany')
     return CompanyResponseSchema.parse(await this.copilot.createCompany({ requestBody }))
   }
 
   async _getCompany(id: string): Promise<CompanyResponse> {
-    console.info('CopilotAPI#_getCompany', this.token)
+    console.info('CopilotAPI#_getCompany')
     return CompanyResponseSchema.parse(await this.copilot.retrieveCompany({ id }))
   }
 
   async _getCompanies(args: CopilotListArgs & { isPlaceholder?: boolean } = {}): Promise<CompaniesResponse> {
-    console.info('CopilotAPI#_getCompanies', this.token)
+    console.info('CopilotAPI#_getCompanies')
     return CompaniesResponseSchema.parse(await this.copilot.listCompanies(args))
   }
 
   async _getCompanyClients(companyId: string): Promise<ClientResponse[]> {
-    console.info('CopilotAPI#_getCompanyClients', this.token)
+    console.info('CopilotAPI#_getCompanyClients')
     return (await this.getClients({ limit: 10000, companyId })).data || []
   }
 
   async _getCustomFields(): Promise<CustomFieldResponse> {
-    console.info('CopilotAPI#_getCustomFields', this.token)
+    console.info('CopilotAPI#_getCustomFields')
     return CustomFieldResponseSchema.parse(await this.copilot.listCustomFields())
   }
 
   async _getInternalUsers(args: CopilotListArgs = {}): Promise<InternalUsersResponse> {
-    console.info('CopilotAPI#_getInternalUsers', this.token)
+    console.info('CopilotAPI#_getInternalUsers')
     return InternalUsersResponseSchema.parse(await this.copilot.listInternalUsers(args))
   }
 
   async _getInternalUser(id: string): Promise<InternalUsers> {
-    console.info('CopilotAPI#_getInternalUser', this.token)
+    console.info('CopilotAPI#_getInternalUser')
     return InternalUsersSchema.parse(await this.copilot.retrieveInternalUser({ id }))
   }
 
   async _createNotification(requestBody: NotificationRequestBody): Promise<NotificationCreatedResponse> {
-    console.info('CopilotAPI#_createNotification', this.token)
+    console.info('CopilotAPI#_createNotification')
     const notification = await this.copilot.createNotification({ requestBody })
     return NotificationCreatedResponseSchema.parse(notification)
   }
 
   async _markNotificationAsRead(id: string): Promise<void> {
-    console.info('CopilotAPI#_markNotificationAsRead', this.token)
+    console.info('CopilotAPI#_markNotificationAsRead')
     await this.copilot.markNotificationRead({ id })
   }
 
   async _bulkMarkNotificationsAsRead(notificationIds: string[], shouldThrowError: boolean = true): Promise<void> {
-    console.info('CopilotAPI#_bulkMarkNotificationsAsRead', this.token)
+    console.info('CopilotAPI#_bulkMarkNotificationsAsRead')
     const markAsReadPromises = []
     const bottleneck = new Bottleneck({ minTime: 250, maxConcurrent: 2 })
 
@@ -227,7 +227,7 @@ export class CopilotAPI {
       markAsReadPromises.push(
         bottleneck
           .schedule(() => {
-            console.info('CopilotAPI#_bulkMarkNotificationsAsRead | Marking notification as read', this.token, notification)
+            console.info('CopilotAPI#_bulkMarkNotificationsAsRead | Marking notification as read', notification)
             if (shouldThrowError) {
               return this.markNotificationAsRead(notification)
             } else {
@@ -247,12 +247,12 @@ export class CopilotAPI {
   }
 
   async _deleteNotification(id: string): Promise<void> {
-    console.info('CopilotAPI#_deleteNotification', this.token)
+    console.info('CopilotAPI#_deleteNotification')
     await this.copilot.deleteNotification({ id })
   }
 
   async _bulkDeleteNotifications(notificationIds: string[]): Promise<void> {
-    console.info('CopilotAPI#_bulkDeleteNotifications', this.token)
+    console.info('CopilotAPI#_bulkDeleteNotifications')
     const deletePromises = []
     const bottleneck = new Bottleneck({ minTime: 250, maxConcurrent: 2 })
     for (let notification of notificationIds) {
@@ -268,7 +268,7 @@ export class CopilotAPI {
   }
 
   async _getIUNotification(id: string, workspaceId: string): Promise<NotificationResponseType> {
-    console.info('CopilotAPI#_deleteNotification', this.token)
+    console.info('CopilotAPI#_getIUNotification')
     const response = await this.manualFetch(
       `notifications/${id}`,
       {
@@ -290,7 +290,7 @@ export class CopilotAPI {
       showIncompleteOnly?: boolean
     } = { limit: 100 },
   ) {
-    console.info('CopilotAPI#_getClientNotifications', this.token)
+    console.info('CopilotAPI#_getClientNotifications')
     const response = await this.manualFetch(
       'notifications',
       {
@@ -320,9 +320,9 @@ export class CopilotAPI {
       assemblyMetadata,
     }: { workspaceId: string; payload?: object; assemblyMetadata?: AssemblyMetadata },
   ) {
-    console.info('CopilotAPI#dispatchWebhook', this.token)
+    console.info('CopilotAPI#dispatchWebhook')
     const url = `${assemblyApiDomain}/v1/webhooks/${eventName}`
-    console.info('CopilotAPI#dispatchWebhook | Dispatching webhook to ', url, 'with payload', payload ?? null)
+    console.info('CopilotAPI#dispatchWebhook | Dispatching webhook', { url, hasPayload: Boolean(payload) })
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -332,8 +332,6 @@ export class CopilotAPI {
     if (assemblyMetadata?.source) headers['X-Assembly-Source'] = assemblyMetadata.source
     if (assemblyMetadata?.clientIp) headers['X-Assembly-Client-IP'] = assemblyMetadata.clientIp
     if (assemblyMetadata?.userAgent) headers['X-Assembly-User-Agent'] = assemblyMetadata.userAgent
-
-    console.info('CopilotAPI#dispatchWebhook | Request headers:', headers)
 
     try {
       await fetch(url, {
