@@ -69,7 +69,11 @@ export const RealTime = ({
     const user = assignee.find((el) => el.id === userId)
     if (!user || !userRole) return
 
-    mutate([TASKS_LIST_SWR_KEY], undefined, { revalidate: false }).then()
+    // Wipe every cached tasks-list entry (one per filter combo). Keys are tuples
+    // of [TASKS_LIST_SWR_KEY, queryString], so we match by the first element.
+    // We don't revalidate here — RealtimeHandler already updates Redux directly.
+    // The invalidation just ensures the next filter flip can't serve stale cache.
+    void mutate((key) => Array.isArray(key) && key[0] === TASKS_LIST_SWR_KEY, undefined, { revalidate: false })
 
     const realtimeHandler = new RealtimeHandler(payload, user, userRole, redirectToBoard, tokenPayload)
     const isSubtask =

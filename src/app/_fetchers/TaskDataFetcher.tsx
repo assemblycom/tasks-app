@@ -6,6 +6,7 @@ import { fetcher } from '@/utils/fetcher'
 import { useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import useSWR from 'swr'
+import { TaskResponse } from '@/types/dto/tasks.dto'
 
 // Stable cache tag for the tasks-list query. Used as the first element of every SWR cache key
 // in this file so realtime invalidation can wipe every filter-combo cache entry with a single
@@ -29,14 +30,14 @@ export const TaskDataFetcher = ({ token }: PropsWithToken) => {
 
   const queryString = token ? buildQueryString(token, { showArchived, showUnarchived, showSubtasks }) : null
 
-  const { data, isLoading } = useSWR(
+  const { data, isLoading } = useSWR<{ tasks: TaskResponse[] }>(
     hasArchiveFilterChanged && queryString ? [TASKS_LIST_SWR_KEY, queryString] : null,
     () => fetcher(`/api/tasks/?${queryString}`),
     {
       revalidateOnMount: true,
       revalidateOnFocus: false,
       refreshInterval: 0,
-      onSuccess: () => {
+      onSuccess: (data) => {
         /*
           Note:- This is needed, otherwise query key would be null and data would be gone before setting tasks via useEffect
          */
