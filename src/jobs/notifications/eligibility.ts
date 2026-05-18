@@ -54,7 +54,16 @@ export const getEligibleReminders = async (db: ReturnType<typeof DBClient.getIns
         WHEN t."dueDate"::date = CURRENT_DATE - 7                            THEN 'DUE_DATE_OVERDUE_7D'
       END)::"TaskReminderType" AS "reminderType"
     FROM "Tasks" t
-    LEFT JOIN "Tasks" parent ON parent.id = t."parentId"
+    -- Only join "alive" parents. The carve-out below folds same-assignee subtasks
+    -- into the parent's reminder, which is only meaningful when the parent itself
+    -- is eligible for one. For soft-deleted / archived / completed parents the join
+    -- returns NULL, which IS DISTINCT FROM any real assigneeId, so the subtask
+    -- correctly emits its own reminder.
+    LEFT JOIN "Tasks" parent
+      ON parent.id = t."parentId"
+      AND parent."deletedAt" IS NULL
+      AND parent."isArchived" = false
+      AND parent."completedAt" IS NULL
     WHERE t."deletedAt" IS NULL
       AND t."isArchived" = false
       AND t."completedAt" IS NULL
@@ -62,7 +71,8 @@ export const getEligibleReminders = async (db: ReturnType<typeof DBClient.getIns
       AND t."assigneeType" IS NOT NULL
       -- Subtask carve-out: same-assignee subtasks fold into the parent reminder.
       -- A NULL parent.assigneeId counts as "different" so a standalone subtask under
-      -- an unassigned parent still gets a reminder.
+      -- an unassigned parent (or under a dead parent, per the join filter above)
+      -- still gets a reminder.
       AND (t."parentId" IS NULL OR parent."assigneeId" IS DISTINCT FROM t."assigneeId")
       -- Guard against malformed VARCHAR(10) dueDate values: only cast when the string
       -- looks like ISO YYYY-MM-DD. Without this, a single bad row poisons the whole query.
