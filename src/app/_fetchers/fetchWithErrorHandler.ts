@@ -11,7 +11,7 @@ const getRequestUrl = (input: RequestInfo | URL): string => {
   return String(input)
 }
 
-const redactToken = (value: string): string => value.replace(/([?&]token=)[^&\s]+/g, '$1[redacted]')
+const redactToken = (value: string): string => value.replace(/(\btoken=)[^&\s]+/g, '$1[redacted]')
 
 const getRedactedRequestUrl = (input: RequestInfo | URL): string => {
   const url = getRequestUrl(input)
