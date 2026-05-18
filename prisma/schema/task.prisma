@@ -57,6 +57,7 @@ model Task {
   deletedBy           String?       @db.Uuid
 
   taskUpdateBacklogs TaskUpdateBacklog[]
+  taskReminderSents  TaskReminderSent[]
 
   associations       Json        @db.JsonB @default("[]")
   isShared           Boolean     @default(false)
