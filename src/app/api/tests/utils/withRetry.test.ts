@@ -1,4 +1,4 @@
-import { isRetryableCopilotError } from '@api/core/utils/withRetry'
+import { isRetryableCopilotError } from '@api/core/utils/retryableError'
 
 describe('withRetry util', () => {
   it.each([408, 429, 500, 503, 511])('retries retryable status code %s', (status) => {
