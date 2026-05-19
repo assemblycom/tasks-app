@@ -67,6 +67,43 @@ export class RealtimeHandler {
   }
 
   /**
+   * IU-in-company-preview carve-out. Mirrors the `isIuCompanyPreview` branch in
+   * `getClientOrCompanyAssigneeFilter` (tasksShared.service.ts) so realtime treats
+   * "TEAM TASKS" (assigned to a client of the preview company) and team-associated
+   * tasks as in-scope, even though userRole is `client` when companyId is present.
+   */
+  private isInCompanyPreviewScope(newTask: RealTimeTaskResponse): boolean {
+    if (getPreviewMode(this.tokenPayload) !== 'company') return false
+    const companyId = this.tokenPayload.companyId
+    if (!companyId) return false
+
+    const companyClientIds = this.getCompanyClientIdsFromAssignee(companyId)
+
+    if (newTask.companyId === companyId && newTask.clientId && companyClientIds.includes(newTask.clientId)) {
+      return true
+    }
+
+    if (Array.isArray(newTask.associations)) {
+      for (const association of newTask.associations) {
+        if (!association || typeof association !== 'object') continue
+        const assocCompanyId = (association as { companyId?: string }).companyId
+        const assocClientId = (association as { clientId?: string | null }).clientId
+        if (assocCompanyId !== companyId) continue
+        if (assocClientId && companyClientIds.includes(assocClientId)) {
+          return true
+        }
+      }
+    }
+
+    return false
+  }
+
+  private getCompanyClientIdsFromAssignee(companyId: string): string[] {
+    const { assignee } = selectTaskBoard(store.getState())
+    return assignee.filter((u) => u.type === 'clients' && u.companyId === companyId).map((u) => u.id)
+  }
+
+  /**
    * Filters out tasks this user type does not have access to
    */
   private isSubtaskAccessible(newTask: RealTimeTaskResponse): boolean {
@@ -98,6 +135,7 @@ export class RealtimeHandler {
 
       if (
         !this.isAssociatedOrShared(newTask) &&
+        !this.isInCompanyPreviewScope(newTask) &&
         !(
           (newTask.clientId == this.tokenPayload.clientId && newTask.companyId == this.tokenPayload.companyId) ||
           (newTask.clientId == null && newTask.companyId == this.tokenPayload.companyId)
@@ -266,6 +304,7 @@ export class RealtimeHandler {
       // - task's companyId does not match current user's active companyId
       if (
         !this.isAssociatedOrShared(newTask) &&
+        !this.isInCompanyPreviewScope(newTask) &&
         (!newTask.assigneeId ||
           !!newTask.internalUserId ||
           (newTask.clientId && newTask.clientId !== this.tokenPayload.clientId) ||
@@ -319,6 +358,7 @@ export class RealtimeHandler {
     const isReassignedOutOfClientScope =
       this.userRole === AssigneeType.client &&
       !this.isAssociatedOrShared(updatedTask) &&
+      !this.isInCompanyPreviewScope(updatedTask) &&
       (!updatedTask.clientId
         ? updatedTask.companyId !== this.tokenPayload.companyId
         : updatedTask.companyId !== this.tokenPayload.companyId || updatedTask.clientId !== this.tokenPayload.clientId)
@@ -363,6 +403,7 @@ export class RealtimeHandler {
       this.userRole === AssigneeType.client &&
       (updatedTask.assigneeId !== prevTask.assigneeId ||
         this.isAssociatedOrShared(updatedTask) ||
+        this.isInCompanyPreviewScope(updatedTask) ||
         (!updatedTask.clientId
           ? updatedTask.companyId === this.tokenPayload.companyId
           : updatedTask.companyId === this.tokenPayload.companyId && updatedTask.clientId === this.tokenPayload.clientId))
