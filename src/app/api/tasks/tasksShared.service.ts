@@ -610,7 +610,7 @@ export abstract class TasksSharedService extends BaseService {
 
   protected async createSubtasksFromTemplate(data: TaskTemplate, parentTask: Task, manualTimestamp: Date) {
     const { workspaceId, title, body, workflowStateId } = data
-    const { id: parentId, internalUserId, clientId, companyId, associations } = parentTask
+    const { id: parentId, internalUserId, clientId, companyId, associations, isShared } = parentTask
 
     try {
       const createTaskPayload = CreateTaskRequestSchema.parse({
@@ -624,6 +624,7 @@ export abstract class TasksSharedService extends BaseService {
         clientId,
         companyId,
         associations,
+        isShared,
       })
 
       await this.createTask(createTaskPayload, { disableSubtaskTemplates: true, manualTimestamp: manualTimestamp })
