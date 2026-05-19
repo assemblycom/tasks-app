@@ -55,8 +55,10 @@ export async function getAllTasks(
   return data.tasks
 }
 
-export async function getTokenPayload(token: string): Promise<Token | null> {
-  return getSafeTokenPayload(token)
+export async function getTokenPayload(token: string): Promise<Token> {
+  const payload = await getSafeTokenPayload(token)
+  if (!payload) throw new Error('Please provide a Valid Token')
+  return payload
 }
 
 export async function getWorkspace(token: string): Promise<WorkspaceResponse> {
