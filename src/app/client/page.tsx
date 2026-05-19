@@ -14,7 +14,7 @@ import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { RealTime } from '@/hoc/RealTime'
-import { Token, TokenSchema, UrlActionParamsType, WorkspaceResponse } from '@/types/common'
+import { UrlActionParamsType, WorkspaceResponse } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
@@ -22,6 +22,7 @@ import { UserType } from '@/types/interfaces'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { getPreviewMode } from '@/utils/previewMode'
 import { redirectIfTaskCta } from '@/utils/redirect'
+import { getSafeTokenPayload } from '@/utils/tokenPayload'
 import { UserRole } from '@api/core/types/user'
 import { Suspense } from 'react'
 import { z } from 'zod'
@@ -44,12 +45,6 @@ async function getAllTasks(token: string): Promise<TaskResponse[]> {
   return data.tasks
 }
 
-async function getTokenPayload(token: string): Promise<Token> {
-  const copilotClient = new CopilotAPI(token)
-  const payload = TokenSchema.parse(await copilotClient.getTokenPayload())
-  return payload as Token
-}
-
 async function getWorkspace(token: string): Promise<WorkspaceResponse> {
   const copilot = new CopilotAPI(token)
   return await copilot.getWorkspace()
@@ -58,15 +53,19 @@ async function getWorkspace(token: string): Promise<WorkspaceResponse> {
 export default async function ClientPage(props: { searchParams: Promise<{ token: string } & UrlActionParamsType> }) {
   const searchParams = await props.searchParams
   const token = searchParams.token
-  if (!z.string().safeParse(token).success) {
+  if (!z.string().safeParse(token).success || !token) {
     return <SilentError message="Please provide a Valid Token" />
   }
+  const tokenPayload = await getSafeTokenPayload(token)
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+
   redirectIfTaskCta(searchParams, UserType.CLIENT_USER)
-  const [workflowStates, tasks, viewSettings, tokenPayload, workspace] = await Promise.all([
+  const [workflowStates, tasks, viewSettings, workspace] = await Promise.all([
     getAllWorkflowStates(token),
     getAllTasks(token),
     getViewSettings(token),
-    getTokenPayload(token),
     getWorkspace(token),
   ])
 

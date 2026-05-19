@@ -11,13 +11,14 @@ import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { RealTime } from '@/hoc/RealTime'
-import { UrlActionParamsType, Token, TokenSchema, WorkspaceResponse } from '@/types/common'
+import { UrlActionParamsType, Token, WorkspaceResponse } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { UserType } from '@/types/interfaces'
 import { CopilotAPI } from '@/utils/CopilotAPI'
+import { getSafeTokenPayload } from '@/utils/tokenPayload'
 import { redirectIfTaskCta, redirectToClientPortal } from '@/utils/redirect'
 import { UserRole } from '@api/core/types/user'
 import { Suspense } from 'react'
@@ -54,11 +55,8 @@ export async function getAllTasks(
   return data.tasks
 }
 
-export async function getTokenPayload(token: string): Promise<Token> {
-  const copilotClient = new CopilotAPI(token)
-  const payload = TokenSchema.parse(await copilotClient.getTokenPayload())
-
-  return payload as Token
+export async function getTokenPayload(token: string): Promise<Token | null> {
+  return getSafeTokenPayload(token)
 }
 
 export async function getWorkspace(token: string): Promise<WorkspaceResponse> {
@@ -82,11 +80,15 @@ export default async function Main(props: {
   const token = searchParams.token
 
   const parsedToken = z.string().safeParse(token)
-  if (!parsedToken.success) {
+  if (!parsedToken.success || !parsedToken.data) {
     return <SilentError message="Please provide a Valid Token" />
   }
 
-  const tokenPayload = await getTokenPayload(token)
+  const tokenPayload = await getSafeTokenPayload(token)
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+
   const userRole = tokenPayload.internalUserId ? UserType.INTERNAL_USER : tokenPayload.clientId ? UserType.CLIENT_USER : null
   if (!userRole) {
     return <SilentError message="Please provide a Valid Token" />
