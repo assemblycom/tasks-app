@@ -1,22 +1,28 @@
 import { getSignedUrl } from '@/utils/signUrl'
 import { Comment } from '@prisma/client'
 
+const imgTagRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g
+const attachmentTagRegex = /<\s*[a-zA-Z]+\s+[^>]*data-type="attachment"[^>]*src="([^"]+)"[^>]*>/g
+
 export async function replaceImageSrc(htmlString: string, getSignedUrl: (filePath: string) => Promise<string | undefined>) {
-  const imgTagRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g //expression used to match all img tags in provided HTML string.
   const replacements: { originalSrc: string; newUrl: string }[] = []
+  const seen = new Set<string>()
   let match
 
-  // First pass: collect all replacements
-  while ((match = imgTagRegex.exec(htmlString)) !== null) {
-    const originalSrc = match[1] //matches the content of the first capture of regex, ie string inside the src attribute of the img tag.
-    const filePath = getFilePathFromUrl(originalSrc)
-    if (filePath) {
-      const newUrl = await getSignedUrl(filePath)
-      newUrl && replacements.push({ originalSrc, newUrl })
+  for (const regex of [imgTagRegex, attachmentTagRegex]) {
+    regex.lastIndex = 0
+    while ((match = regex.exec(htmlString)) !== null) {
+      const originalSrc = match[1]
+      if (seen.has(originalSrc)) continue
+      seen.add(originalSrc)
+      const filePath = getFilePathFromUrl(originalSrc)
+      if (filePath) {
+        const newUrl = await getSignedUrl(filePath)
+        newUrl && replacements.push({ originalSrc, newUrl })
+      }
     }
   }
 
-  // Second pass: apply all replacements
   for (const { originalSrc, newUrl } of replacements) {
     htmlString = htmlString.replace(originalSrc, newUrl)
   }
