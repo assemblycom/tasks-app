@@ -33,7 +33,7 @@ export const loadSubtaskStatus = async (user: User, taskId: string): Promise<Sub
   try {
     return await new SubtaskService(user).getSubtaskStatus(taskId)
   } catch (err) {
-    if (err instanceof APIError) return { count: 0, canCreateSubtask: false }
+    if (err instanceof APIError && err.status === httpStatus.NOT_FOUND) return { count: 0, canCreateSubtask: false }
     throw err
   }
 }
