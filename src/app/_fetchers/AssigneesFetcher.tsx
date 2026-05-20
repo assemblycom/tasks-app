@@ -38,6 +38,8 @@ export const AssigneesFetcher = () => {
     refreshInterval: 0,
     revalidateOnFocus: false,
     dedupingInterval: 60_000,
+    errorRetryCount: 3,
+    errorRetryInterval: 100,
   })
 
   useEffect(() => {
