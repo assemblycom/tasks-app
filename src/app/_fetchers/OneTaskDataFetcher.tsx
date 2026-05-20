@@ -26,6 +26,11 @@ export const OneTaskDataFetcher = ({ token, task_id, initialTask }: OneTaskDataF
   const { data } = useSWR(queryString ? `/api/tasks/${task_id}?${queryString}` : null, fetcher, {
     refreshInterval: 0,
     revalidateOnFocus: false,
+    ...(initialTask
+      ? {
+          fallbackData: { task: initialTask },
+        }
+      : {}),
   })
 
   useEffect(() => {
