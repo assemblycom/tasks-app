@@ -85,7 +85,7 @@ export class RealtimeHandler {
 
     return !!newTask.associations?.some(
       (association) =>
-        association.companyId === companyId && !!association.clientId && companyClientIds.has(association.clientId),
+        association?.companyId === companyId && !!association?.clientId && companyClientIds.has(association.clientId),
     )
   }
 
