@@ -1,4 +1,4 @@
-const mockCreateClient = jest.fn(() => ({}))
+const mockCreateClient = jest.fn<unknown, unknown[]>(() => ({}))
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
@@ -31,7 +31,7 @@ describe('supabase client', () => {
       }),
     )
 
-    const options = mockCreateClient.mock.calls[0][2] as {
+    const options = mockCreateClient.mock.calls[0][2] as unknown as {
       auth: { lock: (_name: string, _acquireTimeout: number, fn: () => Promise<string>) => Promise<string> }
     }
     const lockedOperation = jest.fn().mockResolvedValue('ok')
