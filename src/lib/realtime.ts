@@ -77,30 +77,21 @@ export class RealtimeHandler {
     const companyId = this.tokenPayload.companyId
     if (!companyId) return false
 
-    const companyClientIds = this.getCompanyClientIdsFromAssignee(companyId)
+    const companyClientIds = new Set(this.getCompanyClientIdsFromAssignee(companyId))
 
-    if (newTask.companyId === companyId && newTask.clientId && companyClientIds.includes(newTask.clientId)) {
+    if (newTask.companyId === companyId && newTask.clientId && companyClientIds.has(newTask.clientId)) {
       return true
     }
 
-    if (Array.isArray(newTask.associations)) {
-      for (const association of newTask.associations) {
-        if (!association || typeof association !== 'object') continue
-        const assocCompanyId = (association as { companyId?: string }).companyId
-        const assocClientId = (association as { clientId?: string | null }).clientId
-        if (assocCompanyId !== companyId) continue
-        if (assocClientId && companyClientIds.includes(assocClientId)) {
-          return true
-        }
-      }
-    }
-
-    return false
+    return !!newTask.associations?.some(
+      (association) =>
+        association.companyId === companyId && !!association.clientId && companyClientIds.has(association.clientId),
+    )
   }
 
   private getCompanyClientIdsFromAssignee(companyId: string): string[] {
     const { assignee } = selectTaskBoard(store.getState())
-    return assignee.filter((u) => u.type === 'clients' && u.companyId === companyId).map((u) => u.id)
+    return assignee.flatMap((u) => (u.type === 'clients' && u.companyId === companyId ? [u.id] : []))
   }
 
   /**
