@@ -56,10 +56,14 @@ export class CommentService extends BaseService {
     })
 
     let commentToReturn = comment // return the latest comment object with attachments (if any)
+    let oldFilePathsToRemove: string[] = []
     try {
       if (comment.content) {
-        const newContent = await this.updateCommentIdOfAttachmentsAfterCreation(comment.content, data.taskId, comment.id)
-        // mutate commentToReturn here with signed attachment urls
+        const { content: newContent, oldFilePaths } = await this.updateCommentIdOfAttachmentsAfterCreation(
+          comment.content,
+          data.taskId,
+          comment.id,
+        )
         commentToReturn = await this.db.comment.update({
           where: { id: comment.id },
           data: {
@@ -68,11 +72,28 @@ export class CommentService extends BaseService {
           },
           include: { attachments: true },
         })
+        oldFilePathsToRemove = oldFilePaths
         console.info('CommentService#createComment | Comment content attachments updated for comment ID:', comment.id)
       }
     } catch (e: unknown) {
       await this.db.comment.delete({ where: { id: comment.id } })
       console.error('CommentService#createComment | Rolling back comment creation', e)
+      // Without this the activity log + webhook below fire for a deleted comment.
+      throw e
+    }
+
+    // Remove originals only after the rewritten content is committed.
+    if (oldFilePathsToRemove.length) {
+      const supabaseActions = new SupabaseActions()
+      await Promise.all(
+        oldFilePathsToRemove.map(async (path) => {
+          try {
+            await supabaseActions.removeAttachment(path)
+          } catch (err) {
+            console.warn('OUT-3763: failed to remove old attachment after copy', path, err)
+          }
+        }),
+      )
     }
 
     if (!comment.parentId) {
@@ -323,83 +344,87 @@ export class CommentService extends BaseService {
     })
   }
 
-  private async updateCommentIdOfAttachmentsAfterCreation(htmlString: string, task_id: string, commentId: string) {
-    const imgTagRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g //expression used to match all img srcs in provided HTML string.
-    const attachmentTagRegex = /<\s*[a-zA-Z]+\s+[^>]*data-type="attachment"[^>]*src="([^"]+)"[^>]*>/g //expression used to match all attachment srcs in provided HTML string.
+  // OUT-3763: copy (not move) and sign before any DB write so a failure here
+  // never leaves the comment content pointing at a path the file isn't at.
+  private async updateCommentIdOfAttachmentsAfterCreation(
+    htmlString: string,
+    task_id: string,
+    commentId: string,
+  ): Promise<{ content: string; oldFilePaths: string[] }> {
+    const imgTagRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g
+    const attachmentTagRegex = /<\s*[a-zA-Z]+\s+[^>]*data-type="attachment"[^>]*src="([^"]+)"[^>]*>/g
     let match
-    const replacements: { originalSrc: string; newUrl: string }[] = []
-
-    const newFilePaths: { originalSrc: string; newFilePath: string }[] = []
-    const copyAttachmentPromises: Promise<void>[] = []
-    const createAttachmentPayloads = []
     const matches: { originalSrc: string; filePath: string; fileName: string }[] = []
+    const seenSrcs = new Set<string>()
 
-    while ((match = imgTagRegex.exec(htmlString)) !== null) {
-      const originalSrc = match[1]
-      const filePath = getFilePathFromUrl(originalSrc)
-      const fileName = filePath?.split('/').pop()
-      if (filePath && fileName) {
-        matches.push({ originalSrc, filePath, fileName })
+    for (const regex of [imgTagRegex, attachmentTagRegex]) {
+      regex.lastIndex = 0
+      while ((match = regex.exec(htmlString)) !== null) {
+        const originalSrc = match[1]
+        if (seenSrcs.has(originalSrc)) continue
+        const filePath = getFilePathFromUrl(originalSrc)
+        const fileName = filePath?.split('/').pop()
+        if (filePath && fileName) {
+          seenSrcs.add(originalSrc)
+          matches.push({ originalSrc, filePath, fileName })
+        }
       }
     }
 
-    while ((match = attachmentTagRegex.exec(htmlString)) !== null) {
-      const originalSrc = match[1]
-      const filePath = getFilePathFromUrl(originalSrc)
-      const fileName = filePath?.split('/').pop()
-      if (filePath && fileName) {
-        matches.push({ originalSrc, filePath, fileName })
-      }
-    }
+    const supabaseActions = new SupabaseActions()
+    const createAttachmentPayloads: ReturnType<typeof CreateAttachmentRequestSchema.parse>[] = []
+    const replacements: { originalSrc: string; newUrl: string }[] = []
+    const oldFilePaths: string[] = []
+    const newFilePathsList: string[] = []
 
     for (const { originalSrc, filePath, fileName } of matches) {
       const newFilePath = `${this.user.workspaceId}/${task_id}/comments/${commentId}/${fileName}`
-      const supabaseActions = new SupabaseActions()
-
       const fileMetaData = await supabaseActions.getMetaData(filePath)
       createAttachmentPayloads.push(
         CreateAttachmentRequestSchema.parse({
-          commentId: commentId,
+          commentId,
           filePath: newFilePath,
           fileSize: fileMetaData?.size,
           fileType: fileMetaData?.contentType,
           fileName: fileMetaData?.metadata?.originalFileName || getFileNameFromPath(newFilePath),
         }),
       )
-      copyAttachmentPromises.push(supabaseActions.moveAttachment(filePath, newFilePath))
-      newFilePaths.push({ originalSrc, newFilePath })
+      await supabaseActions.copyAttachment(filePath, newFilePath)
+
+      let newUrl = await getSignedUrl(newFilePath)
+      if (!newUrl) {
+        // Supabase's signer can briefly lag a fresh write.
+        await new Promise((resolve) => setTimeout(resolve, 200))
+        newUrl = await getSignedUrl(newFilePath)
+      }
+      if (!newUrl) {
+        throw new APIError(
+          httpStatus.INTERNAL_SERVER_ERROR,
+          `Failed to sign URL for newly copied attachment at ${newFilePath}`,
+        )
+      }
+      replacements.push({ originalSrc, newUrl })
+      oldFilePaths.push(filePath)
+      newFilePathsList.push(newFilePath)
     }
 
-    await Promise.all(copyAttachmentPromises)
-    const attachmentService = new AttachmentsService(this.user)
+    for (const { originalSrc, newUrl } of replacements) {
+      htmlString = htmlString.replaceAll(originalSrc, newUrl)
+    }
+
     if (createAttachmentPayloads.length) {
+      const attachmentService = new AttachmentsService(this.user)
       await attachmentService.createMultipleAttachments(createAttachmentPayloads)
     }
 
-    const signedUrlPromises = newFilePaths.map(async ({ originalSrc, newFilePath }) => {
-      const newUrl = await getSignedUrl(newFilePath)
-      if (newUrl) {
-        replacements.push({ originalSrc, newUrl })
-      }
-    })
-
-    await Promise.all(signedUrlPromises)
-
-    for (const { originalSrc, newUrl } of replacements) {
-      htmlString = htmlString.replace(originalSrc, newUrl)
+    if (newFilePathsList.length) {
+      await this.db.scrapMedia.updateMany({
+        where: { filePath: { in: newFilePathsList } },
+        data: { commentId },
+      })
     }
-    const filePaths = newFilePaths.map(({ newFilePath }) => newFilePath)
-    await this.db.scrapMedia.updateMany({
-      where: {
-        filePath: {
-          in: filePaths,
-        },
-      },
-      data: {
-        commentId: commentId,
-      },
-    })
-    return htmlString
+
+    return { content: htmlString, oldFilePaths }
   } //todo: make this resuable since this is highly similar to what we are doing on tasks.
 
   async getAllComments(queryFilters: CommentsPublicFilterType): Promise<CommentWithAttachments[]> {
