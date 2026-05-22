@@ -69,16 +69,16 @@ export const signMediaForComments = async (comments: Comment[]) =>
 // path. Attachment tags are only rewritten when the path lacks the
 // comment-scoped segment — downloads use the path, not the token, so healthy
 // attachment tags need no work. Remove this once the backfill lands.
-const IMG_TAG_REGEX = /<img\s+[^>]*src="([^"]+)"[^>]*>/g
-const ATTACHMENT_TAG_REGEX = /<\s*[a-zA-Z]+\s+[^>]*data-type="attachment"[^>]*src="([^"]+)"[^>]*>/g
-
 async function rewriteCommentMediaSrcs(htmlString: string, commentId: string): Promise<string> {
+  // Regexes are created per-call: /g state is mutable and signMediaForComments
+  // runs this concurrently via Promise.all — module-level instances would race.
+  const imgTagRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g
+  const attachmentTagRegex = /<\s*[a-zA-Z]+\s+[^>]*data-type="attachment"[^>]*src="([^"]+)"[^>]*>/g
   const replacements: { originalSrc: string; newUrl: string }[] = []
   const seen = new Set<string>()
   let match
 
-  IMG_TAG_REGEX.lastIndex = 0
-  while ((match = IMG_TAG_REGEX.exec(htmlString)) !== null) {
+  while ((match = imgTagRegex.exec(htmlString)) !== null) {
     const originalSrc = match[1]
     if (seen.has(originalSrc)) continue
     seen.add(originalSrc)
@@ -88,8 +88,7 @@ async function rewriteCommentMediaSrcs(htmlString: string, commentId: string): P
     if (newUrl) replacements.push({ originalSrc, newUrl })
   }
 
-  ATTACHMENT_TAG_REGEX.lastIndex = 0
-  while ((match = ATTACHMENT_TAG_REGEX.exec(htmlString)) !== null) {
+  while ((match = attachmentTagRegex.exec(htmlString)) !== null) {
     const originalSrc = match[1]
     if (seen.has(originalSrc)) continue
     const filePath = getFilePathFromUrl(originalSrc)
@@ -101,7 +100,7 @@ async function rewriteCommentMediaSrcs(htmlString: string, commentId: string): P
   }
 
   for (const { originalSrc, newUrl } of replacements) {
-    htmlString = htmlString.replace(originalSrc, newUrl)
+    htmlString = htmlString.replaceAll(originalSrc, newUrl)
   }
   return htmlString
 }
