@@ -12,6 +12,7 @@ import { MenuBox } from '@/components/inputs/MenuBox'
 import { ConfirmDeleteUI } from '@/components/layouts/ConfirmDeleteUI'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
 import { usePostAttachment } from '@/hoc/PostAttachmentProvider'
+import { useDeferredTapwriteContent } from '@/hooks/useDeferredTapwriteContent'
 import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { PencilIcon, TrashIcon } from '@/icons'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
@@ -56,6 +57,7 @@ export const ReplyCard = ({
   const content = (item as { content: string }).content || ''
   const [editedContent, setEditedContent] = useState(content)
   const [isListOrMenuActive, setIsListOrMenuActive] = useState(false)
+  const handleTapwriteContentChange = useDeferredTapwriteContent(editedContent, setEditedContent)
   const [isFocused, setIsFocused] = useState(false)
   const editRef = useRef<HTMLDivElement>(document.createElement('div'))
 
@@ -239,7 +241,7 @@ export const ReplyCard = ({
                 const { isListActive, isFloatingMenuActive } = prop
                 setIsListOrMenuActive(isListActive || isFloatingMenuActive)
               }}
-              getContent={setEditedContent}
+              getContent={handleTapwriteContentChange}
               readonly={isReadOnly}
               editorRef={editRef}
               editorClass={isReadOnly ? 'tapwrite-comment' : 'tapwrite-comment-editable'}

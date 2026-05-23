@@ -2,6 +2,7 @@ import { CopilotAvatar } from '@/components/atoms/CopilotAvatar'
 import AttachmentLayout from '@/components/AttachmentLayout'
 import { SubmitCommentButtons } from '@/components/buttonsGroup/SubmitCommentButtons'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
+import { useDeferredTapwriteContent } from '@/hooks/useDeferredTapwriteContent'
 import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
@@ -152,6 +153,8 @@ export const ReplyInput = ({
     getEntityId: () => task_id,
   })
 
+  const handleTapwriteContentChange = useDeferredTapwriteContent(detail, setDetail)
+
   return (
     <>
       <Stack
@@ -175,7 +178,7 @@ export const ReplyInput = ({
           <Tapwrite
             editorRef={editorRef}
             content={detail}
-            getContent={setDetail}
+            getContent={handleTapwriteContentChange}
             placeholder="Leave a reply..."
             editorClass="tapwrite-reply-input"
             className={'tapwrite-reply-input'}

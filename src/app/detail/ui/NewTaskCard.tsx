@@ -12,6 +12,7 @@ import { WorkflowStateSelector } from '@/components/inputs/Selector-WorkflowStat
 import { CopilotToggle } from '@/components/inputs/CopilotToggle'
 import { StyledTextField } from '@/components/inputs/TextField'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
+import { useDeferredTapwriteContent } from '@/hooks/useDeferredTapwriteContent'
 import { useHandleSelectorComponent } from '@/hooks/useHandleSelectorComponent'
 import { PersonIconSmall, TempalteIconMd } from '@/icons'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
@@ -128,6 +129,9 @@ export const NewTaskCard = ({
       [field]: value,
     }))
   }
+  const handleTapwriteDescriptionChange = useDeferredTapwriteContent(subTaskFields.description, (content) =>
+    handleFieldChange('description', content),
+  )
 
   const uploadFn = createUploadFn({
     token,
@@ -385,7 +389,7 @@ export const NewTaskCard = ({
         <Box sx={{ height: '100%', width: '100%' }}>
           <Tapwrite
             content={subTaskFields.description}
-            getContent={(content) => handleFieldChange('description', content)}
+            getContent={handleTapwriteDescriptionChange}
             placeholder="Add description.."
             editorClass="tapwrite-task-editor"
             uploadFn={uploadFn}

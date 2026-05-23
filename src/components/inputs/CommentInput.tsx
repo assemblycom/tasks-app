@@ -5,6 +5,7 @@ import { CopilotAvatar } from '@/components/atoms/CopilotAvatar'
 import AttachmentLayout from '@/components/AttachmentLayout'
 import { SubmitCommentButtons } from '@/components/buttonsGroup/SubmitCommentButtons'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
+import { useDeferredTapwriteContent } from '@/hooks/useDeferredTapwriteContent'
 import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
@@ -126,6 +127,8 @@ export const CommentInput = ({ createComment, task_id, token }: Prop) => {
   const handleUploadStatusChange = (uploading: boolean) => {
     setIsUploading(uploading)
   }
+  const handleTapwriteContentChange = useDeferredTapwriteContent(detail, setDetail)
+
   return (
     <Stack direction="row" columnGap={2} alignItems="flex-start">
       <CopilotAvatar
@@ -150,7 +153,7 @@ export const CommentInput = ({ createComment, task_id, token }: Prop) => {
       >
         <Tapwrite
           content={detail}
-          getContent={setDetail}
+          getContent={handleTapwriteContentChange}
           placeholder="Leave a comment..."
           // suggestions={assigneeSuggestions} enable this for mentions
           editorClass="tapwrite-comment-input"

@@ -20,6 +20,7 @@ import { ReplyInput } from '@/components/inputs/ReplyInput'
 import { ConfirmDeleteUI } from '@/components/layouts/ConfirmDeleteUI'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
 import { usePostAttachment } from '@/hoc/PostAttachmentProvider'
+import { useDeferredTapwriteContent } from '@/hooks/useDeferredTapwriteContent'
 import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { PencilIcon, ReplyIcon, TrashIcon } from '@/icons'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
@@ -100,6 +101,7 @@ export const CommentCard = ({
   const content = (comment.details as { content: string }).content || ''
   const [editedContent, setEditedContent] = useState(content)
   const [isListOrMenuActive, setIsListOrMenuActive] = useState(false)
+  const handleTapwriteContentChange = useDeferredTapwriteContent(editedContent, setEditedContent)
 
   const firstInitiators = (comment?.details?.firstInitiators as string[])?.map((initiator) => {
     return assignee.find((assignee) => assignee.id == initiator)
@@ -324,7 +326,7 @@ export const CommentCard = ({
                   const { isListActive, isFloatingMenuActive } = prop
                   setIsListOrMenuActive(isListActive || isFloatingMenuActive)
                 }}
-                getContent={setEditedContent}
+                getContent={handleTapwriteContentChange}
                 readonly={isReadOnly}
                 editorRef={editRef}
                 editorClass={isReadOnly ? 'tapwrite-comment' : 'tapwrite-comment-editable'}

@@ -7,6 +7,7 @@ import { StyledTextField } from '@/components/inputs/TextField'
 import { ConfirmDeleteUI } from '@/components/layouts/ConfirmDeleteUI'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
 import { useDebounceWithCancel } from '@/hooks/useDebounce'
+import { useDeferredTapwriteContent } from '@/hooks/useDeferredTapwriteContent'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { selectTaskDetails, setOpenImage, setShowConfirmDeleteModal } from '@/redux/features/taskDetailsSlice'
 import store from '@/redux/store'
@@ -164,6 +165,12 @@ export const TaskEditor = ({
     debouncedResetTypingFlag()
   }
 
+  const handleTapwriteContentChange = useDeferredTapwriteContent(updateDetail, (content: string) => {
+    if (updateDetail !== '') {
+      handleDetailChange(content)
+    }
+  })
+
   const uploadFn = createUploadFn({
     token,
     workspaceId: task.workspaceId,
@@ -213,11 +220,7 @@ export const TaskEditor = ({
       <Box mt="12px" sx={{ height: '100%', width: '100%' }}>
         <Tapwrite
           content={updateDetail}
-          getContent={(content: string) => {
-            if (updateDetail !== '') {
-              handleDetailChange(content)
-            }
-          }}
+          getContent={handleTapwriteContentChange}
           onBlur={flushDetailsUpdateDebounced}
           readonly={!isEditable}
           editorClass="tapwrite-task-editor"
