@@ -63,9 +63,10 @@ export function shouldReloadForChunkLoadFailure(
   now = Date.now(),
 ): boolean {
   const storageKey = `${CHUNK_LOAD_RELOAD_KEY_PREFIX}:${chunkIdentifier}`
-  const lastReloadAt = Number(storage.getItem(storageKey) || 0)
+  const lastReloadAtValue = storage.getItem(storageKey)
+  const lastReloadAt = lastReloadAtValue === null ? null : Number(lastReloadAtValue)
 
-  if (Number.isFinite(lastReloadAt) && now - lastReloadAt < CHUNK_LOAD_RELOAD_COOLDOWN_MS) {
+  if (lastReloadAt !== null && Number.isFinite(lastReloadAt) && now - lastReloadAt < CHUNK_LOAD_RELOAD_COOLDOWN_MS) {
     return false
   }
 
