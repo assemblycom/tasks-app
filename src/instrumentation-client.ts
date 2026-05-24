@@ -3,10 +3,19 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
+import {
+  hasRecentChunkLoadFailure,
+  isChunkLoadErrorLike,
+  isReactParentNodeNullErrorLike,
+  markChunkLoadFailure,
+  registerChunkLoadRecovery,
+} from '@/utils/chunkLoadRecovery'
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
 const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV
 const isProd = process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
+
+registerChunkLoadRecovery(isProd)
 
 if (dsn) {
   Sentry.init({
@@ -36,7 +45,35 @@ if (dsn) {
     // ignoreErrors: [/fetch failed/i],
     ignoreErrors: [/fetch failed/i],
 
-    beforeSend(event) {
+    beforeBreadcrumb(breadcrumb) {
+      if (isChunkLoadErrorLike(breadcrumb.message)) {
+        markChunkLoadFailure()
+      }
+
+      return breadcrumb
+    },
+
+    beforeSend(event, hint) {
+      const exception = event.exception?.values?.[0]
+      const exceptionValue = exception?.value || event.message
+      const isChunkLoadError = isChunkLoadErrorLike(hint.originalException) || isChunkLoadErrorLike(exceptionValue)
+
+      if (isChunkLoadError) {
+        markChunkLoadFailure()
+        event.tags = {
+          ...event.tags,
+          chunk_load_recovery: 'attempted',
+        }
+      }
+
+      const isReactStreamFollowupError =
+        isReactParentNodeNullErrorLike(hint.originalException) || isReactParentNodeNullErrorLike(exceptionValue)
+      const hasReactStreamFrame = exception?.stacktrace?.frames?.some((frame) => frame.function === '$RS') ?? false
+
+      if (isReactStreamFollowupError && hasReactStreamFrame && hasRecentChunkLoadFailure()) {
+        return null
+      }
+
       if (!isProd && event.type === undefined) {
         return null
       }
