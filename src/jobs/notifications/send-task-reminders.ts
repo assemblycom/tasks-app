@@ -4,7 +4,6 @@ import { copilotAPIKey } from '@/config'
 import DBClient from '@/lib/db'
 import { ClientResponse } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
-import { encodePayload } from '@/utils/crypto'
 import { AssigneeType, Prisma, TaskReminderType } from '@prisma/client'
 import { logger, schedules } from '@trigger.dev/sdk/v3'
 import Bottleneck from 'bottleneck'
@@ -115,21 +114,14 @@ const processWorkspace = async (
     where: { id: { in: taskIds } },
     select: { id: true, title: true, createdById: true },
   })
+  if (tasks.length === 0) return { sent: 0, failed: 0, skipped: 0 }
   const taskById = new Map<string, TaskInfo>(tasks.map((t) => [t.id, t]))
 
-  // Mint a per-workspace Copilot client. Cron has no request-bound user, so we encode
-  // an IU token from any task's createdById + workspaceId — same shape as
-  // src/cmd/backfill-missed-emails/index.ts:97-99.
-  const senderIu = tasks[0]?.createdById
-  if (!senderIu) {
-    logger.warn('send-task-reminders: no IU found to mint workspace token, skipping', {
-      workspaceId,
-      rowCount: rows.length,
-    })
-    return { sent: 0, failed: 0, skipped: 0 }
-  }
-  const token = encodePayload(copilotAPIKey, { internalUserId: senderIu, workspaceId })
-  const copilot = new CopilotAPI(token)
+  // Per-workspace Copilot client using a workspace-scoped apiKey. The SDK patch
+  // (src/lib/patch-copilot-node-sdk.js) accepts `${workspaceId}/${apiKey}` as the auth key
+  // directly when COPILOT_ENV is set on the Trigger.dev runtime (`local` for prod,
+  // `__SECRET_STAGING__` for staging) — no user token needed. Empty token = no user context.
+  const copilot = new CopilotAPI('', `${workspaceId}/${copilotAPIKey}`)
   const workspace = await copilot.getWorkspace()
 
   // Plan: fan out company rows to one entry per current member; client rows stay 1:1.

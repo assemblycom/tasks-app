@@ -21,6 +21,10 @@ jest.mock('@trigger.dev/sdk/v3', () => ({
   logger: { log: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }))
 
+jest.mock('@/config', () => ({
+  copilotAPIKey: 'test-api-key',
+}))
+
 jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
@@ -30,10 +34,6 @@ jest.mock('@/lib/db', () => ({
       taskReminderSent: { delete: mockTaskReminderSentDelete },
     }),
   },
-}))
-
-jest.mock('@/utils/crypto', () => ({
-  encodePayload: jest.fn(() => 'stub-token'),
 }))
 
 jest.mock('@/utils/CopilotAPI', () => ({
@@ -156,6 +156,24 @@ describe('sendTaskReminders', () => {
       isCompanyRecipient: false,
       workspace,
     })
+  })
+
+  it('initializes CopilotAPI with a workspace-scoped apiKey (no user token mint)', async () => {
+    mockGetEligibleReminders.mockResolvedValueOnce([buildRow()])
+    mockTaskFindMany.mockResolvedValueOnce([{ id: 'task_1', title: 'Submit timesheet', createdById: 'iu_1' }])
+    mockQueryRaw.mockResolvedValueOnce([
+      {
+        id: 'ledger_1',
+        taskId: 'task_1',
+        recipientId: 'client_1',
+        reminderType: TaskReminderType.NO_DUE_DATE_3D,
+      },
+    ])
+    mockSendReminderEmail.mockResolvedValueOnce('notif_1')
+
+    await runJob()
+
+    expect(mockCopilotApiCtor).toHaveBeenCalledWith('', 'ws_1/test-api-key')
   })
 
   it('treats ON CONFLICT returning zero rows as fully-skipped (re-run idempotency)', async () => {
