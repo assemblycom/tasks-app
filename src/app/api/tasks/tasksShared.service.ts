@@ -9,7 +9,7 @@ import {
   UpdateTaskRequest,
   AssociationsSchema,
 } from '@/types/dto/tasks.dto'
-import { getFileNameFromPath } from '@/utils/attachmentUtils'
+import { getFileNameFromPath, normalizeAttachmentFilePath } from '@/utils/attachmentUtils'
 import { resolveDynamicFields, resolveAutofillTags } from '@/utils/dynamicFields'
 import { buildLtree, buildLtreeNodeString } from '@/utils/ltree'
 import { getFilePathFromUrl } from '@/utils/signedUrlReplacer'
@@ -524,20 +524,63 @@ export abstract class TasksSharedService extends BaseService {
       }
     }
 
+    // Look up every Attachment row in this workspace that references one of the file paths
+    // appearing in the body. We need both:
+    //   - orphan rows (taskId=null) so the public upload flow can bind them in place
+    //   - already-bound rows so we can skip them entirely (otherwise calling this function
+    //     on a body that was already processed once would re-move files / create duplicates)
+    const referencedFilePaths = matches.map((m) => normalizeAttachmentFilePath(m.filePath))
+    const existingAttachmentRowsByFilePath = referencedFilePaths.length
+      ? await this.db.attachment.findMany({
+          where: {
+            workspaceId: this.user.workspaceId,
+            commentId: null,
+            deletedAt: null,
+            filePath: { in: referencedFilePaths },
+          },
+        })
+      : []
+    const orphanAttachmentByFilePath = new Map(
+      existingAttachmentRowsByFilePath
+        .filter((row) => row.taskId === null)
+        .map((row) => [normalizeAttachmentFilePath(row.filePath), row]),
+    )
+    const alreadyBoundFilePaths = new Set(
+      existingAttachmentRowsByFilePath
+        .filter((row) => row.taskId !== null)
+        .map((row) => normalizeAttachmentFilePath(row.filePath)),
+    )
+
+    const orphanReassignments: { existingAttachmentId: string; newFilePath: string }[] = []
+
     for (const { originalSrc, filePath, fileName } of matches) {
+      const normalizedFilePath = normalizeAttachmentFilePath(filePath)
+      if (alreadyBoundFilePaths.has(normalizedFilePath)) {
+        // Body re-referenced an attachment that's already bound to a task — leave the row,
+        // file, and src untouched.
+        continue
+      }
       const newFilePath = `${this.user.workspaceId}/${task_id}/${fileName}`
       const supabaseActions = new SupabaseActions()
+      const matchedOrphanAttachment = orphanAttachmentByFilePath.get(normalizedFilePath)
 
-      const fileMetaData = await supabaseActions.getMetaData(filePath)
-      createAttachmentPayloads.push(
-        CreateAttachmentRequestSchema.parse({
-          taskId: task_id,
-          filePath: newFilePath,
-          fileSize: fileMetaData?.size,
-          fileType: fileMetaData?.contentType,
-          fileName: fileMetaData?.metadata?.originalFileName || getFileNameFromPath(newFilePath),
-        }),
-      )
+      if (matchedOrphanAttachment) {
+        // Public-upload path: row already exists with all metadata; just bind to this task
+        // and rewrite its filePath to the task-scoped location after the supabase move.
+        orphanReassignments.push({ existingAttachmentId: matchedOrphanAttachment.id, newFilePath })
+      } else {
+        // In-app path: no pre-existing row, so synthesize one from supabase metadata.
+        const fileMetaData = await supabaseActions.getMetaData(filePath)
+        createAttachmentPayloads.push(
+          CreateAttachmentRequestSchema.parse({
+            taskId: task_id,
+            filePath: newFilePath,
+            fileSize: fileMetaData?.size,
+            fileType: fileMetaData?.contentType,
+            fileName: fileMetaData?.metadata?.originalFileName || getFileNameFromPath(newFilePath),
+          }),
+        )
+      }
       copyAttachmentPromises.push(supabaseActions.moveAttachment(filePath, newFilePath))
       newFilePaths.push({ originalSrc, newFilePath })
     }
@@ -546,6 +589,16 @@ export abstract class TasksSharedService extends BaseService {
     if (createAttachmentPayloads.length) {
       const attachmentService = new AttachmentsService(this.user)
       await attachmentService.createMultipleAttachments(createAttachmentPayloads)
+    }
+    if (orphanReassignments.length) {
+      await this.db.$transaction(
+        orphanReassignments.map(({ existingAttachmentId, newFilePath }) =>
+          this.db.attachment.update({
+            where: { id: existingAttachmentId, workspaceId: this.user.workspaceId },
+            data: { taskId: task_id, filePath: newFilePath },
+          }),
+        ),
+      )
     }
 
     const signedUrlPromises = newFilePaths.map(async ({ originalSrc, newFilePath }) => {
@@ -558,7 +611,10 @@ export abstract class TasksSharedService extends BaseService {
     await Promise.all(signedUrlPromises)
 
     for (const { originalSrc, newUrl } of replacements) {
-      htmlString = htmlString.replace(originalSrc, newUrl)
+      // replaceAll: native non-image attachments embed the same URL twice
+      // (outer <div data-src="..."> + inner <attachment-view src="...">), and
+      // both must be rewritten so the inner link doesn't 404 after the file move.
+      htmlString = htmlString.replaceAll(originalSrc, newUrl)
     }
     const filePaths = newFilePaths.map(({ newFilePath }) => newFilePath)
     await this.db.scrapMedia.updateMany({

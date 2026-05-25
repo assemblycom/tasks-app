@@ -8,15 +8,20 @@ import { getFilePathFromUrl } from '@/utils/signedUrlReplacer'
 import { getSignedUrlFile, getSignedUrlUpload } from '@/app/(home)/actions'
 import { CreateAttachmentRequestSchema } from '@/types/dto/attachments.dto'
 
-const buildFilePath = (
-  workspaceId: string,
-  type: AttachmentTypes[keyof AttachmentTypes],
-  entityId: string | null,
-  parentTaskId?: string,
-) => {
-  if (type === AttachmentTypes.TASK) {
+export const buildFilePath = ({
+  workspaceId,
+  attachmentType,
+  entityId,
+  parentTaskId,
+}: {
+  workspaceId: string
+  attachmentType: AttachmentTypes[keyof AttachmentTypes]
+  entityId: string | null
+  parentTaskId?: string
+}) => {
+  if (attachmentType === AttachmentTypes.TASK) {
     return entityId ? `/${workspaceId}/${entityId}` : `/${workspaceId}`
-  } else if (type === AttachmentTypes.COMMENT) {
+  } else if (attachmentType === AttachmentTypes.COMMENT) {
     return `/${workspaceId}/${parentTaskId}/comments${entityId ? `/${entityId}` : ''}`
   }
   return `/${workspaceId}/templates${entityId ? `/${entityId}` : ''}`
@@ -36,7 +41,7 @@ export const uploadAttachmentHandler = async (
   const signedUrl: ISignedUrlUpload = await getSignedUrlUpload(
     token,
     fileName,
-    buildFilePath(workspaceId, type, entityId, parentTaskId),
+    buildFilePath({ workspaceId, attachmentType: type, entityId, parentTaskId }),
   )
 
   const { filePayload, error } = await supabaseActions.uploadAttachment(file, signedUrl, entityId)
@@ -96,6 +101,8 @@ export const getFileNameFromPath = (path: string): string => {
   const segments = path.split('/').filter(Boolean)
   return segments[segments.length - 1] || ''
 }
+
+export { normalizeAttachmentFilePath } from '@/utils/attachmentFilePath'
 
 export const getCustomFilePath = (workspaceId: string, task_id: string, commentId: string, url: string) => {
   const filePath = getFilePathFromUrl(url)

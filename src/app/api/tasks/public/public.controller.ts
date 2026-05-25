@@ -69,7 +69,7 @@ export const createTaskPublic = async (req: NextRequest) => {
   const data = await publicTaskCreateDtoSchemaFactory(user.token).parseAsync(await req.json())
   console.info('Parsed public task creation data:', data)
 
-  const createPayload = await PublicTaskSerializer.deserializeCreatePayload(data, user.workspaceId)
+  const createPayload = await PublicTaskSerializer.deserializeCreatePayload({ payload: data, user })
   console.info('Deserialized create payload:', createPayload)
 
   const tasksService = new PublicTasksService(user)
@@ -86,7 +86,7 @@ export const updateTaskPublic = async (req: NextRequest, { params }: IdParams) =
   const data = PublicTaskUpdateDtoSchema.parse(await req.json())
 
   const tasksService = new PublicTasksService(user)
-  const updatePayload = await PublicTaskSerializer.deserializeUpdatePayload(data, user.workspaceId)
+  const updatePayload = await PublicTaskSerializer.deserializeUpdatePayload({ payload: data, user })
   const updatedTask = await tasksService.updateTask(id, updatePayload)
 
   return NextResponse.json(await PublicTaskSerializer.serialize(updatedTask))
