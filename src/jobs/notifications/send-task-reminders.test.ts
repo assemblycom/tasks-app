@@ -3,7 +3,6 @@ import { AssigneeType, TaskReminderType } from '@prisma/client'
 // Mocks must be configured before requiring the SUT. Variables referenced inside the
 // jest.mock factory must start with `mock` so the babel-jest allow-list lets the closure
 // see them once the const declarations have run.
-const mockTaskFindMany = jest.fn()
 const mockTaskReminderSentCreateManyAndReturn = jest.fn()
 const mockTaskReminderSentDelete = jest.fn()
 
@@ -29,7 +28,6 @@ jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
     getInstance: () => ({
-      task: { findMany: mockTaskFindMany },
       taskReminderSent: {
         createManyAndReturn: mockTaskReminderSentCreateManyAndReturn,
         delete: mockTaskReminderSentDelete,
@@ -57,8 +55,7 @@ jest.mock('./send-reminder-email', () => ({
 }))
 
 // Bypass Bottleneck's rate-limiting in tests but preserve sequential ordering per instance
-// via a promise chain. Matches the pattern used in auto-archive-completed-tasks.test.ts so
-// FIFO mockResolvedValueOnce queues drain deterministically.
+// via a promise chain so FIFO mockResolvedValueOnce queues drain deterministically.
 jest.mock('bottleneck', () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => {
@@ -88,6 +85,8 @@ const workspace = { id: 'ws_1', brandName: 'Acme' }
 const buildRow = (overrides: Partial<Parameters<typeof Object.assign>[1]> = {}) => ({
   taskId: 'task_1',
   workspaceId: 'ws_1',
+  title: 'Submit timesheet',
+  createdById: 'iu_1',
   assigneeId: 'client_1',
   assigneeType: AssigneeType.client,
   companyId: 'company_1',
@@ -98,7 +97,6 @@ const buildRow = (overrides: Partial<Parameters<typeof Object.assign>[1]> = {}) 
 describe('sendTaskReminders', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mockTaskFindMany.mockReset()
     mockTaskReminderSentCreateManyAndReturn.mockReset()
     mockTaskReminderSentDelete.mockReset()
     mockGetEligibleReminders.mockReset()
@@ -120,7 +118,7 @@ describe('sendTaskReminders', () => {
     expect(mockCopilotApiCtor).not.toHaveBeenCalled()
   })
 
-  it('filters out internalUser rows before any DB or Copilot work', async () => {
+  it('filters out internalUser rows before any Copilot work', async () => {
     mockGetEligibleReminders.mockResolvedValueOnce([
       buildRow({ assigneeType: AssigneeType.internalUser, assigneeId: 'iu_1', companyId: null }),
     ])
@@ -128,14 +126,12 @@ describe('sendTaskReminders', () => {
     const result = await runJob()
 
     expect(result.workspaceCount).toBe(0)
-    expect(mockTaskFindMany).not.toHaveBeenCalled()
     expect(mockTaskReminderSentCreateManyAndReturn).not.toHaveBeenCalled()
     expect(mockSendReminderEmail).not.toHaveBeenCalled()
   })
 
   it('sends one reminder for a client-assigned task and writes one ledger row', async () => {
     mockGetEligibleReminders.mockResolvedValueOnce([buildRow()])
-    mockTaskFindMany.mockResolvedValueOnce([{ id: 'task_1', title: 'Submit timesheet', createdById: 'iu_1' }])
     mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([
       {
         id: 'ledger_1',
@@ -162,7 +158,6 @@ describe('sendTaskReminders', () => {
 
   it('initializes CopilotAPI with a workspace-scoped apiKey (no user token mint)', async () => {
     mockGetEligibleReminders.mockResolvedValueOnce([buildRow()])
-    mockTaskFindMany.mockResolvedValueOnce([{ id: 'task_1', title: 'Submit timesheet', createdById: 'iu_1' }])
     mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([
       {
         id: 'ledger_1',
@@ -180,7 +175,6 @@ describe('sendTaskReminders', () => {
 
   it('treats ON CONFLICT returning zero rows as fully-skipped (re-run idempotency)', async () => {
     mockGetEligibleReminders.mockResolvedValueOnce([buildRow()])
-    mockTaskFindMany.mockResolvedValueOnce([{ id: 'task_1', title: 'Submit timesheet', createdById: 'iu_1' }])
     mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([])
 
     const result = await runJob()
@@ -197,7 +191,6 @@ describe('sendTaskReminders', () => {
         companyId: 'company_1',
       }),
     ])
-    mockTaskFindMany.mockResolvedValueOnce([{ id: 'task_1', title: 'Submit timesheet', createdById: 'iu_1' }])
     mockGetCompanyClients.mockResolvedValueOnce([{ id: 'm_1' }, { id: 'm_2' }, { id: 'm_3' }])
     mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([
       { id: 'l_1', taskId: 'task_1', recipientId: 'm_1', reminderType: TaskReminderType.NO_DUE_DATE_3D },
@@ -217,7 +210,6 @@ describe('sendTaskReminders', () => {
 
   it('compensates the ledger when Copilot send fails', async () => {
     mockGetEligibleReminders.mockResolvedValueOnce([buildRow()])
-    mockTaskFindMany.mockResolvedValueOnce([{ id: 'task_1', title: 'Submit timesheet', createdById: 'iu_1' }])
     mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([
       { id: 'ledger_1', taskId: 'task_1', recipientId: 'client_1', reminderType: TaskReminderType.NO_DUE_DATE_3D },
     ])
@@ -235,11 +227,8 @@ describe('sendTaskReminders', () => {
       buildRow({ workspaceId: 'ws_bad', taskId: 'task_bad' }),
       buildRow({ workspaceId: 'ws_good', taskId: 'task_good', assigneeId: 'client_good' }),
     ])
-    // ws_bad findMany throws; ws_good completes a single send.
-    mockTaskFindMany
-      .mockRejectedValueOnce(new Error('db blew up'))
-      .mockResolvedValueOnce([{ id: 'task_good', title: 'Submit timesheet', createdById: 'iu_good' }])
-    mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([
+    // ws_bad's ledger insert throws; ws_good completes a single send.
+    mockTaskReminderSentCreateManyAndReturn.mockRejectedValueOnce(new Error('db blew up')).mockResolvedValueOnce([
       {
         id: 'ledger_g',
         taskId: 'task_good',

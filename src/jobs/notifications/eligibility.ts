@@ -4,19 +4,14 @@ import { AssigneeType, TaskReminderType } from '@prisma/client'
 export type EligibilityRow = {
   taskId: string
   workspaceId: string
+  title: string
+  createdById: string
   assigneeId: string
   assigneeType: AssigneeType
-  /**
-   * Company context for the recipient.
-   * - assigneeType='client'      → task.companyId (a client may belong to multiple companies on Copilot;
-   *                                this disambiguates which "hat" they're wearing for this task)
-   * - assigneeType='company'     → assigneeId (the company IS the assignee; caller fans out to members)
-   * - assigneeType='internalUser'→ null (IUs have no company concept and never receive email notifications)
-   *
-   * Required for ClientNotifications inserts (unique key includes companyId) and for
-   * Copilot's recipientCompanyId on email-bearing notifications. See
-   * src/app/api/notification/notification.service.ts:558.
-   */
+  // companyId derivation per assigneeType:
+  //   client → task.companyId    (disambiguates which company "hat" the client wears)
+  //   company → assigneeId       (the company IS the assignee)
+  //   internalUser → null        (IUs don't receive email reminders)
   companyId: string | null
   reminderType: TaskReminderType
 }
@@ -38,6 +33,8 @@ export const getEligibleReminders = async (db: ReturnType<typeof DBClient.getIns
     SELECT
       t.id::text AS "taskId",
       t."workspaceId",
+      t."title",
+      t."createdById"::text AS "createdById",
       t."assigneeId"::text AS "assigneeId",
       t."assigneeType" AS "assigneeType",
       (CASE

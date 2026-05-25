@@ -15,13 +15,10 @@ const WORKSPACE_CONCURRENCY = 5
 
 type WorkspaceTotals = { sent: number; failed: number; skipped: number }
 
-type TaskInfo = { id: string; title: string; createdById: string }
-
 type Recipient = { clientId: string; companyId: string | null }
 
 type LedgerPlanEntry = {
   row: EligibilityRow
-  task: TaskInfo
   recipient: Recipient
 }
 
@@ -96,14 +93,6 @@ const processWorkspace = async (
   workspaceId: string,
   rows: EligibilityRow[],
 ): Promise<WorkspaceTotals> => {
-  const taskIds = Array.from(new Set(rows.map((r) => r.taskId)))
-  const tasks = await db.task.findMany({
-    where: { id: { in: taskIds } },
-    select: { id: true, title: true, createdById: true },
-  })
-  if (tasks.length === 0) return { sent: 0, failed: 0, skipped: 0 }
-  const taskById = new Map<string, TaskInfo>(tasks.map((t) => [t.id, t]))
-
   // Workspace-scoped apiKey: empty token + `${workspaceId}/${apiKey}` is accepted by the
   // SDK when COPILOT_ENV is set on the Trigger.dev runtime.
   const copilot = new CopilotAPI('', `${workspaceId}/${copilotAPIKey}`)
@@ -111,11 +100,9 @@ const processWorkspace = async (
 
   const plan: LedgerPlanEntry[] = []
   for (const row of rows) {
-    const task = taskById.get(row.taskId)
-    if (!task) continue
     const recipients = await resolveRecipients(copilot, row)
     for (const recipient of recipients) {
-      plan.push({ row, task, recipient })
+      plan.push({ row, recipient })
     }
   }
 
@@ -146,7 +133,7 @@ const processWorkspace = async (
 
     try {
       await sendReminderEmail({
-        task: entry.task,
+        task: { id: entry.row.taskId, title: entry.row.title, createdById: entry.row.createdById },
         recipientClientId: entry.recipient.clientId,
         recipientCompanyId: entry.recipient.companyId,
         reminderType: entry.row.reminderType,
