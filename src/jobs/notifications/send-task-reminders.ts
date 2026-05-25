@@ -4,7 +4,7 @@ import { copilotAPIKey } from '@/config'
 import DBClient from '@/lib/db'
 import { ClientResponse } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
-import { AssigneeType, Prisma, TaskReminderType } from '@prisma/client'
+import { AssigneeType, TaskReminderType } from '@prisma/client'
 import { logger, schedules } from '@trigger.dev/sdk/v3'
 import Bottleneck from 'bottleneck'
 
@@ -18,13 +18,6 @@ type WorkspaceTotals = { sent: number; failed: number; skipped: number }
 type TaskInfo = { id: string; title: string; createdById: string }
 
 type Recipient = { clientId: string; companyId: string | null }
-
-type LedgerInsertedRow = {
-  id: string
-  taskId: string
-  recipientId: string
-  reminderType: TaskReminderType
-}
 
 type LedgerPlanEntry = {
   row: EligibilityRow
@@ -139,30 +132,20 @@ const processWorkspace = async (
 
   if (plan.length === 0) return { sent: 0, failed: 0, skipped: 0 }
 
-  // Ledger insert is the idempotency boundary. ON CONFLICT DO NOTHING ensures a retried
-  // cron run can never double-send: only the rows that come back from RETURNING are
-  // net-new claims to send.
-  const valuesSql = Prisma.join(
-    plan.map(
-      (entry) => Prisma.sql`(
-        gen_random_uuid(),
-        ${entry.row.taskId}::uuid,
-        ${workspaceId},
-        ${entry.recipient.clientId}::uuid,
-        ${entry.row.reminderType}::"TaskReminderType",
-        NOW()
-      )`,
-    ),
-  )
-  const inserted = await db.$queryRaw<LedgerInsertedRow[]>`
-    INSERT INTO "TaskReminderSents" ("id", "taskId", "workspaceId", "recipientId", "reminderType", "sentAt")
-    VALUES ${valuesSql}
-    ON CONFLICT ("taskId", "recipientId", "reminderType") DO NOTHING
-    RETURNING "id"::text AS "id",
-              "taskId"::text AS "taskId",
-              "recipientId"::text AS "recipientId",
-              "reminderType"
-  `
+  // Ledger insert is the idempotency boundary. `skipDuplicates: true` compiles to
+  // `ON CONFLICT DO NOTHING` against the (taskId, recipientId, reminderType) unique
+  // constraint, so a retried cron run cannot double-send. `createManyAndReturn` only
+  // returns the rows that actually got inserted — duplicates skipped by ON CONFLICT
+  // are absent from the result, which is precisely the "net-new to send" list.
+  const inserted = await db.taskReminderSent.createManyAndReturn({
+    data: plan.map((entry) => ({
+      taskId: entry.row.taskId,
+      workspaceId,
+      recipientId: entry.recipient.clientId,
+      reminderType: entry.row.reminderType,
+    })),
+    skipDuplicates: true,
+  })
 
   const insertedKey = (taskId: string, recipientId: string, type: TaskReminderType) => `${taskId}|${recipientId}|${type}`
   const insertedById = new Map(inserted.map((r) => [insertedKey(r.taskId, r.recipientId, r.reminderType), r.id]))
