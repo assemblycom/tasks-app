@@ -33,9 +33,6 @@ export const sendTaskReminders = schedules.task({
     const db = DBClient.getInstance()
 
     const allRows = await getEligibleReminders(db)
-    // IUs are deliberately excluded from reminder emails — see EligibilityRow typedoc
-    // in ./eligibility.ts. The eligibility SQL still emits IU rows for symmetry; the
-    // filter lives here so OUT-3736's contract stays untouched.
     const rows = allRows.filter((r) => r.assigneeType !== AssigneeType.internalUser)
 
     const byWorkspace = new Map<string, EligibilityRow[]>()
@@ -66,7 +63,6 @@ export const sendTaskReminders = schedules.task({
           try {
             wsTotals = await processWorkspace(db, workspaceId, workspaceRows)
           } catch (err) {
-            // Per-workspace isolation: one bad workspace shouldn't abort the sweep.
             logger.error('send-task-reminders: workspace failed', {
               workspaceId,
               error: serializeError(err),
@@ -100,8 +96,6 @@ const processWorkspace = async (
   workspaceId: string,
   rows: EligibilityRow[],
 ): Promise<WorkspaceTotals> => {
-  // Fetch the task fields we need that aren't on EligibilityRow (title, createdById).
-  // Kept here rather than in eligibility.ts to leave OUT-3736's contract intact.
   const taskIds = Array.from(new Set(rows.map((r) => r.taskId)))
   const tasks = await db.task.findMany({
     where: { id: { in: taskIds } },
@@ -110,16 +104,11 @@ const processWorkspace = async (
   if (tasks.length === 0) return { sent: 0, failed: 0, skipped: 0 }
   const taskById = new Map<string, TaskInfo>(tasks.map((t) => [t.id, t]))
 
-  // Per-workspace Copilot client using a workspace-scoped apiKey. The SDK patch
-  // (src/lib/patch-copilot-node-sdk.js) accepts `${workspaceId}/${apiKey}` as the auth key
-  // directly when COPILOT_ENV is set on the Trigger.dev runtime (`local` for prod,
-  // `__SECRET_STAGING__` for staging) — no user token needed. Empty token = no user context.
+  // Workspace-scoped apiKey: empty token + `${workspaceId}/${apiKey}` is accepted by the
+  // SDK when COPILOT_ENV is set on the Trigger.dev runtime.
   const copilot = new CopilotAPI('', `${workspaceId}/${copilotAPIKey}`)
   const workspace = await copilot.getWorkspace()
 
-  // Plan: fan out company rows to one entry per current member; client rows stay 1:1.
-  // Members no longer in the company are filtered naturally — they don't come back from
-  // getCompanyClients, per OUT-3736 ticket.
   const plan: LedgerPlanEntry[] = []
   for (const row of rows) {
     const task = taskById.get(row.taskId)
@@ -132,11 +121,7 @@ const processWorkspace = async (
 
   if (plan.length === 0) return { sent: 0, failed: 0, skipped: 0 }
 
-  // Ledger insert is the idempotency boundary. `skipDuplicates: true` compiles to
-  // `ON CONFLICT DO NOTHING` against the (taskId, recipientId, reminderType) unique
-  // constraint, so a retried cron run cannot double-send. `createManyAndReturn` only
-  // returns the rows that actually got inserted — duplicates skipped by ON CONFLICT
-  // are absent from the result, which is precisely the "net-new to send" list.
+  // Ledger insert before send: the unique constraint is the dedupe primitive.
   const inserted = await db.taskReminderSent.createManyAndReturn({
     data: plan.map((entry) => ({
       taskId: entry.row.taskId,
@@ -157,7 +142,7 @@ const processWorkspace = async (
 
   for (const entry of plan) {
     const ledgerId = insertedById.get(insertedKey(entry.row.taskId, entry.recipient.clientId, entry.row.reminderType))
-    if (!ledgerId) continue // already-sent (ON CONFLICT skipped this one)
+    if (!ledgerId) continue
 
     try {
       await sendReminderEmail({
@@ -171,9 +156,7 @@ const processWorkspace = async (
       })
       sent += 1
     } catch (err) {
-      // Compensate: drop the ledger row so the next cron run retries this (task, recipient, type).
-      // If the DELETE itself fails the row stays in the ledger and we won't retry — that's
-      // a permanent miss, logged distinctly so on-call can clean up.
+      // Delete the ledger row so the next cron run retries.
       failed += 1
       logger.error('send-task-reminders: Copilot send failed, compensating ledger', {
         workspaceId,
