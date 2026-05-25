@@ -74,12 +74,15 @@ export const getEligibleReminders = async (db: ReturnType<typeof DBClient.getIns
       -- an unassigned parent (or under a dead parent, per the join filter above)
       -- still gets a reminder.
       AND (t."parentId" IS NULL OR parent."assigneeId" IS DISTINCT FROM t."assigneeId")
-      -- Guard against malformed VARCHAR(10) dueDate values: only cast when the string
-      -- looks like ISO YYYY-MM-DD. Without this, a single bad row poisons the whole query.
-      AND (t."dueDate" IS NULL OR t."dueDate" ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+      -- Guard against malformed VARCHAR(10) dueDate values. The regex check and the
+      -- ::date cast must live in a single CASE WHEN: Postgres doesn't guarantee AND
+      -- predicate order, so the cast could run before a separate regex AND filters
+      -- the row out. CASE WHEN evaluates sequentially and short-circuits.
       AND (
         (t."dueDate" IS NULL AND t."assignedAt"::date IN (CURRENT_DATE - 3, CURRENT_DATE - 7))
-        OR t."dueDate"::date IN (CURRENT_DATE - 7, CURRENT_DATE - 3, CURRENT_DATE, CURRENT_DATE + 3)
+        OR (CASE WHEN t."dueDate" ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+             THEN t."dueDate"::date IN (CURRENT_DATE - 7, CURRENT_DATE - 3, CURRENT_DATE, CURRENT_DATE + 3)
+             ELSE FALSE END)
       )
   `
 }
