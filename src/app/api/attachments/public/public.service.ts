@@ -1,5 +1,6 @@
 import { AttachmentsService } from '@/app/api/attachments/attachments.service'
 import { BaseService } from '@api/core/services/base.service'
+import { ScrapMediaService } from '@/app/api/scrap-medias/scrap-medias.service'
 import { AttachmentTypes } from '@/types/interfaces'
 import { buildFilePath } from '@/utils/attachmentUtils'
 import { generateRandomString } from '@/utils/generateRandomString'
@@ -43,11 +44,43 @@ export class PublicAttachmentsService extends BaseService {
       throw new APIError(httpStatus.BAD_REQUEST, 'Failed to upload attachment to storage')
     }
 
-    return await attachmentsService.createOrphanAttachment({
+    const newOrphanAttachment = await attachmentsService.createOrphanAttachment({
       filePath: filePayload.filePath,
       fileSize: filePayload.fileSize,
       fileType: filePayload.fileType,
       fileName: filePayload.fileName,
     })
+
+    // Register the orphan with the ScrapMedia worker so the file + Attachment row
+    // get cleaned up if the caller never references this id from a task body.
+    // The post-create sweep deletes this ScrapMedia row once the orphan binds to a task.
+    //
+    // If tracking registration fails we roll back the Supabase file and the Attachment
+    // row so the caller can retry cleanly — otherwise the file would be untracked and
+    // leak permanently.
+    try {
+      await new ScrapMediaService(this.user).createScrapImage({ filePath: filePayload.filePath })
+    } catch (scrapMediaTrackingError) {
+      console.error('PublicAttachmentsService#uploadOrphanAttachment | Failed to register ScrapMedia, rolling back', {
+        attachmentId: newOrphanAttachment.id,
+        filePath: filePayload.filePath,
+        error: scrapMediaTrackingError,
+      })
+      await supabaseActions.removeAttachment(filePayload.filePath).catch((cleanupError) => {
+        console.error(
+          'PublicAttachmentsService#uploadOrphanAttachment | Failed to remove Supabase file during rollback',
+          cleanupError,
+        )
+      })
+      await this.db.attachment.delete({ where: { id: newOrphanAttachment.id } }).catch((cleanupError) => {
+        console.error(
+          'PublicAttachmentsService#uploadOrphanAttachment | Failed to delete Attachment row during rollback',
+          cleanupError,
+        )
+      })
+      throw new APIError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to register attachment for cleanup tracking')
+    }
+
+    return newOrphanAttachment
   }
 }
