@@ -1,8 +1,7 @@
 import APIError from '@/app/api/core/exceptions/api'
 import type { AttachmentsService } from '@/app/api/attachments/attachments.service'
-import { getFilePathFromUrl } from '@/utils/signedUrlReplacer'
+import { getFilePathFromUrl, normalizeAttachmentFilePath } from '@/utils/signedUrlReplacer'
 import { getSignedUrl } from '@/utils/signUrl'
-import { normalizeAttachmentFilePath } from '@/utils/attachmentFilePath'
 import { Attachment } from '@prisma/client'
 import httpStatus from 'http-status'
 

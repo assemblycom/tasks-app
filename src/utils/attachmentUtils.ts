@@ -102,7 +102,7 @@ export const getFileNameFromPath = (path: string): string => {
   return segments[segments.length - 1] || ''
 }
 
-export { normalizeAttachmentFilePath } from '@/utils/attachmentFilePath'
+export { normalizeAttachmentFilePath } from '@/utils/signedUrlReplacer'
 
 export const getCustomFilePath = (workspaceId: string, task_id: string, commentId: string, url: string) => {
   const filePath = getFilePathFromUrl(url)
