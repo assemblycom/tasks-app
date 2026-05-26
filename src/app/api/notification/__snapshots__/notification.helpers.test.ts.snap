@@ -3,9 +3,7 @@
 exports[`getReminderEmailDetails matches snapshot for company recipient 1`] = `
 {
   "DUE_DATE_BEFORE_3D": {
-    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ due in 3 days.
-
-Please make sure to complete this task by the due date.",
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ due in 3 days.<br><br>Please make sure to complete this task by the due date.",
     "ctaParams": {
       "taskId": "task_1",
     },
@@ -23,9 +21,7 @@ Please make sure to complete this task by the due date.",
     "title": "View task",
   },
   "DUE_DATE_OVERDUE_7D": {
-    "body": "This is a friendly reminder that the task ‘Submit timesheet’ is now one week overdue.
-
-Please complete this task as soon as possible.",
+    "body": "This is a friendly reminder that the task ‘Submit timesheet’ is now one week overdue.<br><br>Please complete this task as soon as possible.",
     "ctaParams": {
       "taskId": "task_1",
     },
@@ -34,9 +30,7 @@ Please complete this task as soon as possible.",
     "title": "View task",
   },
   "DUE_DATE_TODAY": {
-    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ due today.
-
-Please complete this task as soon as possible.",
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ due today.<br><br>Please complete this task as soon as possible.",
     "ctaParams": {
       "taskId": "task_1",
     },
@@ -45,9 +39,7 @@ Please complete this task as soon as possible.",
     "title": "View task",
   },
   "NO_DUE_DATE_3D": {
-    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ assigned to you that's still pending completion.
-
-If you've already completed this task, please mark it as done in the portal.",
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ assigned to you that's still pending completion.<br><br>If you've already completed this task, please mark it as done in the portal.",
     "ctaParams": {
       "taskId": "task_1",
     },
@@ -56,9 +48,7 @@ If you've already completed this task, please mark it as done in the portal.",
     "title": "View task",
   },
   "NO_DUE_DATE_7D": {
-    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ that was assigned to you a week ago and is still pending.
-
-If you've already completed this task, please mark it as done in the portal.",
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ that was assigned to you a week ago and is still pending.<br><br>If you've already completed this task, please mark it as done in the portal.",
     "ctaParams": {
       "taskId": "task_1",
     },
@@ -72,9 +62,7 @@ If you've already completed this task, please mark it as done in the portal.",
 exports[`getReminderEmailDetails matches snapshot for individual recipient 1`] = `
 {
   "DUE_DATE_BEFORE_3D": {
-    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ due in 3 days.
-
-Please make sure to complete this task by the due date.",
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ due in 3 days.<br><br>Please make sure to complete this task by the due date.",
     "ctaParams": {
       "taskId": "task_1",
     },
@@ -92,9 +80,7 @@ Please make sure to complete this task by the due date.",
     "title": "View task",
   },
   "DUE_DATE_OVERDUE_7D": {
-    "body": "This is a friendly reminder that the task ‘Submit timesheet’ is now one week overdue.
-
-Please complete this task as soon as possible.",
+    "body": "This is a friendly reminder that the task ‘Submit timesheet’ is now one week overdue.<br><br>Please complete this task as soon as possible.",
     "ctaParams": {
       "taskId": "task_1",
     },
@@ -103,9 +89,7 @@ Please complete this task as soon as possible.",
     "title": "View task",
   },
   "DUE_DATE_TODAY": {
-    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ due today.
-
-Please complete this task as soon as possible.",
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ due today.<br><br>Please complete this task as soon as possible.",
     "ctaParams": {
       "taskId": "task_1",
     },
@@ -114,9 +98,7 @@ Please complete this task as soon as possible.",
     "title": "View task",
   },
   "NO_DUE_DATE_3D": {
-    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ assigned to you that's still pending completion.
-
-If you've already completed this task, please mark it as done in the portal.",
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ assigned to you that's still pending completion.<br><br>If you've already completed this task, please mark it as done in the portal.",
     "ctaParams": {
       "taskId": "task_1",
     },
@@ -125,9 +107,7 @@ If you've already completed this task, please mark it as done in the portal.",
     "title": "View task",
   },
   "NO_DUE_DATE_7D": {
-    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ that was assigned to you a week ago and is still pending.
-
-If you've already completed this task, please mark it as done in the portal.",
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ that was assigned to you a week ago and is still pending.<br><br>If you've already completed this task, please mark it as done in the portal.",
     "ctaParams": {
       "taskId": "task_1",
     },
