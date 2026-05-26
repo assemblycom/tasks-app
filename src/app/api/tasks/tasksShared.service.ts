@@ -524,37 +524,29 @@ export abstract class TasksSharedService extends BaseService {
       }
     }
 
-    // Look up every Attachment row in this workspace that references one of the file paths
-    // appearing in the body. We need both:
-    //   - orphan rows (taskId=null) so the public upload flow can bind them in place
-    //   - already-bound rows so we can skip them entirely (otherwise calling this function
-    //     on a body that was already processed once would re-move files / create duplicates)
+    // Find any orphan Attachment rows (taskId=null, commentId=null) in this workspace whose
+    // filePath appears in the body — these were uploaded via /api/attachments/public and need
+    // to be bound to this task in place rather than synthesized.
     const referencedFilePaths = matches.map((m) => m.filePath)
-    const existingAttachmentRowsByFilePath = referencedFilePaths.length
-      ? await this.db.attachment.findMany({
-          where: {
-            workspaceId: this.user.workspaceId,
-            commentId: null,
-            deletedAt: null,
-            filePath: { in: referencedFilePaths },
-          },
-        })
-      : []
-    const orphanAttachmentByFilePath = new Map(
-      existingAttachmentRowsByFilePath.filter((row) => row.taskId === null).map((row) => [row.filePath, row]),
-    )
-    const alreadyBoundFilePaths = new Set(
-      existingAttachmentRowsByFilePath.filter((row) => row.taskId !== null).map((row) => row.filePath),
-    )
+    const orphanAttachmentByFilePath = referencedFilePaths.length
+      ? new Map(
+          (
+            await this.db.attachment.findMany({
+              where: {
+                workspaceId: this.user.workspaceId,
+                taskId: null,
+                commentId: null,
+                deletedAt: null,
+                filePath: { in: referencedFilePaths },
+              },
+            })
+          ).map((row) => [row.filePath, row]),
+        )
+      : new Map()
 
     const orphanReassignments: { existingAttachmentId: string; newFilePath: string; originalFilePath: string }[] = []
 
     for (const { originalSrc, filePath, fileName } of matches) {
-      if (alreadyBoundFilePaths.has(filePath)) {
-        // Body re-referenced an attachment that's already bound to a task — leave the row,
-        // file, and src untouched.
-        continue
-      }
       const newFilePath = `${this.user.workspaceId}/${task_id}/${fileName}`
       const supabaseActions = new SupabaseActions()
       const matchedOrphanAttachment = orphanAttachmentByFilePath.get(filePath)
