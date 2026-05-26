@@ -1,14 +1,8 @@
 import { AssigneeType, TaskReminderType } from '@prisma/client'
 
-// Mocks must be configured before requiring the SUT. Variables referenced inside the
-// jest.mock factory must start with `mock` so the babel-jest allow-list lets the closure
-// see them once the const declarations have run.
 const mockTaskReminderSentCreateManyAndReturn = jest.fn()
-const mockTaskReminderSentDelete = jest.fn()
-
 const mockGetEligibleReminders = jest.fn()
-const mockSendReminderEmail = jest.fn()
-
+const mockBatchTrigger = jest.fn()
 const mockGetWorkspace = jest.fn()
 const mockGetCompanyClients = jest.fn()
 const mockCopilotApiCtor = jest.fn()
@@ -20,18 +14,13 @@ jest.mock('@trigger.dev/sdk/v3', () => ({
   logger: { log: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }))
 
-jest.mock('@/config', () => ({
-  copilotAPIKey: 'test-api-key',
-}))
+jest.mock('@/config', () => ({ copilotAPIKey: 'test-api-key' }))
 
 jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
     getInstance: () => ({
-      taskReminderSent: {
-        createManyAndReturn: mockTaskReminderSentCreateManyAndReturn,
-        delete: mockTaskReminderSentDelete,
-      },
+      taskReminderSent: { createManyAndReturn: mockTaskReminderSentCreateManyAndReturn },
     }),
   },
 }))
@@ -39,10 +28,7 @@ jest.mock('@/lib/db', () => ({
 jest.mock('@/utils/CopilotAPI', () => ({
   CopilotAPI: jest.fn().mockImplementation((...args: unknown[]) => {
     mockCopilotApiCtor(...args)
-    return {
-      getWorkspace: mockGetWorkspace,
-      getCompanyClients: mockGetCompanyClients,
-    }
+    return { getWorkspace: mockGetWorkspace, getCompanyClients: mockGetCompanyClients }
   }),
 }))
 
@@ -50,12 +36,10 @@ jest.mock('./eligibility', () => ({
   getEligibleReminders: (...args: unknown[]) => mockGetEligibleReminders(...args),
 }))
 
-jest.mock('./send-reminder-email', () => ({
-  sendReminderEmail: (...args: unknown[]) => mockSendReminderEmail(...args),
+jest.mock('./dispatch-reminder-email', () => ({
+  dispatchReminderEmail: { batchTrigger: (...args: unknown[]) => mockBatchTrigger(...args) },
 }))
 
-// Bypass Bottleneck's rate-limiting in tests but preserve sequential ordering per instance
-// via a promise chain so FIFO mockResolvedValueOnce queues drain deterministically.
 jest.mock('bottleneck', () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => {
@@ -72,11 +56,9 @@ jest.mock('bottleneck', () => ({
 
 import { sendTaskReminders } from './send-task-reminders'
 
-type RunResult = { sent: number; failed: number; skipped: number; workspaceCount: number }
+type RunResult = { enqueued: number; skipped: number; workspaceCount: number }
 const runJob = async (): Promise<RunResult> => {
-  const { run } = sendTaskReminders as unknown as {
-    run: (payload: { timestamp: Date }) => Promise<RunResult>
-  }
+  const { run } = sendTaskReminders as unknown as { run: (payload: { timestamp: Date }) => Promise<RunResult> }
   return run({ timestamp: new Date() })
 }
 
@@ -98,13 +80,13 @@ describe('sendTaskReminders', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockTaskReminderSentCreateManyAndReturn.mockReset()
-    mockTaskReminderSentDelete.mockReset()
     mockGetEligibleReminders.mockReset()
-    mockSendReminderEmail.mockReset()
+    mockBatchTrigger.mockReset()
     mockGetWorkspace.mockReset()
     mockGetCompanyClients.mockReset()
     mockCopilotApiCtor.mockReset()
     mockGetWorkspace.mockResolvedValue(workspace)
+    mockBatchTrigger.mockResolvedValue({ batchId: 'b1' })
   })
 
   it('exits cleanly when no rows are eligible', async () => {
@@ -112,9 +94,9 @@ describe('sendTaskReminders', () => {
 
     const result = await runJob()
 
-    expect(result).toEqual({ sent: 0, failed: 0, skipped: 0, workspaceCount: 0 })
+    expect(result).toEqual({ enqueued: 0, skipped: 0, workspaceCount: 0 })
     expect(mockTaskReminderSentCreateManyAndReturn).not.toHaveBeenCalled()
-    expect(mockSendReminderEmail).not.toHaveBeenCalled()
+    expect(mockBatchTrigger).not.toHaveBeenCalled()
     expect(mockCopilotApiCtor).not.toHaveBeenCalled()
   })
 
@@ -126,27 +108,24 @@ describe('sendTaskReminders', () => {
     const result = await runJob()
 
     expect(result.workspaceCount).toBe(0)
-    expect(mockTaskReminderSentCreateManyAndReturn).not.toHaveBeenCalled()
-    expect(mockSendReminderEmail).not.toHaveBeenCalled()
+    expect(mockBatchTrigger).not.toHaveBeenCalled()
   })
 
-  it('sends one reminder for a client-assigned task and writes one ledger row', async () => {
+  it('enqueues one dispatch per net-new ledger row (client-assigned)', async () => {
     mockGetEligibleReminders.mockResolvedValueOnce([buildRow()])
     mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([
-      {
-        id: 'ledger_1',
-        taskId: 'task_1',
-        recipientId: 'client_1',
-        reminderType: TaskReminderType.NO_DUE_DATE_3D,
-      },
+      { id: 'ledger_1', taskId: 'task_1', recipientId: 'client_1', reminderType: TaskReminderType.NO_DUE_DATE_3D },
     ])
-    mockSendReminderEmail.mockResolvedValueOnce('notif_1')
 
     const result = await runJob()
 
-    expect(result).toEqual({ sent: 1, failed: 0, skipped: 0, workspaceCount: 1 })
-    expect(mockSendReminderEmail).toHaveBeenCalledTimes(1)
-    expect(mockSendReminderEmail.mock.calls[0][0]).toMatchObject({
+    expect(result).toEqual({ enqueued: 1, skipped: 0, workspaceCount: 1 })
+    expect(mockBatchTrigger).toHaveBeenCalledTimes(1)
+    const batch = mockBatchTrigger.mock.calls[0][0]
+    expect(batch).toHaveLength(1)
+    expect(batch[0].payload).toMatchObject({
+      ledgerId: 'ledger_1',
+      workspaceId: 'ws_1',
       task: { id: 'task_1', title: 'Submit timesheet', createdById: 'iu_1' },
       recipientClientId: 'client_1',
       recipientCompanyId: 'company_1',
@@ -156,17 +135,11 @@ describe('sendTaskReminders', () => {
     })
   })
 
-  it('initializes CopilotAPI with a workspace-scoped apiKey (no user token mint)', async () => {
+  it('initializes CopilotAPI with a workspace-scoped apiKey', async () => {
     mockGetEligibleReminders.mockResolvedValueOnce([buildRow()])
     mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([
-      {
-        id: 'ledger_1',
-        taskId: 'task_1',
-        recipientId: 'client_1',
-        reminderType: TaskReminderType.NO_DUE_DATE_3D,
-      },
+      { id: 'ledger_1', taskId: 'task_1', recipientId: 'client_1', reminderType: TaskReminderType.NO_DUE_DATE_3D },
     ])
-    mockSendReminderEmail.mockResolvedValueOnce('notif_1')
 
     await runJob()
 
@@ -179,17 +152,13 @@ describe('sendTaskReminders', () => {
 
     const result = await runJob()
 
-    expect(result).toEqual({ sent: 0, failed: 0, skipped: 1, workspaceCount: 1 })
-    expect(mockSendReminderEmail).not.toHaveBeenCalled()
+    expect(result).toEqual({ enqueued: 0, skipped: 1, workspaceCount: 1 })
+    expect(mockBatchTrigger).not.toHaveBeenCalled()
   })
 
-  it('fans out a company-assigned task to one send per current member', async () => {
+  it('fans out a company-assigned task to one dispatch per current member', async () => {
     mockGetEligibleReminders.mockResolvedValueOnce([
-      buildRow({
-        assigneeType: AssigneeType.company,
-        assigneeId: 'company_1',
-        companyId: 'company_1',
-      }),
+      buildRow({ assigneeType: AssigneeType.company, assigneeId: 'company_1', companyId: 'company_1' }),
     ])
     mockGetCompanyClients.mockResolvedValueOnce([{ id: 'm_1' }, { id: 'm_2' }, { id: 'm_3' }])
     mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([
@@ -197,29 +166,19 @@ describe('sendTaskReminders', () => {
       { id: 'l_2', taskId: 'task_1', recipientId: 'm_2', reminderType: TaskReminderType.NO_DUE_DATE_3D },
       { id: 'l_3', taskId: 'task_1', recipientId: 'm_3', reminderType: TaskReminderType.NO_DUE_DATE_3D },
     ])
-    mockSendReminderEmail.mockResolvedValue('notif')
 
     const result = await runJob()
 
-    expect(result).toEqual({ sent: 3, failed: 0, skipped: 0, workspaceCount: 1 })
-    expect(mockSendReminderEmail).toHaveBeenCalledTimes(3)
-    const recipientIds = mockSendReminderEmail.mock.calls.map((c) => c[0].recipientClientId).sort()
-    expect(recipientIds).toEqual(['m_1', 'm_2', 'm_3'])
-    expect(mockSendReminderEmail.mock.calls[0][0].isCompanyRecipient).toBe(true)
-  })
-
-  it('compensates the ledger when Copilot send fails', async () => {
-    mockGetEligibleReminders.mockResolvedValueOnce([buildRow()])
-    mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([
-      { id: 'ledger_1', taskId: 'task_1', recipientId: 'client_1', reminderType: TaskReminderType.NO_DUE_DATE_3D },
+    expect(result).toEqual({ enqueued: 3, skipped: 0, workspaceCount: 1 })
+    expect(mockBatchTrigger).toHaveBeenCalledTimes(1)
+    const batch = mockBatchTrigger.mock.calls[0][0]
+    expect(batch).toHaveLength(3)
+    expect(batch.map((b: { payload: { recipientClientId: string } }) => b.payload.recipientClientId).sort()).toEqual([
+      'm_1',
+      'm_2',
+      'm_3',
     ])
-    mockSendReminderEmail.mockRejectedValueOnce(new Error('copilot 5xx'))
-    mockTaskReminderSentDelete.mockResolvedValueOnce({ id: 'ledger_1' })
-
-    const result = await runJob()
-
-    expect(result).toEqual({ sent: 0, failed: 1, skipped: 0, workspaceCount: 1 })
-    expect(mockTaskReminderSentDelete).toHaveBeenCalledWith({ where: { id: 'ledger_1' } })
+    expect(batch[0].payload.isCompanyRecipient).toBe(true)
   })
 
   it('does not abort the sweep when one workspace throws (per-workspace isolation)', async () => {
@@ -227,20 +186,15 @@ describe('sendTaskReminders', () => {
       buildRow({ workspaceId: 'ws_bad', taskId: 'task_bad' }),
       buildRow({ workspaceId: 'ws_good', taskId: 'task_good', assigneeId: 'client_good' }),
     ])
-    // ws_bad's ledger insert throws; ws_good completes a single send.
-    mockTaskReminderSentCreateManyAndReturn.mockRejectedValueOnce(new Error('db blew up')).mockResolvedValueOnce([
-      {
-        id: 'ledger_g',
-        taskId: 'task_good',
-        recipientId: 'client_good',
-        reminderType: TaskReminderType.NO_DUE_DATE_3D,
-      },
-    ])
-    mockSendReminderEmail.mockResolvedValueOnce('notif_good')
+    mockTaskReminderSentCreateManyAndReturn
+      .mockRejectedValueOnce(new Error('db blew up'))
+      .mockResolvedValueOnce([
+        { id: 'ledger_g', taskId: 'task_good', recipientId: 'client_good', reminderType: TaskReminderType.NO_DUE_DATE_3D },
+      ])
 
     const result = await runJob()
 
     expect(result.workspaceCount).toBe(2)
-    expect(result.sent).toBe(1)
+    expect(result.enqueued).toBe(1)
   })
 })

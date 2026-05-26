@@ -8,12 +8,12 @@ import { AssigneeType, TaskReminderType } from '@prisma/client'
 import { logger, schedules } from '@trigger.dev/sdk/v3'
 import Bottleneck from 'bottleneck'
 
+import { dispatchReminderEmail, DispatchReminderEmailPayload } from './dispatch-reminder-email'
 import { EligibilityRow, getEligibleReminders } from './eligibility'
-import { sendReminderEmail } from './send-reminder-email'
 
 const WORKSPACE_CONCURRENCY = 5
 
-type WorkspaceTotals = { sent: number; failed: number; skipped: number }
+type WorkspaceTotals = { enqueued: number; skipped: number }
 
 type Recipient = { clientId: string; companyId: string | null }
 
@@ -47,7 +47,7 @@ export const sendTaskReminders = schedules.task({
       runAt: payload.timestamp,
     })
 
-    const totals = { sent: 0, failed: 0, skipped: 0 }
+    const totals = { enqueued: 0, skipped: 0 }
     let processed = 0
     const workspaceCount = byWorkspace.size
 
@@ -56,7 +56,7 @@ export const sendTaskReminders = schedules.task({
     await Promise.allSettled(
       Array.from(byWorkspace.entries()).map(([workspaceId, workspaceRows]) =>
         workspaceBottleneck.schedule(async () => {
-          let wsTotals: WorkspaceTotals = { sent: 0, failed: 0, skipped: 0 }
+          let wsTotals: WorkspaceTotals = { enqueued: 0, skipped: 0 }
           try {
             wsTotals = await processWorkspace(db, workspaceId, workspaceRows)
           } catch (err) {
@@ -65,12 +65,11 @@ export const sendTaskReminders = schedules.task({
               error: serializeError(err),
             })
           } finally {
-            totals.sent += wsTotals.sent
-            totals.failed += wsTotals.failed
+            totals.enqueued += wsTotals.enqueued
             totals.skipped += wsTotals.skipped
             processed += 1
             logger.log(
-              `[${processed}/${workspaceCount}] workspace ${workspaceId}: sent ${wsTotals.sent}, failed ${wsTotals.failed}, skipped ${wsTotals.skipped}`,
+              `[${processed}/${workspaceCount}] workspace ${workspaceId}: enqueued ${wsTotals.enqueued}, skipped ${wsTotals.skipped}`,
               { workspaceId, ...wsTotals, processed, eligibleWorkspaces: workspaceCount },
             )
           }
@@ -106,7 +105,7 @@ const processWorkspace = async (
     }
   }
 
-  if (plan.length === 0) return { sent: 0, failed: 0, skipped: 0 }
+  if (plan.length === 0) return { enqueued: 0, skipped: 0 }
 
   // Ledger insert before send: the unique constraint is the dedupe primitive.
   const inserted = await db.taskReminderSent.createManyAndReturn({
@@ -120,54 +119,33 @@ const processWorkspace = async (
   })
 
   const insertedKey = (taskId: string, recipientId: string, type: TaskReminderType) => `${taskId}|${recipientId}|${type}`
-  const insertedById = new Map(inserted.map((r) => [insertedKey(r.taskId, r.recipientId, r.reminderType), r.id]))
+  const planByKey = new Map<string, LedgerPlanEntry>(
+    plan.map((e) => [insertedKey(e.row.taskId, e.recipient.clientId, e.row.reminderType), e]),
+  )
 
-  const skipped = plan.length - inserted.length
-
-  let sent = 0
-  let failed = 0
-
-  for (const entry of plan) {
-    const ledgerId = insertedById.get(insertedKey(entry.row.taskId, entry.recipient.clientId, entry.row.reminderType))
-    if (!ledgerId) continue
-
-    try {
-      await sendReminderEmail({
+  const triggers: { payload: DispatchReminderEmailPayload }[] = []
+  for (const row of inserted) {
+    const entry = planByKey.get(insertedKey(row.taskId, row.recipientId, row.reminderType))
+    if (!entry) continue
+    triggers.push({
+      payload: {
+        ledgerId: row.id,
+        workspaceId,
         task: { id: entry.row.taskId, title: entry.row.title, createdById: entry.row.createdById },
         recipientClientId: entry.recipient.clientId,
         recipientCompanyId: entry.recipient.companyId,
         reminderType: entry.row.reminderType,
         isCompanyRecipient: entry.row.assigneeType === AssigneeType.company,
         workspace,
-        copilot,
-      })
-      sent += 1
-    } catch (err) {
-      // Delete the ledger row so the next cron run retries.
-      failed += 1
-      logger.error('send-task-reminders: Copilot send failed, compensating ledger', {
-        workspaceId,
-        taskId: entry.row.taskId,
-        recipientClientId: entry.recipient.clientId,
-        reminderType: entry.row.reminderType,
-        error: serializeError(err),
-      })
-      try {
-        await db.taskReminderSent.delete({ where: { id: ledgerId } })
-      } catch (deleteErr) {
-        logger.error('send-task-reminders: ledger compensation DELETE failed, reminder will not retry', {
-          workspaceId,
-          ledgerId,
-          taskId: entry.row.taskId,
-          recipientClientId: entry.recipient.clientId,
-          reminderType: entry.row.reminderType,
-          error: serializeError(deleteErr),
-        })
-      }
-    }
+      },
+    })
   }
 
-  return { sent, failed, skipped }
+  if (triggers.length > 0) {
+    await dispatchReminderEmail.batchTrigger(triggers)
+  }
+
+  return { enqueued: triggers.length, skipped: plan.length - inserted.length }
 }
 
 const resolveRecipients = async (copilot: CopilotAPI, row: EligibilityRow): Promise<Recipient[]> => {
