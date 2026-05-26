@@ -25,7 +25,7 @@ export class PublicAttachmentsService extends BaseService {
   async uploadOrphanAttachment(uploadedFile: File): Promise<Attachment> {
     const orphanWorkspaceFilePath = buildFilePath({
       workspaceId: this.user.workspaceId,
-      attachmentType: AttachmentTypes.TASK,
+      type: AttachmentTypes.TASK,
       entityId: null,
     })
     const uniqueFileName = generateRandomString(uploadedFile.name)

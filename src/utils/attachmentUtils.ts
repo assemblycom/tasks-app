@@ -10,18 +10,18 @@ import { CreateAttachmentRequestSchema } from '@/types/dto/attachments.dto'
 
 export const buildFilePath = ({
   workspaceId,
-  attachmentType,
+  type,
   entityId,
   parentTaskId,
 }: {
   workspaceId: string
-  attachmentType: AttachmentTypes[keyof AttachmentTypes]
+  type: AttachmentTypes[keyof AttachmentTypes]
   entityId: string | null
   parentTaskId?: string
 }) => {
-  if (attachmentType === AttachmentTypes.TASK) {
+  if (type === AttachmentTypes.TASK) {
     return entityId ? `/${workspaceId}/${entityId}` : `/${workspaceId}`
-  } else if (attachmentType === AttachmentTypes.COMMENT) {
+  } else if (type === AttachmentTypes.COMMENT) {
     return `/${workspaceId}/${parentTaskId}/comments${entityId ? `/${entityId}` : ''}`
   }
   return `/${workspaceId}/templates${entityId ? `/${entityId}` : ''}`
@@ -41,7 +41,7 @@ export const uploadAttachmentHandler = async (
   const signedUrl: ISignedUrlUpload = await getSignedUrlUpload(
     token,
     fileName,
-    buildFilePath({ workspaceId, attachmentType: type, entityId, parentTaskId }),
+    buildFilePath({ workspaceId, type, entityId, parentTaskId }),
   )
 
   const { filePayload, error } = await supabaseActions.uploadAttachment(file, signedUrl, entityId)
