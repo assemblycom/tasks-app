@@ -1,6 +1,7 @@
 import { AssigneeType, TaskReminderType } from '@prisma/client'
 
 const mockTaskReminderSentCreateManyAndReturn = jest.fn()
+const mockTaskReminderSentDeleteMany = jest.fn()
 const mockGetEligibleReminders = jest.fn()
 const mockBatchTrigger = jest.fn()
 const mockGetWorkspace = jest.fn()
@@ -20,7 +21,10 @@ jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
     getInstance: () => ({
-      taskReminderSent: { createManyAndReturn: mockTaskReminderSentCreateManyAndReturn },
+      taskReminderSent: {
+        createManyAndReturn: mockTaskReminderSentCreateManyAndReturn,
+        deleteMany: mockTaskReminderSentDeleteMany,
+      },
     }),
   },
 }))
@@ -80,6 +84,7 @@ describe('sendTaskReminders', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockTaskReminderSentCreateManyAndReturn.mockReset()
+    mockTaskReminderSentDeleteMany.mockReset()
     mockGetEligibleReminders.mockReset()
     mockBatchTrigger.mockReset()
     mockGetWorkspace.mockReset()
@@ -179,6 +184,57 @@ describe('sendTaskReminders', () => {
       'm_3',
     ])
     expect(batch[0].payload.isCompanyRecipient).toBe(true)
+  })
+
+  it('chunks batchTrigger calls so a workspace with >500 fanned-out sends still enqueues', async () => {
+    // One company task fanning out to 1200 members → 1200 dispatch payloads → 3 chunks of 500.
+    const members = Array.from({ length: 1200 }, (_, i) => ({ id: `m_${i}` }))
+    const ledgerRows = members.map((m, i) => ({
+      id: `l_${i}`,
+      taskId: 'task_1',
+      recipientId: m.id,
+      reminderType: TaskReminderType.NO_DUE_DATE_3D,
+    }))
+    mockGetEligibleReminders.mockResolvedValueOnce([
+      buildRow({ assigneeType: AssigneeType.company, assigneeId: 'company_1', companyId: 'company_1' }),
+    ])
+    mockGetCompanyClients.mockResolvedValueOnce(members)
+    mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce(ledgerRows)
+
+    const result = await runJob()
+
+    expect(result).toEqual({ enqueued: 1200, skipped: 0, workspaceCount: 1 })
+    expect(mockBatchTrigger).toHaveBeenCalledTimes(3)
+    expect(mockBatchTrigger.mock.calls[0][0]).toHaveLength(500)
+    expect(mockBatchTrigger.mock.calls[1][0]).toHaveLength(500)
+    expect(mockBatchTrigger.mock.calls[2][0]).toHaveLength(200)
+    expect(mockTaskReminderSentDeleteMany).not.toHaveBeenCalled()
+  })
+
+  it('compensates the ledger when a batchTrigger chunk fails', async () => {
+    const members = Array.from({ length: 800 }, (_, i) => ({ id: `m_${i}` }))
+    const ledgerRows = members.map((m, i) => ({
+      id: `l_${i}`,
+      taskId: 'task_1',
+      recipientId: m.id,
+      reminderType: TaskReminderType.NO_DUE_DATE_3D,
+    }))
+    mockGetEligibleReminders.mockResolvedValueOnce([
+      buildRow({ assigneeType: AssigneeType.company, assigneeId: 'company_1', companyId: 'company_1' }),
+    ])
+    mockGetCompanyClients.mockResolvedValueOnce(members)
+    mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce(ledgerRows)
+    // First chunk (500) succeeds, second (300) fails.
+    mockBatchTrigger.mockResolvedValueOnce({ batchId: 'b1' }).mockRejectedValueOnce(new Error('trigger.dev 5xx'))
+
+    const result = await runJob()
+
+    expect(result.enqueued).toBe(500)
+    expect(mockTaskReminderSentDeleteMany).toHaveBeenCalledTimes(1)
+    const deleteArgs = mockTaskReminderSentDeleteMany.mock.calls[0][0]
+    expect(deleteArgs.where.id.in).toHaveLength(300) // failed chunk's ledger rows
+    expect(deleteArgs.where.id.in[0]).toBe('l_500')
+    expect(deleteArgs.where.id.in[299]).toBe('l_799')
   })
 
   it('does not abort the sweep when one workspace throws (per-workspace isolation)', async () => {

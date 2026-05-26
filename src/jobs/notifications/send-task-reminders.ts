@@ -12,6 +12,9 @@ import { dispatchReminderEmail, DispatchReminderEmailPayload } from './dispatch-
 import { EligibilityRow, getEligibleReminders } from './eligibility'
 
 const WORKSPACE_CONCURRENCY = 5
+// Trigger.dev caps batchTrigger at 500 items per call; chunk so a single workspace with
+// thousands of fanned-out sends still gets enqueued.
+const BATCH_TRIGGER_CHUNK_SIZE = 500
 
 type WorkspaceTotals = { enqueued: number; skipped: number }
 
@@ -141,11 +144,36 @@ const processWorkspace = async (
     })
   }
 
-  if (triggers.length > 0) {
-    await dispatchReminderEmail.batchTrigger(triggers)
+  let enqueued = 0
+  for (let i = 0; i < triggers.length; i += BATCH_TRIGGER_CHUNK_SIZE) {
+    const chunk = triggers.slice(i, i + BATCH_TRIGGER_CHUNK_SIZE)
+    try {
+      await dispatchReminderEmail.batchTrigger(chunk)
+      enqueued += chunk.length
+    } catch (err) {
+      // Compensate: drop the chunk's ledger rows so the next cron run retries them.
+      // Without this, the rows are orphans: the unique constraint blocks future inserts
+      // but no dispatcher will ever consume them.
+      const ledgerIds = chunk.map((t) => t.payload.ledgerId)
+      logger.error('send-task-reminders: batchTrigger failed, compensating ledger', {
+        workspaceId,
+        chunkSize: chunk.length,
+        chunkOffset: i,
+        error: serializeError(err),
+      })
+      try {
+        await db.taskReminderSent.deleteMany({ where: { id: { in: ledgerIds } } })
+      } catch (deleteErr) {
+        logger.error('send-task-reminders: ledger compensation deleteMany failed, ledger rows orphaned', {
+          workspaceId,
+          ledgerIds,
+          error: serializeError(deleteErr),
+        })
+      }
+    }
   }
 
-  return { enqueued: triggers.length, skipped: plan.length - inserted.length }
+  return { enqueued, skipped: plan.length - inserted.length }
 }
 
 const resolveRecipients = async (copilot: CopilotAPI, row: EligibilityRow): Promise<Recipient[]> => {
