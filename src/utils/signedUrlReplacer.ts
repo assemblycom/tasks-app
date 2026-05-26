@@ -59,10 +59,60 @@ export const replaceImgSrcs = (body: string, newSrcs: string[], oldSrcs: string[
 
 export const signMediaForComments = async (comments: Comment[]) =>
   await Promise.all(
-    comments.map(async (comment) => {
-      return {
-        ...comment,
-        content: await replaceImageSrc(comment.content, getSignedUrl),
-      }
-    }),
+    comments.map(async (comment) => ({
+      ...comment,
+      content: await rewriteCommentMediaSrcs(comment.content, comment.id),
+    })),
   )
+
+// OUT-3763 fallback for ~26 comments whose stored URLs point at a pre-move
+// path. Attachment tags are only rewritten when the path lacks the
+// comment-scoped segment — downloads use the path, not the token, so healthy
+// attachment tags need no work. Remove this once the backfill lands.
+async function rewriteCommentMediaSrcs(htmlString: string, commentId: string): Promise<string> {
+  // Regexes are created per-call: /g state is mutable and signMediaForComments
+  // runs this concurrently via Promise.all — module-level instances would race.
+  const imgTagRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g
+  const attachmentTagRegex = /<\s*[a-zA-Z]+\s+[^>]*data-type="attachment"[^>]*src="([^"]+)"[^>]*>/g
+  const replacements: { originalSrc: string; newUrl: string }[] = []
+  const seen = new Set<string>()
+  let match
+
+  while ((match = imgTagRegex.exec(htmlString)) !== null) {
+    const originalSrc = match[1]
+    if (seen.has(originalSrc)) continue
+    seen.add(originalSrc)
+    const filePath = getFilePathFromUrl(originalSrc)
+    if (!filePath) continue
+    const newUrl = await signCommentMediaPath(filePath, commentId)
+    if (newUrl) replacements.push({ originalSrc, newUrl })
+  }
+
+  while ((match = attachmentTagRegex.exec(htmlString)) !== null) {
+    const originalSrc = match[1]
+    if (seen.has(originalSrc)) continue
+    const filePath = getFilePathFromUrl(originalSrc)
+    if (!filePath) continue
+    if (filePath.includes(`/comments/${commentId}/`)) continue
+    seen.add(originalSrc)
+    const newUrl = await signCommentMediaPath(filePath, commentId)
+    if (newUrl) replacements.push({ originalSrc, newUrl })
+  }
+
+  for (const { originalSrc, newUrl } of replacements) {
+    htmlString = htmlString.replaceAll(originalSrc, newUrl)
+  }
+  return htmlString
+}
+
+async function signCommentMediaPath(filePath: string, commentId: string): Promise<string | undefined> {
+  const primary = await getSignedUrl(filePath)
+  if (primary) return primary
+
+  const segments = filePath.split('/')
+  const fileName = segments.pop()
+  const prefix = segments.join('/')
+  if (!fileName || !prefix) return undefined
+
+  return await getSignedUrl(`${prefix}/comments/${commentId}/${fileName}`)
+}
