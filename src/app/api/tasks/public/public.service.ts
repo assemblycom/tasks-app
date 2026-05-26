@@ -25,9 +25,6 @@ import { TemplatesService } from '@api/tasks/templates/templates.service'
 import { PublicTaskSerializer, TaskWithWorkflowStateAndAttachments } from '@api/tasks/public/public.serializer'
 import { getBasicPaginationAttributes } from '@/utils/pagination'
 import { AttachmentsService } from '@/app/api/attachments/attachments.service'
-import { getFilePathFromUrl } from '@/utils/signedUrlReplacer'
-import { getSignedUrl } from '@/utils/signUrl'
-import { SupabaseActions } from '@/utils/SupabaseActions'
 
 export class PublicTasksService extends TasksSharedService {
   async getAllTasks(queryFilters: {
@@ -216,12 +213,7 @@ export class PublicTasksService extends TasksSharedService {
 
       try {
         if (newTask.body) {
-          // First, bind any orphan attachments uploaded via /api/attachments/public that this
-          // body references. This moves files + rewrites body URLs to task-scoped paths.
-          // The shared sweep then skips those URLs (filePath === newFilePath check inside it)
-          // and only processes in-app-style pre-task-save uploads, if any.
-          const bodyAfterOrphanBinding = await this.bindOrphanAttachmentsAndRewriteBody(newTask.body, newTask.id)
-          const newBody = await this.updateTaskIdOfAttachmentsAfterCreation(bodyAfterOrphanBinding, newTask.id)
+          const newBody = await this.updateTaskIdOfAttachmentsAfterCreation(newTask.body, newTask.id)
           await this.db.task.update({
             where: { id: newTask.id },
             data: { body: newBody },
@@ -501,93 +493,5 @@ export class PublicTasksService extends TasksSharedService {
       orderBy: { createdAt: 'desc' },
     })
     return !!nextTask
-  }
-
-  /**
-   * Bind any orphan attachments (taskId=null, uploaded via /api/attachments/public) that this
-   * body references onto the given task: move each file from its workspace-root path to the
-   * task-scoped path, update the Attachment row in place, drop the tracking ScrapMedia row,
-   * and rewrite the body URLs to fresh signed URLs against the new path.
-   *
-   * Returns the rewritten body. No-op (returns input unchanged) when nothing in the body matches
-   * an orphan row — in particular for in-app callers, who don't create orphan rows.
-   */
-  private async bindOrphanAttachmentsAndRewriteBody(htmlString: string, taskId: string): Promise<string> {
-    const imgTagRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g
-    const attachmentTagRegex = /<\s*[a-zA-Z]+\s+[^>]*data-type="attachment"[^>]*src="([^"]+)"[^>]*>/g
-    const matches: { originalSrc: string; filePath: string }[] = []
-    let regexMatch: RegExpExecArray | null
-    while ((regexMatch = imgTagRegex.exec(htmlString)) !== null) {
-      const originalSrc = regexMatch[1]
-      const filePath = getFilePathFromUrl(originalSrc)
-      if (filePath) matches.push({ originalSrc, filePath })
-    }
-    while ((regexMatch = attachmentTagRegex.exec(htmlString)) !== null) {
-      const originalSrc = regexMatch[1]
-      const filePath = getFilePathFromUrl(originalSrc)
-      if (filePath) matches.push({ originalSrc, filePath })
-    }
-    if (!matches.length) return htmlString
-
-    const referencedFilePaths = matches.map((m) => m.filePath)
-    const orphanAttachments = await this.db.attachment.findMany({
-      where: {
-        workspaceId: this.user.workspaceId,
-        taskId: null,
-        commentId: null,
-        deletedAt: null,
-        filePath: { in: referencedFilePaths },
-      },
-    })
-    if (!orphanAttachments.length) return htmlString
-
-    const orphanByFilePath = new Map(orphanAttachments.map((row) => [row.filePath, row]))
-    const supabaseActions = new SupabaseActions()
-    const reassignments: {
-      existingAttachmentId: string
-      originalSrc: string
-      originalFilePath: string
-      newFilePath: string
-    }[] = []
-    const fileMovePromises: Promise<void>[] = []
-
-    for (const { originalSrc, filePath } of matches) {
-      const orphan = orphanByFilePath.get(filePath)
-      if (!orphan) continue
-      const fileName = filePath.split('/').pop()
-      if (!fileName) continue
-      const newFilePath = `${this.user.workspaceId}/${taskId}/${fileName}`
-      reassignments.push({ existingAttachmentId: orphan.id, originalSrc, originalFilePath: orphan.filePath, newFilePath })
-      fileMovePromises.push(supabaseActions.moveAttachment(filePath, newFilePath))
-    }
-    if (!reassignments.length) return htmlString
-
-    await Promise.all(fileMovePromises)
-
-    // Atomic: bind orphan rows to the task + drop the now-stale ScrapMedia trackers.
-    await this.db.$transaction([
-      ...reassignments.map(({ existingAttachmentId, newFilePath }) =>
-        this.db.attachment.update({
-          where: { id: existingAttachmentId, workspaceId: this.user.workspaceId },
-          data: { taskId, filePath: newFilePath },
-        }),
-      ),
-      this.db.scrapMedia.deleteMany({
-        where: { filePath: { in: reassignments.map((r) => r.originalFilePath) } },
-      }),
-    ])
-
-    // Replace each old URL with a fresh signed URL of the task-scoped path.
-    let updatedBody = htmlString
-    await Promise.all(
-      reassignments.map(async ({ originalSrc, newFilePath }) => {
-        const newSignedUrl = await getSignedUrl(newFilePath)
-        if (newSignedUrl) {
-          // replaceAll: non-image markup embeds the URL twice (outer data-src + inner attachment-view src).
-          updatedBody = updatedBody.replaceAll(originalSrc, newSignedUrl)
-        }
-      }),
-    )
-    return updatedBody
   }
 }

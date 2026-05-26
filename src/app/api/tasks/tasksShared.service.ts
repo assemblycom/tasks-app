@@ -526,10 +526,6 @@ export abstract class TasksSharedService extends BaseService {
 
     for (const { originalSrc, filePath, fileName } of matches) {
       const newFilePath = `${this.user.workspaceId}/${task_id}/${fileName}`
-      // Skip URLs that already point at the task-scoped path — the public-API orphan-binding
-      // step (PublicTasksService) moves files + rewrites body URLs before calling this sweep,
-      // and re-processing them here would synthesize a duplicate Attachment row.
-      if (filePath === newFilePath) continue
       const supabaseActions = new SupabaseActions()
 
       const fileMetaData = await supabaseActions.getMetaData(filePath)

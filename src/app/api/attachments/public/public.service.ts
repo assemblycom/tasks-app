@@ -5,30 +5,34 @@ import { generateRandomString } from '@/utils/generateRandomString'
 import { SupabaseActions } from '@/utils/SupabaseActions'
 import APIError from '@api/core/exceptions/api'
 import httpStatus from 'http-status'
-import { Attachment } from '@prisma/client'
 
 /**
  * Server-side orchestrator that condenses the in-app 3-hop upload flow
  * (request signed URL → PUT to Supabase → POST attachment row) into a
  * single multipart POST suitable for public API callers.
  *
- * The file is uploaded under the workspace-root path (matching the in-app
- * pre-task-save path), and a corresponding Attachment row is created in
- * an "orphan" state (taskId = null, commentId = null). Callers embed the
- * returned downloadUrl in a task body using native Tapwrite markup; the
- * post-create body sweep binds the row to the task and relocates the file
- * to the task-scoped path.
+ * No Attachment row is created here — the file lands at the workspace-root
+ * path (same as the in-app pre-task-save flow) and a ScrapMedia row is
+ * registered so the file gets reaped if the caller never embeds it in a
+ * task body. When the caller does embed the returned downloadUrl in a task
+ * description, the existing post-create body sweep creates the Attachment
+ * row and moves the file to the task-scoped path.
  */
 export class PublicAttachmentsService extends BaseService {
-  async uploadOrphanAttachment(uploadedFile: File): Promise<Attachment> {
+  async uploadFile(uploadedFile: File): Promise<{
+    filePath: string
+    fileName: string
+    fileSize: number
+    fileType: string
+  }> {
     // Workspace-root path — matches the in-app pre-task-save upload location.
-    const orphanWorkspaceFilePath = `/${this.user.workspaceId}`
+    const workspaceRootFilePath = `/${this.user.workspaceId}`
     const uniqueFileName = generateRandomString(uploadedFile.name)
 
     const attachmentsService = new AttachmentsService(this.user)
     const supabaseActions = new SupabaseActions()
 
-    const signedUploadInfo = await attachmentsService.signUrlUpload(uniqueFileName, orphanWorkspaceFilePath)
+    const signedUploadInfo = await attachmentsService.signUrlUpload(uniqueFileName, workspaceRootFilePath)
 
     const { filePayload, error: supabaseUploadError } = await supabaseActions.uploadAttachment(
       uploadedFile,
@@ -39,45 +43,27 @@ export class PublicAttachmentsService extends BaseService {
       throw new APIError(httpStatus.BAD_REQUEST, 'Failed to upload attachment to storage')
     }
 
-    // No taskId/commentId — created in an "orphan" state. The post-create sweep
-    // binds it to a task once the returned id is referenced in a task body.
-    const newOrphanAttachment = await attachmentsService.createAttachments({
-      filePath: filePayload.filePath,
-      fileSize: filePayload.fileSize,
-      fileType: filePayload.fileType,
-      fileName: filePayload.fileName,
-    })
-
-    // Register the orphan with the ScrapMedia worker so the file + Attachment row
-    // get cleaned up if the caller never references this id from a task body.
-    // The post-create sweep deletes this ScrapMedia row once the orphan binds to a task.
-    //
-    // If tracking registration fails we roll back the Supabase file and the Attachment
-    // row so the caller can retry cleanly — otherwise the file would be untracked and
-    // leak permanently.
+    // Register the file with the ScrapMedia worker so it gets cleaned up if the caller never
+    // embeds the returned URL in a task body. If tracking registration fails we roll back the
+    // Supabase upload so the caller can retry cleanly — otherwise the file would leak permanently.
     try {
       await new ScrapMediaService(this.user).createScrapImage({ filePath: filePayload.filePath })
     } catch (scrapMediaTrackingError) {
-      console.error('PublicAttachmentsService#uploadOrphanAttachment | Failed to register ScrapMedia, rolling back', {
-        attachmentId: newOrphanAttachment.id,
+      console.error('PublicAttachmentsService#uploadFile | Failed to register ScrapMedia, rolling back', {
         filePath: filePayload.filePath,
         error: scrapMediaTrackingError,
       })
       await supabaseActions.removeAttachment(filePayload.filePath).catch((cleanupError) => {
-        console.error(
-          'PublicAttachmentsService#uploadOrphanAttachment | Failed to remove Supabase file during rollback',
-          cleanupError,
-        )
-      })
-      await this.db.attachment.delete({ where: { id: newOrphanAttachment.id } }).catch((cleanupError) => {
-        console.error(
-          'PublicAttachmentsService#uploadOrphanAttachment | Failed to delete Attachment row during rollback',
-          cleanupError,
-        )
+        console.error('PublicAttachmentsService#uploadFile | Failed to remove Supabase file during rollback', cleanupError)
       })
       throw new APIError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to register attachment for cleanup tracking')
     }
 
-    return newOrphanAttachment
+    return {
+      filePath: filePayload.filePath,
+      fileName: filePayload.fileName,
+      fileSize: filePayload.fileSize,
+      fileType: filePayload.fileType,
+    }
   }
 }

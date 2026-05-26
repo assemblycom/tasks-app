@@ -4,12 +4,9 @@ import authenticate from '@api/core/utils/authenticate'
 import APIError from '@/app/api/core/exceptions/api'
 import { PublicAttachmentsService } from '@api/attachments/public/public.service'
 import { PublicAttachmentDtoSchema } from '@/app/api/attachments/public/public.dto'
-import { RFC3339DateSchema } from '@/types/common'
-import { toRFC3339 } from '@/utils/dateHelper'
 import { sanitizeFileName } from '@/utils/sanitizeFileName'
 import { getSignedUrl } from '@/utils/signUrl'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
-import { AssigneeType } from '@prisma/client'
 
 const MULTIPART_FILE_FIELD = 'file'
 
@@ -28,19 +25,15 @@ export const createAttachmentPublic = async (req: NextRequest) => {
   }
 
   const publicAttachmentsService = new PublicAttachmentsService(user)
-  const newOrphanAttachment = await publicAttachmentsService.uploadOrphanAttachment(uploadedFile)
+  const uploaded = await publicAttachmentsService.uploadFile(uploadedFile)
 
-  const downloadUrl = await getSignedUrl(newOrphanAttachment.filePath)
+  const downloadUrl = await getSignedUrl(uploaded.filePath)
 
   const responseBody = PublicAttachmentDtoSchema.parse({
-    id: newOrphanAttachment.id,
-    fileName: sanitizeFileName(newOrphanAttachment.fileName),
-    fileSize: newOrphanAttachment.fileSize,
-    mimeType: newOrphanAttachment.fileType,
+    fileName: sanitizeFileName(uploaded.fileName),
+    fileSize: uploaded.fileSize,
+    mimeType: uploaded.fileType,
     downloadUrl: downloadUrl ?? null,
-    uploadedBy: newOrphanAttachment.createdById,
-    uploadedByUserType: AssigneeType.internalUser,
-    uploadedDate: RFC3339DateSchema.parse(toRFC3339(newOrphanAttachment.createdAt)),
   })
 
   return NextResponse.json(responseBody, { status: httpStatus.CREATED })
