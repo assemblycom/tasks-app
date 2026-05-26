@@ -36,11 +36,6 @@ export function getFilePathFromUrl(url: string) {
   }
 }
 
-// Normalize an Attachment.filePath / Supabase object path for comparison.
-// buildFilePath returns paths with a leading slash; Supabase's stored object
-// path comes back without one. Strip it so equality checks behave predictably.
-export const normalizeAttachmentFilePath = (filePath: string): string => filePath.replace(/^\/+/, '')
-
 export const extractImgSrcs = (body: string) => {
   const parser = new DOMParser()
   const doc = parser.parseFromString(body, 'text/html')

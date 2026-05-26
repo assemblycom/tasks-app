@@ -12,7 +12,7 @@ import {
 import { getFileNameFromPath } from '@/utils/attachmentUtils'
 import { resolveDynamicFields, resolveAutofillTags } from '@/utils/dynamicFields'
 import { buildLtree, buildLtreeNodeString } from '@/utils/ltree'
-import { getFilePathFromUrl, normalizeAttachmentFilePath } from '@/utils/signedUrlReplacer'
+import { getFilePathFromUrl } from '@/utils/signedUrlReplacer'
 import { getSignedUrl } from '@/utils/signUrl'
 import { SupabaseActions } from '@/utils/SupabaseActions'
 import APIError from '@api/core/exceptions/api'
@@ -529,7 +529,7 @@ export abstract class TasksSharedService extends BaseService {
     //   - orphan rows (taskId=null) so the public upload flow can bind them in place
     //   - already-bound rows so we can skip them entirely (otherwise calling this function
     //     on a body that was already processed once would re-move files / create duplicates)
-    const referencedFilePaths = matches.map((m) => normalizeAttachmentFilePath(m.filePath))
+    const referencedFilePaths = matches.map((m) => m.filePath)
     const existingAttachmentRowsByFilePath = referencedFilePaths.length
       ? await this.db.attachment.findMany({
           where: {
@@ -541,28 +541,23 @@ export abstract class TasksSharedService extends BaseService {
         })
       : []
     const orphanAttachmentByFilePath = new Map(
-      existingAttachmentRowsByFilePath
-        .filter((row) => row.taskId === null)
-        .map((row) => [normalizeAttachmentFilePath(row.filePath), row]),
+      existingAttachmentRowsByFilePath.filter((row) => row.taskId === null).map((row) => [row.filePath, row]),
     )
     const alreadyBoundFilePaths = new Set(
-      existingAttachmentRowsByFilePath
-        .filter((row) => row.taskId !== null)
-        .map((row) => normalizeAttachmentFilePath(row.filePath)),
+      existingAttachmentRowsByFilePath.filter((row) => row.taskId !== null).map((row) => row.filePath),
     )
 
     const orphanReassignments: { existingAttachmentId: string; newFilePath: string; originalFilePath: string }[] = []
 
     for (const { originalSrc, filePath, fileName } of matches) {
-      const normalizedFilePath = normalizeAttachmentFilePath(filePath)
-      if (alreadyBoundFilePaths.has(normalizedFilePath)) {
+      if (alreadyBoundFilePaths.has(filePath)) {
         // Body re-referenced an attachment that's already bound to a task — leave the row,
         // file, and src untouched.
         continue
       }
       const newFilePath = `${this.user.workspaceId}/${task_id}/${fileName}`
       const supabaseActions = new SupabaseActions()
-      const matchedOrphanAttachment = orphanAttachmentByFilePath.get(normalizedFilePath)
+      const matchedOrphanAttachment = orphanAttachmentByFilePath.get(filePath)
 
       if (matchedOrphanAttachment) {
         // Public-upload path: row already exists with all metadata; just bind to this task
@@ -570,7 +565,7 @@ export abstract class TasksSharedService extends BaseService {
         orphanReassignments.push({
           existingAttachmentId: matchedOrphanAttachment.id,
           newFilePath,
-          originalFilePath: normalizeAttachmentFilePath(matchedOrphanAttachment.filePath),
+          originalFilePath: matchedOrphanAttachment.filePath,
         })
       } else {
         // In-app path: no pre-existing row, so synthesize one from supabase metadata.
