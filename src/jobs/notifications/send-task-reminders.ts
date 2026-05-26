@@ -2,8 +2,8 @@ import 'server-only'
 
 import { copilotAPIKey } from '@/config'
 import DBClient from '@/lib/db'
-import { ClientResponse } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
+import { serializeError } from '@/utils/serializeError'
 import { AssigneeType, TaskReminderType } from '@prisma/client'
 import { logger, schedules } from '@trigger.dev/sdk/v3'
 import Bottleneck from 'bottleneck'
@@ -191,15 +191,11 @@ const processWorkspace = async (
   return { enqueued, skipped: plan.length - inserted.length }
 }
 
+// IU rows are filtered upstream so only client/company assignees reach here.
 const resolveRecipients = async (copilot: CopilotAPI, task: EligibilityRow): Promise<Recipient[]> => {
-  if (task.assigneeType === AssigneeType.client) {
+  if (task.assigneeType !== AssigneeType.company) {
     return [{ clientId: task.assigneeId, companyId: task.companyId }]
   }
-  if (task.assigneeType === AssigneeType.company) {
-    const members: ClientResponse[] = await copilot.getCompanyClients(task.assigneeId)
-    return members.map((m) => ({ clientId: m.id, companyId: task.assigneeId }))
-  }
-  return []
+  const members = await copilot.getCompanyClients(task.assigneeId)
+  return members.map((m) => ({ clientId: m.id, companyId: task.assigneeId }))
 }
-
-const serializeError = (err: unknown) => (err instanceof Error ? { message: err.message, stack: err.stack } : err)

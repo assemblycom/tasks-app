@@ -4,6 +4,7 @@ import { copilotAPIKey } from '@/config'
 import DBClient from '@/lib/db'
 import { WorkspaceResponse } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
+import { serializeError } from '@/utils/serializeError'
 import { Task, TaskReminderType } from '@prisma/client'
 import { logger, task, tasks } from '@trigger.dev/sdk/v3'
 
@@ -22,8 +23,6 @@ export type DispatchReminderEmailPayload = {
 
 const TASK_ID = 'dispatch-reminder-email'
 
-const serializeError = (err: unknown) => (err instanceof Error ? { message: err.message, stack: err.stack } : err)
-
 export const dispatchReminderEmailRun = async (payload: DispatchReminderEmailPayload) => {
   const copilot = new CopilotAPI('', `${payload.workspaceId}/${copilotAPIKey}`)
   const notificationId = await sendReminderEmail({
@@ -40,22 +39,23 @@ export const dispatchReminderEmailRun = async (payload: DispatchReminderEmailPay
 
 // Fires after Trigger.dev exhausts all retries. Compensating here (instead of inside run's
 // catch) avoids dropping the ledger row on transient failures a retry would have recovered.
+// The SDK types the hook's payload as `unknown`; we cast once via destructure.
 export const dispatchReminderEmailOnFailure = async ({ payload, error }: { payload: unknown; error: unknown }) => {
-  const p = payload as DispatchReminderEmailPayload
+  const { ledgerId, workspaceId, task, recipientClientId, reminderType } = payload as DispatchReminderEmailPayload
   logger.error('dispatch-reminder-email: retries exhausted, compensating ledger', {
-    ledgerId: p.ledgerId,
-    workspaceId: p.workspaceId,
-    taskId: p.task.id,
-    recipientClientId: p.recipientClientId,
-    reminderType: p.reminderType,
+    ledgerId,
+    workspaceId,
+    taskId: task.id,
+    recipientClientId,
+    reminderType,
     error: serializeError(error),
   })
   const db = DBClient.getInstance()
   try {
-    await db.taskReminderSent.delete({ where: { id: p.ledgerId } })
+    await db.taskReminderSent.delete({ where: { id: ledgerId } })
   } catch (deleteErr) {
     logger.error('dispatch-reminder-email: ledger compensation DELETE failed, reminder will not retry', {
-      ledgerId: p.ledgerId,
+      ledgerId,
       error: serializeError(deleteErr),
     })
   }
