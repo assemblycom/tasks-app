@@ -9,10 +9,10 @@ import {
   UpdateTaskRequest,
   AssociationsSchema,
 } from '@/types/dto/tasks.dto'
-import { getFileNameFromPath, normalizeAttachmentFilePath } from '@/utils/attachmentUtils'
+import { getFileNameFromPath } from '@/utils/attachmentUtils'
 import { resolveDynamicFields, resolveAutofillTags } from '@/utils/dynamicFields'
 import { buildLtree, buildLtreeNodeString } from '@/utils/ltree'
-import { getFilePathFromUrl } from '@/utils/signedUrlReplacer'
+import { getFilePathFromUrl, normalizeAttachmentFilePath } from '@/utils/signedUrlReplacer'
 import { getSignedUrl } from '@/utils/signUrl'
 import { SupabaseActions } from '@/utils/SupabaseActions'
 import APIError from '@api/core/exceptions/api'
