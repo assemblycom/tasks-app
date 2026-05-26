@@ -21,7 +21,7 @@ type WorkspaceTotals = { enqueued: number; skipped: number }
 type Recipient = { clientId: string; companyId: string | null }
 
 type LedgerPlanEntry = {
-  row: EligibilityRow
+  task: EligibilityRow
   recipient: Recipient
 }
 
@@ -32,36 +32,36 @@ export const sendTaskReminders = schedules.task({
   run: async (payload) => {
     const db = DBClient.getInstance()
 
-    const allRows = await getEligibleReminders(db)
-    const rows = allRows.filter((r) => r.assigneeType !== AssigneeType.internalUser)
+    const eligibleTasks = await getEligibleReminders(db)
+    const tasks = eligibleTasks.filter((t) => t.assigneeType !== AssigneeType.internalUser)
 
-    const byWorkspace = new Map<string, EligibilityRow[]>()
-    for (const row of rows) {
-      const bucket = byWorkspace.get(row.workspaceId)
-      if (bucket) bucket.push(row)
-      else byWorkspace.set(row.workspaceId, [row])
+    const tasksByWorkspace = new Map<string, EligibilityRow[]>()
+    for (const task of tasks) {
+      const bucket = tasksByWorkspace.get(task.workspaceId)
+      if (bucket) bucket.push(task)
+      else tasksByWorkspace.set(task.workspaceId, [task])
     }
 
     logger.log('send-task-reminders: sweep starting', {
-      totalEligible: allRows.length,
-      afterIuFilter: rows.length,
-      eligibleWorkspaces: byWorkspace.size,
+      totalEligible: eligibleTasks.length,
+      afterIuFilter: tasks.length,
+      eligibleWorkspaces: tasksByWorkspace.size,
       workspaceConcurrency: WORKSPACE_CONCURRENCY,
       runAt: payload.timestamp,
     })
 
     const totals = { enqueued: 0, skipped: 0 }
     let processed = 0
-    const workspaceCount = byWorkspace.size
+    const workspaceCount = tasksByWorkspace.size
 
     const workspaceBottleneck = new Bottleneck({ maxConcurrent: WORKSPACE_CONCURRENCY })
 
     await Promise.allSettled(
-      Array.from(byWorkspace.entries()).map(([workspaceId, workspaceRows]) =>
+      Array.from(tasksByWorkspace.entries()).map(([workspaceId, workspaceTasks]) =>
         workspaceBottleneck.schedule(async () => {
           let wsTotals: WorkspaceTotals = { enqueued: 0, skipped: 0 }
           try {
-            wsTotals = await processWorkspace(db, workspaceId, workspaceRows)
+            wsTotals = await processWorkspace(db, workspaceId, workspaceTasks)
           } catch (err) {
             logger.error('send-task-reminders: workspace failed', {
               workspaceId,
@@ -83,7 +83,7 @@ export const sendTaskReminders = schedules.task({
     logger.log('send-task-reminders: sweep complete', {
       ...totals,
       workspaceCount,
-      totalEligible: allRows.length,
+      totalEligible: eligibleTasks.length,
     })
 
     return { ...totals, workspaceCount }
@@ -93,7 +93,7 @@ export const sendTaskReminders = schedules.task({
 const processWorkspace = async (
   db: ReturnType<typeof DBClient.getInstance>,
   workspaceId: string,
-  rows: EligibilityRow[],
+  tasks: EligibilityRow[],
 ): Promise<WorkspaceTotals> => {
   // Workspace-scoped apiKey: empty token + `${workspaceId}/${apiKey}` is accepted by the
   // SDK when COPILOT_ENV is set on the Trigger.dev runtime.
@@ -101,10 +101,10 @@ const processWorkspace = async (
   const workspace = await copilot.getWorkspace()
 
   const plan: LedgerPlanEntry[] = []
-  for (const row of rows) {
-    const recipients = await resolveRecipients(copilot, row)
+  for (const task of tasks) {
+    const recipients = await resolveRecipients(copilot, task)
     for (const recipient of recipients) {
-      plan.push({ row, recipient })
+      plan.push({ task, recipient })
     }
   }
 
@@ -113,17 +113,17 @@ const processWorkspace = async (
   // Ledger insert before send: the unique constraint is the dedupe primitive.
   const inserted = await db.taskReminderSent.createManyAndReturn({
     data: plan.map((entry) => ({
-      taskId: entry.row.taskId,
+      taskId: entry.task.taskId,
       workspaceId,
       recipientId: entry.recipient.clientId,
-      reminderType: entry.row.reminderType,
+      reminderType: entry.task.reminderType,
     })),
     skipDuplicates: true,
   })
 
   const insertedKey = (taskId: string, recipientId: string, type: TaskReminderType) => `${taskId}|${recipientId}|${type}`
   const planByKey = new Map<string, LedgerPlanEntry>(
-    plan.map((e) => [insertedKey(e.row.taskId, e.recipient.clientId, e.row.reminderType), e]),
+    plan.map((e) => [insertedKey(e.task.taskId, e.recipient.clientId, e.task.reminderType), e]),
   )
 
   const triggers: { payload: DispatchReminderEmailPayload }[] = []
@@ -134,11 +134,11 @@ const processWorkspace = async (
       payload: {
         ledgerId: row.id,
         workspaceId,
-        task: { id: entry.row.taskId, title: entry.row.title, createdById: entry.row.createdById },
+        task: { id: entry.task.taskId, title: entry.task.title, createdById: entry.task.createdById },
         recipientClientId: entry.recipient.clientId,
         recipientCompanyId: entry.recipient.companyId,
-        reminderType: entry.row.reminderType,
-        isCompanyRecipient: entry.row.assigneeType === AssigneeType.company,
+        reminderType: entry.task.reminderType,
+        isCompanyRecipient: entry.task.assigneeType === AssigneeType.company,
         workspace,
       },
     })
@@ -176,13 +176,13 @@ const processWorkspace = async (
   return { enqueued, skipped: plan.length - inserted.length }
 }
 
-const resolveRecipients = async (copilot: CopilotAPI, row: EligibilityRow): Promise<Recipient[]> => {
-  if (row.assigneeType === AssigneeType.client) {
-    return [{ clientId: row.assigneeId, companyId: row.companyId }]
+const resolveRecipients = async (copilot: CopilotAPI, task: EligibilityRow): Promise<Recipient[]> => {
+  if (task.assigneeType === AssigneeType.client) {
+    return [{ clientId: task.assigneeId, companyId: task.companyId }]
   }
-  if (row.assigneeType === AssigneeType.company) {
-    const members: ClientResponse[] = await copilot.getCompanyClients(row.assigneeId)
-    return members.map((m) => ({ clientId: m.id, companyId: row.assigneeId }))
+  if (task.assigneeType === AssigneeType.company) {
+    const members: ClientResponse[] = await copilot.getCompanyClients(task.assigneeId)
+    return members.map((m) => ({ clientId: m.id, companyId: task.assigneeId }))
   }
   return []
 }
