@@ -39,10 +39,11 @@ describe('getReminderEmailDetails', () => {
     expect(result[TaskReminderType.NO_DUE_DATE_3D].header).toBe('A task was assigned to your team')
   })
 
-  it('falls back gracefully when brandName is missing', () => {
-    const noBrand: WorkspaceResponse = { ...workspace, brandName: undefined }
-    const result = getReminderEmailDetails(noBrand, task, false)
-    expect(result[TaskReminderType.NO_DUE_DATE_3D].subject).toBe('portal: [Reminder] You have a task to complete')
+  it('omits any `<brand> portal:` prefix from subjects (Copilot prepends it server-side)', () => {
+    const result = getReminderEmailDetails(workspace, task, false)
+    for (const variant of Object.values(TaskReminderType)) {
+      expect(result[variant].subject).not.toMatch(/portal:/i)
+    }
   })
 
   it('emits ctaParams with the task id for every variant', () => {
