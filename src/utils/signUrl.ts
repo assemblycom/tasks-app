@@ -11,6 +11,16 @@ export const getSignedUrl = async (filePath: string) => {
   return url
 } // used to replace urls for images in task body
 
+// Public bucket URL — not actually downloadable for a private bucket but still contains the
+// file path under `/media/` so downstream parsers (getFilePathFromUrl) can extract it. Useful
+// as a fallback when signing fails: callers can still embed the URL in a task body, and the
+// post-creation sweep will re-sign it against the task-scoped path.
+export const getUnsignedUrl = (filePath: string): string => {
+  const supabase = new SupabaseService()
+  const { data } = supabase.supabase.storage.from(supabaseBucket).getPublicUrl(filePath)
+  return data.publicUrl
+}
+
 export const createSignedUrls = async (filePaths: string[]) => {
   const supabase = new SupabaseService()
   const { data, error } = await supabase.supabase.storage.from(supabaseBucket).createSignedUrls(filePaths, signedUrlTtl)
