@@ -237,6 +237,42 @@ describe('sendTaskReminders', () => {
     expect(deleteArgs.where.id.in[299]).toBe('l_799')
   })
 
+  it('skips a single task whose getCompanyClients fails without dropping siblings', async () => {
+    // Two company tasks in the same workspace. The first one's fan-out throws (Copilot
+    // exhausted its own retries); the second one should still get its reminder enqueued.
+    mockGetEligibleReminders.mockResolvedValueOnce([
+      buildRow({
+        taskId: 'task_bad',
+        assigneeType: AssigneeType.company,
+        assigneeId: 'company_bad',
+        companyId: 'company_bad',
+      }),
+      buildRow({
+        taskId: 'task_good',
+        assigneeType: AssigneeType.company,
+        assigneeId: 'company_good',
+        companyId: 'company_good',
+      }),
+    ])
+    mockGetCompanyClients
+      .mockRejectedValueOnce(new Error('copilot 5xx'))
+      .mockResolvedValueOnce([{ id: 'm_1' }, { id: 'm_2' }])
+    mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([
+      { id: 'l_1', taskId: 'task_good', recipientId: 'm_1', reminderType: TaskReminderType.NO_DUE_DATE_3D },
+      { id: 'l_2', taskId: 'task_good', recipientId: 'm_2', reminderType: TaskReminderType.NO_DUE_DATE_3D },
+    ])
+
+    const result = await runJob()
+
+    expect(result).toEqual({ enqueued: 2, skipped: 0, workspaceCount: 1 })
+    expect(mockBatchTrigger).toHaveBeenCalledTimes(1)
+    const batch = mockBatchTrigger.mock.calls[0][0]
+    expect(batch.map((b: { payload: { recipientClientId: string } }) => b.payload.recipientClientId).sort()).toEqual([
+      'm_1',
+      'm_2',
+    ])
+  })
+
   it('does not abort the sweep when one workspace throws (per-workspace isolation)', async () => {
     mockGetEligibleReminders.mockResolvedValueOnce([
       buildRow({ workspaceId: 'ws_bad', taskId: 'task_bad' }),

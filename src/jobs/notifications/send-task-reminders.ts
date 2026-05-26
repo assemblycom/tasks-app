@@ -102,7 +102,22 @@ const processWorkspace = async (
 
   const plan: LedgerPlanEntry[] = []
   for (const task of tasks) {
-    const recipients = await resolveRecipients(copilot, task)
+    let recipients: Recipient[]
+    try {
+      recipients = await resolveRecipients(copilot, task)
+    } catch (err) {
+      // Contain blast radius to this task. Copilot is already wrapped in withRetry, so
+      // a thrown error means retries are exhausted — propagating would drop unrelated
+      // sibling tasks in the same workspace for the day.
+      logger.error('send-task-reminders: failed to resolve recipients, skipping task', {
+        workspaceId,
+        taskId: task.taskId,
+        assigneeType: task.assigneeType,
+        assigneeId: task.assigneeId,
+        error: serializeError(err),
+      })
+      continue
+    }
     for (const recipient of recipients) {
       plan.push({ task, recipient })
     }
