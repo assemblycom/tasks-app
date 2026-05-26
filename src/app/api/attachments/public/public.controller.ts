@@ -26,20 +26,19 @@ export const createAttachmentPublic = async (req: NextRequest) => {
   const publicAttachmentsService = new PublicAttachmentsService(user)
   const uploaded = await publicAttachmentsService.uploadFile(uploadedFile)
 
+  // The file upload itself is the load-bearing step. If signing here fails (rare, transient
+  // Supabase error), we still return success with downloadUrl: null — the file exists, the
+  // ScrapMedia tracker is in place, and the post-creation task body sweep generates fresh
+  // signed URLs against the task-scoped path anyway. Callers that depend on the immediate
+  // downloadUrl should treat null as a signal to retry signing or upload again.
   const downloadUrl = await getSignedUrl(uploaded.filePath)
-  if (!downloadUrl) {
-    // The file + ScrapMedia tracker are already committed; the scrap-media cron will
-    // reap the file since it's unreferenced. Surface the failure so the caller can retry
-    // instead of receiving a 201 with no usable URL.
-    throw new APIError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to generate download URL for uploaded attachment')
-  }
 
   return NextResponse.json(
     {
       fileName: sanitizeFileName(uploaded.fileName),
       fileSize: uploaded.fileSize,
       mimeType: uploaded.fileType,
-      downloadUrl,
+      downloadUrl: downloadUrl ?? null,
     },
     { status: httpStatus.CREATED },
   )
