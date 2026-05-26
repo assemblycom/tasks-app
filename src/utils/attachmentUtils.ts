@@ -8,17 +8,12 @@ import { getFilePathFromUrl } from '@/utils/signedUrlReplacer'
 import { getSignedUrlFile, getSignedUrlUpload } from '@/app/(home)/actions'
 import { CreateAttachmentRequestSchema } from '@/types/dto/attachments.dto'
 
-export const buildFilePath = ({
-  workspaceId,
-  type,
-  entityId,
-  parentTaskId,
-}: {
-  workspaceId: string
-  type: AttachmentTypes[keyof AttachmentTypes]
-  entityId: string | null
-  parentTaskId?: string
-}) => {
+const buildFilePath = (
+  workspaceId: string,
+  type: AttachmentTypes[keyof AttachmentTypes],
+  entityId: string | null,
+  parentTaskId?: string,
+) => {
   if (type === AttachmentTypes.TASK) {
     return entityId ? `/${workspaceId}/${entityId}` : `/${workspaceId}`
   } else if (type === AttachmentTypes.COMMENT) {
@@ -41,7 +36,7 @@ export const uploadAttachmentHandler = async (
   const signedUrl: ISignedUrlUpload = await getSignedUrlUpload(
     token,
     fileName,
-    buildFilePath({ workspaceId, type, entityId, parentTaskId }),
+    buildFilePath(workspaceId, type, entityId, parentTaskId),
   )
 
   const { filePayload, error } = await supabaseActions.uploadAttachment(file, signedUrl, entityId)
