@@ -38,26 +38,6 @@ export class AttachmentsService extends BaseService {
     return newAttachment
   }
 
-  /**
-   * Find orphan (taskId=null, commentId=null) attachments in this workspace by id.
-   * Returns only rows that exist AND are orphan AND belong to the caller's workspace —
-   * any id that fails those checks is silently filtered out by the caller's set diff.
-   */
-  async findOrphanAttachmentsByIds(attachmentIds: string[]) {
-    if (!attachmentIds.length) return []
-    const policyGate = new PoliciesService(this.user)
-    policyGate.authorize(UserAction.Read, Resource.Attachments)
-    return await this.db.attachment.findMany({
-      where: {
-        id: { in: attachmentIds },
-        workspaceId: this.user.workspaceId,
-        taskId: null,
-        commentId: null,
-        deletedAt: null,
-      },
-    })
-  }
-
   async createMultipleAttachments(data: CreateAttachmentRequest[]) {
     const policyGate = new PoliciesService(this.user)
     policyGate.authorize(UserAction.Create, Resource.Attachments)

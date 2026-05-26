@@ -11,15 +11,10 @@ import {
 } from '@/types/dto/tasks.dto'
 import { rfc3339ToDateString, toRFC3339 } from '@/utils/dateHelper'
 import { resolveAutofillTags, resolveDynamicFields } from '@/utils/dynamicFields'
-import {
-  collapseNativeAttachmentTagsToPublicTags,
-  expandPublicAttachmentTagsInDescription,
-} from '@/utils/publicAttachmentTagTransformer'
+import { sanitizeHtml } from '@/utils/santizeContents'
 import { copyTemplateMediaToTask } from '@/utils/signedTemplateUrlReplacer'
 import { replaceImageSrc } from '@/utils/signedUrlReplacer'
 import { getSignedUrl } from '@/utils/signUrl'
-import { AttachmentsService } from '@/app/api/attachments/attachments.service'
-import User from '@api/core/models/User.model'
 import { PublicTaskCreateDto, PublicTaskDto, PublicTaskDtoSchema, PublicTaskUpdateDto } from '@api/tasks/public/public.dto'
 import { Attachment, Task, WorkflowState } from '@prisma/client'
 import httpStatus from 'http-status'
@@ -47,7 +42,7 @@ export class PublicTaskSerializer {
       id: task.id,
       object: 'task',
       name: task.title,
-      description: collapseNativeAttachmentTagsToPublicTags({ body: task.body, taskAttachments: task.attachments }),
+      description: sanitizeHtml(task.body || ''),
       parentTaskId: task.parentId,
       dueDate: toRFC3339(task.dueDate),
       label: task.label,
@@ -133,20 +128,14 @@ export class PublicTaskSerializer {
     return { title, body, workflowStateId }
   }
 
-  static async deserializeCreatePayload({
-    payload,
-    user,
-  }: {
-    payload: PublicTaskCreateDto
-    user: User
-  }): Promise<CreateTaskRequest> {
-    let workflowStateId = await PublicTaskSerializer.getWorkflowStateIdForStatus(payload.status, user.workspaceId)
+  static async deserializeCreatePayload(payload: PublicTaskCreateDto, workspaceId: string): Promise<CreateTaskRequest> {
+    let workflowStateId = await PublicTaskSerializer.getWorkflowStateIdForStatus(payload.status, workspaceId)
     let title = payload.name
     let body = payload.description
     if (payload.templateId) {
       const updated = await PublicTaskSerializer.applyTemplateToTaskContent(
         payload.templateId,
-        user.workspaceId,
+        workspaceId,
         title,
         body,
         workflowStateId,
@@ -156,14 +145,9 @@ export class PublicTaskSerializer {
       workflowStateId = updated.workflowStateId
     }
 
-    const { expandedDescription } = await expandPublicAttachmentTagsInDescription({
-      description: body,
-      attachmentsService: new AttachmentsService(user),
-    })
-
     return CreateTaskRequestSchema.parse({
       title,
-      body: expandedDescription,
+      body,
       workflowStateId: workflowStateId,
       dueDate: rfc3339ToDateString(payload.dueDate),
       parentId: payload.parentTaskId,
@@ -177,23 +161,11 @@ export class PublicTaskSerializer {
     })
   }
 
-  static async deserializeUpdatePayload({
-    payload,
-    user,
-  }: {
-    payload: PublicTaskUpdateDto
-    user: User
-  }): Promise<UpdateTaskRequest> {
-    const workflowStateId = await PublicTaskSerializer.getWorkflowStateIdForStatus(payload.status, user.workspaceId)
-
-    const { expandedDescription } = await expandPublicAttachmentTagsInDescription({
-      description: payload.description,
-      attachmentsService: new AttachmentsService(user),
-    })
-
+  static async deserializeUpdatePayload(payload: PublicTaskUpdateDto, workspaceId: string): Promise<UpdateTaskRequest> {
+    const workflowStateId = await PublicTaskSerializer.getWorkflowStateIdForStatus(payload.status, workspaceId)
     return UpdateTaskRequestSchema.parse({
       title: payload.name,
-      body: payload.description === undefined ? undefined : expandedDescription,
+      body: payload.description,
       dueDate: rfc3339ToDateString(payload.dueDate),
       isArchived: payload.isArchived,
       workflowStateId,

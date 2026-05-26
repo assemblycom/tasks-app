@@ -214,21 +214,13 @@ export class PublicTasksService extends TasksSharedService {
       try {
         if (newTask.body) {
           const newBody = await this.updateTaskIdOfAttachmentsAfterCreation(newTask.body, newTask.id)
-          // Update task body with replaced attachment sources, and refresh the in-memory task so the
-          // immediate response carries the bound attachments + rewritten body (the post-create sweep
-          // mutates both, and the original `newTask` object still holds the pre-sweep state).
-          const refreshedTaskWithBoundAttachments = await this.db.task.update({
+          await this.db.task.update({
             where: { id: newTask.id },
-            data: {
-              body: newBody,
-            },
-            include: {
-              workflowState: true,
-              attachments: true,
-            },
+            data: { body: newBody },
           })
-          newTask.body = refreshedTaskWithBoundAttachments.body
-          newTask.attachments = refreshedTaskWithBoundAttachments.attachments
+          // Refresh the in-memory body so the immediate response + webhook payload carry the
+          // rewritten task-scoped URLs (the original `newTask.body` still holds workspace-root URLs).
+          newTask.body = newBody
           console.info('TasksService#createTask | Task body attachments updated for task ID:', newTask.id)
         }
 
@@ -413,27 +405,18 @@ export class PublicTasksService extends TasksSharedService {
       return updatedTask
     })
 
-    // If the update changed the body, run the (now idempotent) attachment sweep so any
-    // newly-referenced orphan attachments from the public upload endpoint get bound to
-    // this task. Already-bound attachments are skipped inside the sweep itself.
+    // If the update changed the body, run the (idempotent) attachment sweep so any
+    // newly-referenced orphan uploads get bound to this task. Already-bound attachments
+    // are skipped inside the sweep itself.
     const bodyWasChangedByThisUpdate = data.body !== undefined && prevTask.body !== updatedTask.body
     if (bodyWasChangedByThisUpdate && updatedTask.body) {
       const bodyWithBoundAttachments = await this.updateTaskIdOfAttachmentsAfterCreation(updatedTask.body, updatedTask.id)
       if (bodyWithBoundAttachments !== updatedTask.body) {
-        const refreshedTaskAfterAttachmentBinding = await this.db.task.update({
+        await this.db.task.update({
           where: { id: updatedTask.id },
           data: { body: bodyWithBoundAttachments },
-          include: { workflowState: true, attachments: true },
         })
-        updatedTask.body = refreshedTaskAfterAttachmentBinding.body
-        updatedTask.attachments = refreshedTaskAfterAttachmentBinding.attachments
-      } else {
-        // No body rewrite happened, but the sweep may still have bound rows. Refresh attachments
-        // so the response reflects the current state.
-        const refreshedAttachments = await this.db.attachment.findMany({
-          where: { taskId: updatedTask.id, workspaceId: this.user.workspaceId, deletedAt: null },
-        })
-        updatedTask.attachments = refreshedAttachments
+        updatedTask.body = bodyWithBoundAttachments
       }
     }
 
