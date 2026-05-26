@@ -3,7 +3,6 @@ import httpStatus from 'http-status'
 import authenticate from '@api/core/utils/authenticate'
 import APIError from '@/app/api/core/exceptions/api'
 import { PublicAttachmentsService } from '@api/attachments/public/public.service'
-import { PublicAttachmentDtoSchema } from '@/app/api/attachments/public/public.dto'
 import { sanitizeFileName } from '@/utils/sanitizeFileName'
 import { getSignedUrl } from '@/utils/signUrl'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
@@ -29,12 +28,13 @@ export const createAttachmentPublic = async (req: NextRequest) => {
 
   const downloadUrl = await getSignedUrl(uploaded.filePath)
 
-  const responseBody = PublicAttachmentDtoSchema.parse({
-    fileName: sanitizeFileName(uploaded.fileName),
-    fileSize: uploaded.fileSize,
-    mimeType: uploaded.fileType,
-    downloadUrl: downloadUrl ?? null,
-  })
-
-  return NextResponse.json(responseBody, { status: httpStatus.CREATED })
+  return NextResponse.json(
+    {
+      fileName: sanitizeFileName(uploaded.fileName),
+      fileSize: uploaded.fileSize,
+      mimeType: uploaded.fileType,
+      downloadUrl: downloadUrl ?? null,
+    },
+    { status: httpStatus.CREATED },
+  )
 }
