@@ -524,54 +524,24 @@ export abstract class TasksSharedService extends BaseService {
       }
     }
 
-    // Find any orphan Attachment rows (taskId=null, commentId=null) in this workspace whose
-    // filePath appears in the body — these were uploaded via /api/attachments/public and need
-    // to be bound to this task in place rather than synthesized.
-    const referencedFilePaths = matches.map((m) => m.filePath)
-    const orphanAttachmentByFilePath = referencedFilePaths.length
-      ? new Map(
-          (
-            await this.db.attachment.findMany({
-              where: {
-                workspaceId: this.user.workspaceId,
-                taskId: null,
-                commentId: null,
-                deletedAt: null,
-                filePath: { in: referencedFilePaths },
-              },
-            })
-          ).map((row) => [row.filePath, row]),
-        )
-      : new Map()
-
-    const orphanReassignments: { existingAttachmentId: string; newFilePath: string; originalFilePath: string }[] = []
-
     for (const { originalSrc, filePath, fileName } of matches) {
       const newFilePath = `${this.user.workspaceId}/${task_id}/${fileName}`
+      // Skip URLs that already point at the task-scoped path — the public-API orphan-binding
+      // step (PublicTasksService) moves files + rewrites body URLs before calling this sweep,
+      // and re-processing them here would synthesize a duplicate Attachment row.
+      if (filePath === newFilePath) continue
       const supabaseActions = new SupabaseActions()
-      const matchedOrphanAttachment = orphanAttachmentByFilePath.get(filePath)
 
-      if (matchedOrphanAttachment) {
-        // Public-upload path: row already exists with all metadata; just bind to this task
-        // and rewrite its filePath to the task-scoped location after the supabase move.
-        orphanReassignments.push({
-          existingAttachmentId: matchedOrphanAttachment.id,
-          newFilePath,
-          originalFilePath: matchedOrphanAttachment.filePath,
-        })
-      } else {
-        // In-app path: no pre-existing row, so synthesize one from supabase metadata.
-        const fileMetaData = await supabaseActions.getMetaData(filePath)
-        createAttachmentPayloads.push(
-          CreateAttachmentRequestSchema.parse({
-            taskId: task_id,
-            filePath: newFilePath,
-            fileSize: fileMetaData?.size,
-            fileType: fileMetaData?.contentType,
-            fileName: fileMetaData?.metadata?.originalFileName || getFileNameFromPath(newFilePath),
-          }),
-        )
-      }
+      const fileMetaData = await supabaseActions.getMetaData(filePath)
+      createAttachmentPayloads.push(
+        CreateAttachmentRequestSchema.parse({
+          taskId: task_id,
+          filePath: newFilePath,
+          fileSize: fileMetaData?.size,
+          fileType: fileMetaData?.contentType,
+          fileName: fileMetaData?.metadata?.originalFileName || getFileNameFromPath(newFilePath),
+        }),
+      )
       copyAttachmentPromises.push(supabaseActions.moveAttachment(filePath, newFilePath))
       newFilePaths.push({ originalSrc, newFilePath })
     }
@@ -580,24 +550,6 @@ export abstract class TasksSharedService extends BaseService {
     if (createAttachmentPayloads.length) {
       const attachmentService = new AttachmentsService(this.user)
       await attachmentService.createMultipleAttachments(createAttachmentPayloads)
-    }
-    if (orphanReassignments.length) {
-      // Drop the ScrapMedia rows tracking these orphans. Their filePaths are now stale (file
-      // has moved to the task-scoped location), and once bound the file's lifecycle is owned
-      // by the task — the in-app delete-from-editor flow will create a fresh ScrapMedia row
-      // with the new path if the user later removes the embed.
-      const orphanOriginalFilePaths = orphanReassignments.map((r) => r.originalFilePath)
-      await this.db.$transaction([
-        ...orphanReassignments.map(({ existingAttachmentId, newFilePath }) =>
-          this.db.attachment.update({
-            where: { id: existingAttachmentId, workspaceId: this.user.workspaceId },
-            data: { taskId: task_id, filePath: newFilePath },
-          }),
-        ),
-        this.db.scrapMedia.deleteMany({
-          where: { filePath: { in: orphanOriginalFilePaths } },
-        }),
-      ])
     }
 
     const signedUrlPromises = newFilePaths.map(async ({ originalSrc, newFilePath }) => {
