@@ -44,7 +44,9 @@ export class PublicAttachmentsService extends BaseService {
       throw new APIError(httpStatus.BAD_REQUEST, 'Failed to upload attachment to storage')
     }
 
-    const newOrphanAttachment = await attachmentsService.createOrphanAttachment({
+    // No taskId/commentId — created in an "orphan" state. The post-create sweep
+    // binds it to a task once the returned id is referenced in a task body.
+    const newOrphanAttachment = await attachmentsService.createAttachments({
       filePath: filePayload.filePath,
       fileSize: filePayload.fileSize,
       fileType: filePayload.fileType,

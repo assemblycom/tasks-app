@@ -39,32 +39,6 @@ export class AttachmentsService extends BaseService {
   }
 
   /**
-   * Insert an Attachment row not yet bound to any task or comment.
-   * Used by the public API upload flow: caller uploads first, then references
-   * the returned id from a task body via <public-attachment id="..." />.
-   * The reference is later resolved server-side and the row's taskId is set.
-   */
-  async createOrphanAttachment(orphanAttachmentData: {
-    filePath: string
-    fileSize: number
-    fileType: string
-    fileName: string
-  }) {
-    const policyGate = new PoliciesService(this.user)
-    policyGate.authorize(UserAction.Create, Resource.Attachments)
-    const newOrphanAttachment = await this.db.attachment.create({
-      data: {
-        ...orphanAttachmentData,
-        taskId: null,
-        commentId: null,
-        createdById: z.string().parse(this.user.internalUserId || this.user.clientId),
-        workspaceId: this.user.workspaceId,
-      },
-    })
-    return newOrphanAttachment
-  }
-
-  /**
    * Find orphan (taskId=null, commentId=null) attachments in this workspace by id.
    * Returns only rows that exist AND are orphan AND belong to the caller's workspace —
    * any id that fails those checks is silently filtered out by the caller's set diff.
