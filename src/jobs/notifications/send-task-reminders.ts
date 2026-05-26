@@ -159,21 +159,18 @@ const processWorkspace = async (
     })
   }
 
-  let enqueued = 0
-  for (let i = 0; i < triggers.length; i += BATCH_TRIGGER_CHUNK_SIZE) {
-    const chunk = triggers.slice(i, i + BATCH_TRIGGER_CHUNK_SIZE)
+  // Returns the number actually enqueued. On failure, drops the chunk's ledger rows
+  // so the next cron run can retry — without this, the unique constraint blocks any
+  // future insert but no dispatcher exists to consume them.
+  const dispatchChunk = async (chunk: { payload: DispatchReminderEmailPayload }[]): Promise<number> => {
     try {
       await dispatchReminderEmail.batchTrigger(chunk)
-      enqueued += chunk.length
+      return chunk.length
     } catch (err) {
-      // Compensate: drop the chunk's ledger rows so the next cron run retries them.
-      // Without this, the rows are orphans: the unique constraint blocks future inserts
-      // but no dispatcher will ever consume them.
       const ledgerIds = chunk.map((t) => t.payload.ledgerId)
       logger.error('send-task-reminders: batchTrigger failed, compensating ledger', {
         workspaceId,
         chunkSize: chunk.length,
-        chunkOffset: i,
         error: serializeError(err),
       })
       try {
@@ -185,7 +182,13 @@ const processWorkspace = async (
           error: serializeError(deleteErr),
         })
       }
+      return 0
     }
+  }
+
+  let enqueued = 0
+  for (let i = 0; i < triggers.length; i += BATCH_TRIGGER_CHUNK_SIZE) {
+    enqueued += await dispatchChunk(triggers.slice(i, i + BATCH_TRIGGER_CHUNK_SIZE))
   }
 
   return { enqueued, skipped: plan.length - inserted.length }
