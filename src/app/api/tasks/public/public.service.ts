@@ -405,21 +405,6 @@ export class PublicTasksService extends TasksSharedService {
       return updatedTask
     })
 
-    // If the update changed the body, run the (idempotent) attachment sweep so any
-    // newly-referenced orphan uploads get bound to this task. Already-bound attachments
-    // are skipped inside the sweep itself.
-    const bodyWasChangedByThisUpdate = data.body !== undefined && prevTask.body !== updatedTask.body
-    if (bodyWasChangedByThisUpdate && updatedTask.body) {
-      const bodyWithBoundAttachments = await this.updateTaskIdOfAttachmentsAfterCreation(updatedTask.body, updatedTask.id)
-      if (bodyWithBoundAttachments !== updatedTask.body) {
-        await this.db.task.update({
-          where: { id: updatedTask.id },
-          data: { body: bodyWithBoundAttachments },
-        })
-        updatedTask.body = bodyWithBoundAttachments
-      }
-    }
-
     if (updatedTask) {
       const activityLogger = new TasksActivityLogger(this.user, updatedTask)
       const isBodyChanged = prevTask.body !== updatedTask.body
