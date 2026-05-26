@@ -27,13 +27,19 @@ export const createAttachmentPublic = async (req: NextRequest) => {
   const uploaded = await publicAttachmentsService.uploadFile(uploadedFile)
 
   const downloadUrl = await getSignedUrl(uploaded.filePath)
+  if (!downloadUrl) {
+    // The file + ScrapMedia tracker are already committed; the scrap-media cron will
+    // reap the file since it's unreferenced. Surface the failure so the caller can retry
+    // instead of receiving a 201 with no usable URL.
+    throw new APIError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to generate download URL for uploaded attachment')
+  }
 
   return NextResponse.json(
     {
       fileName: sanitizeFileName(uploaded.fileName),
       fileSize: uploaded.fileSize,
       mimeType: uploaded.fileType,
-      downloadUrl: downloadUrl ?? null,
+      downloadUrl,
     },
     { status: httpStatus.CREATED },
   )
