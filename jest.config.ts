@@ -169,10 +169,8 @@ const config: Config = {
   //   "**/?(*.)+(spec|test).[tj]s?(x)"
   // ],
 
-  // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
-  // testPathIgnorePatterns: [
-  //   "/node_modules/"
-  // ],
+  // Integration tests need a real Postgres and run via jest.integration.config.ts, not here.
+  testPathIgnorePatterns: ['/node_modules/', '\\.integration\\.test\\.ts$'],
 
   // The regexp pattern or array of patterns that Jest uses to detect test files
   // testRegex: [],

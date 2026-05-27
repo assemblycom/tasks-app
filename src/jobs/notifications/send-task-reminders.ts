@@ -190,9 +190,12 @@ const processWorkspace = async (
         error: serializeError(err),
       })
       try {
-        await db.taskReminderSent.deleteMany({ where: { id: { in: ledgerIds } } })
+        // Hard delete via raw SQL: the global softDelete extension would rewrite deleteMany()
+        // into a deletedAt update, but TaskReminderSents has no such column. Raw SQL bypasses
+        // it so the orphaned ledger rows truly clear and the next cron run can re-enqueue them.
+        await db.$executeRaw`DELETE FROM "TaskReminderSents" WHERE id::text = ANY(${ledgerIds})`
       } catch (deleteErr) {
-        logger.error('send-task-reminders: ledger compensation deleteMany failed, ledger rows orphaned', {
+        logger.error('send-task-reminders: ledger compensation delete failed, ledger rows orphaned', {
           workspaceId,
           ledgerIds,
           error: serializeError(deleteErr),

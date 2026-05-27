@@ -1,7 +1,7 @@
 import { AssigneeType, TaskReminderType } from '@prisma/client'
 
 const mockTaskReminderSentCreateManyAndReturn = jest.fn()
-const mockTaskReminderSentDeleteMany = jest.fn()
+const mockExecuteRaw = jest.fn()
 const mockGetEligibleReminders = jest.fn()
 const mockBatchTrigger = jest.fn()
 const mockGetWorkspace = jest.fn()
@@ -28,8 +28,9 @@ jest.mock('@/lib/db', () => ({
     getInstance: () => ({
       taskReminderSent: {
         createManyAndReturn: mockTaskReminderSentCreateManyAndReturn,
-        deleteMany: mockTaskReminderSentDeleteMany,
       },
+      // Compensation hard-deletes via $executeRaw to bypass the softDelete extension.
+      $executeRaw: mockExecuteRaw,
     }),
   },
 }))
@@ -89,7 +90,7 @@ describe('sendTaskReminders', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockTaskReminderSentCreateManyAndReturn.mockReset()
-    mockTaskReminderSentDeleteMany.mockReset()
+    mockExecuteRaw.mockReset()
     mockGetEligibleReminders.mockReset()
     mockBatchTrigger.mockReset()
     mockGetWorkspace.mockReset()
@@ -227,7 +228,7 @@ describe('sendTaskReminders', () => {
     expect(mockBatchTrigger.mock.calls[0][0]).toHaveLength(500)
     expect(mockBatchTrigger.mock.calls[1][0]).toHaveLength(500)
     expect(mockBatchTrigger.mock.calls[2][0]).toHaveLength(200)
-    expect(mockTaskReminderSentDeleteMany).not.toHaveBeenCalled()
+    expect(mockExecuteRaw).not.toHaveBeenCalled()
   })
 
   it('compensates the ledger when a batchTrigger chunk fails', async () => {
@@ -249,11 +250,13 @@ describe('sendTaskReminders', () => {
     const result = await runJob()
 
     expect(result.enqueued).toBe(500)
-    expect(mockTaskReminderSentDeleteMany).toHaveBeenCalledTimes(1)
-    const deleteArgs = mockTaskReminderSentDeleteMany.mock.calls[0][0]
-    expect(deleteArgs.where.id.in).toHaveLength(300) // failed chunk's ledger rows
-    expect(deleteArgs.where.id.in[0]).toBe('l_500')
-    expect(deleteArgs.where.id.in[299]).toBe('l_799')
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
+    // $executeRaw is a tagged template: calls[0] = [stringsArray, ledgerIds] — the failed
+    // chunk's 300 ids passed to the DELETE ... WHERE id = ANY($1) compensation.
+    const ledgerIds = mockExecuteRaw.mock.calls[0][1] as string[]
+    expect(ledgerIds).toHaveLength(300)
+    expect(ledgerIds[0]).toBe('l_500')
+    expect(ledgerIds[299]).toBe('l_799')
   })
 
   it('skips a single task whose getCompanyClients fails without dropping siblings', async () => {
