@@ -271,7 +271,9 @@ export class TasksService extends TasksSharedService {
     return newTask
   }
 
-  async getOneTask(id: string): Promise<Task & { workflowState: WorkflowState }> {
+  async getOneTask(
+    id: string,
+  ): Promise<Task & { workflowState: WorkflowState; assignee?: InternalUsers | ClientResponse | CompanyResponse }> {
     const policyGate = new PoliciesService(this.user)
     policyGate.authorize(UserAction.Read, Resource.Tasks)
 
@@ -279,7 +281,9 @@ export class TasksService extends TasksSharedService {
     // while clients can only view the tasks assigned to them or their company
     const where = await this.buildTaskPermissions(id)
 
-    const task = await this.db.task.findFirst({ where })
+    // Include workflowState in the initial findFirst so we don't need a
+    // second query to fetch it when the body update path is skipped.
+    const task = await this.db.task.findFirst({ where, include: { workflowState: true } })
     if (!task) throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
 
     if (this.user.internalUserId) {
@@ -287,15 +291,11 @@ export class TasksService extends TasksSharedService {
     }
 
     const accessWhere = await this.getAccessFilterForTasks()
-    const [updatedTask, accessibleSubtaskCount] = await Promise.all([
-      this.db.task.update({
-        where: { id: task.id },
-        data: {
-          body: task.body && (await replaceImageSrc(task.body, getSignedUrl)),
-        },
-        relationLoadStrategy: 'join',
-        include: { workflowState: true },
-      }),
+
+    const newBody = task.body ? await replaceImageSrc(task.body, getSignedUrl) : task.body
+    const bodyChanged = newBody !== task.body
+
+    const [accessibleSubtaskCount, assignee] = await Promise.all([
       this.db.task.count({
         where: {
           ...accessWhere,
@@ -304,9 +304,11 @@ export class TasksService extends TasksSharedService {
           deletedAt: null,
         },
       }),
+      this.getTaskAssignee(task),
+      bodyChanged ? this.db.task.update({ where: { id: task.id }, data: { body: newBody } }) : Promise.resolve(undefined),
     ])
 
-    return { ...updatedTask, subtaskCount: accessibleSubtaskCount }
+    return { ...task, body: newBody, subtaskCount: accessibleSubtaskCount, assignee }
   }
 
   async getTaskAssignee(task: Task): Promise<InternalUsers | ClientResponse | CompanyResponse | undefined> {
@@ -712,28 +714,40 @@ export class TasksService extends TasksSharedService {
       LIMIT 1
     `
     )?.[0]
+
     if (!taskWithPath) {
       throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
     }
 
-    const parents = getIdsFromLtreePath(taskWithPath.path)
-    const parentTasks = await Promise.all(
-      parents.map((id) =>
-        this.db.task.findFirstOrThrow({
-          where: { id, workspaceId: this.user.workspaceId },
-          select: {
-            id: true,
-            title: true,
-            label: true,
-            clientId: true,
-            companyId: true,
-            internalUserId: true,
-            associations: true,
-            isShared: true,
-          },
-        }),
-      ) as Promise<AncestorTaskResponse>[],
-    )
+    const parentIds = getIdsFromLtreePath(taskWithPath.path)
+
+    const fetchedParents = (await this.db.task.findMany({
+      where: {
+        id: {
+          in: parentIds,
+        },
+        workspaceId: this.user.workspaceId,
+      },
+      select: {
+        id: true,
+        title: true,
+        label: true,
+        clientId: true,
+        companyId: true,
+        internalUserId: true,
+        associations: true,
+        isShared: true,
+      },
+    })) as AncestorTaskResponse[]
+
+    const parentTasksById = new Map(fetchedParents.map((task) => [task.id, task]))
+    const parentTasks = parentIds.map((parentId) => {
+      const task = parentTasksById.get(parentId)
+      if (!task) {
+        throw new APIError(httpStatus.EXPECTATION_FAILED, `Missing parent task ${parentId} in traversal path of ${id}`)
+      }
+      return task
+    })
 
     const subtaskService = new SubtaskService(this.user)
     return await subtaskService.getAccessiblePathTasks(parentTasks)

@@ -1,6 +1,7 @@
-import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { getAllTasks, getAllWorkflowStates } from '@/app/(home)/page'
-import { Token, WorkspaceResponse } from '@/types/common'
+import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
+import { SeedActiveTask } from '@/hoc/state-seeders'
+import { Token } from '@/types/common'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
 
@@ -10,7 +11,6 @@ interface DetailStateUpdateProps {
   tokenPayload: Token | null
   task: TaskResponse
   children: React.ReactNode
-  workspace?: WorkspaceResponse
   viewSettings: CreateViewSettingsDTO
 }
 
@@ -19,19 +19,13 @@ export const DetailStateUpdate = async ({
   token,
   tokenPayload,
   task,
-  workspace,
   viewSettings,
   children,
 }: DetailStateUpdateProps) => {
   if (!isRedirect) {
     return (
-      <ClientSideStateUpdate
-        token={token}
-        tokenPayload={tokenPayload}
-        task={task}
-        workspace={workspace}
-        viewSettings={viewSettings}
-      >
+      <ClientSideStateUpdate token={token} tokenPayload={tokenPayload} viewSettings={viewSettings}>
+        <SeedActiveTask task={task} />
         {children}
       </ClientSideStateUpdate>
     )
@@ -47,9 +41,8 @@ export const DetailStateUpdate = async ({
       token={token}
       viewSettings={viewSettings}
       tokenPayload={tokenPayload}
-      task={task}
-      workspace={workspace}
     >
+      <SeedActiveTask task={task} />
       {children}
     </ClientSideStateUpdate>
   )

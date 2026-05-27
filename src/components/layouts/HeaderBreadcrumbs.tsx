@@ -5,6 +5,7 @@ import { SecondaryBtn } from '@/components/buttons/SecondaryBtn'
 import { CustomLink } from '@/hoc/CustomLink'
 import { useBreadcrumbs } from '@/hooks/app-bridge/useBreadcrumbs'
 import { useWindowWidth } from '@/hooks/useWindowWidth'
+import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { UserType } from '@/types/interfaces'
 import { Stack, Typography } from '@mui/material'
@@ -18,14 +19,14 @@ export const HeaderBreadcrumbs = ({
   token,
   items,
   userType,
-  portalUrl,
 }: {
   token: string | undefined
   items: { label: string; mobileLabel?: string; href?: string }[]
   userType: UserType
-  portalUrl?: string
 }) => {
   const { previewMode } = useSelector(selectTaskBoard)
+  const { workspace } = useSelector(selectAuthDetails)
+  const portalUrl = workspace?.portalUrl
   const router = useRouter()
   const windowWidth = useWindowWidth()
   // Below 600px the platform-rendered header overflows with long titles,
