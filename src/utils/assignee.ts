@@ -44,7 +44,7 @@ export const parseAssigneeToSelectorOptions = (assignee: IAssigneeCombined): ISe
     {
       value: assignee.id,
       label: getAssigneeName(assignee),
-      avatarSrc: assignee.avatarImageUrl,
+      avatarSrc: assignee.avatarImageUrl || undefined,
       avatarFallbackColor: assignee.fallbackColor,
       companyId: assignee.companyId,
       type: getAssigneeTypeCorrected(assignee) ?? AssigneeType.internalUser, //change this when UserCompanySelector supports noAssignee.

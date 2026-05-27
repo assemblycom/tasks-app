@@ -3,9 +3,7 @@
 import { setTokenPayload, setWorkspace } from '@/redux/features/authDetailsSlice'
 import {
   selectTaskBoard,
-  setAccesibleTaskIds,
   setAccessibleTasks,
-  setActiveTask,
   setAssigneeList,
   setFilteredAssigneeList,
   setPreviewMode,
@@ -16,7 +14,7 @@ import {
   setWorkflowStates,
 } from '@/redux/features/taskBoardSlice'
 import { setAssigneeSuggestion, setExpandedComments } from '@/redux/features/taskDetailsSlice'
-import { selectCreateTemplate, setActiveTemplate, setTemplates } from '@/redux/features/templateSlice'
+import { selectCreateTemplate, setTemplates } from '@/redux/features/templateSlice'
 import store from '@/redux/store'
 import { Token, UrlActionParamsType, WorkspaceResponse } from '@/types/common'
 import { HomeParamActions } from '@/types/constants'
@@ -39,19 +37,11 @@ type ClientSideStateUpdateProps = {
   tokenPayload?: Token | null
   templates?: ITemplate[]
   assigneeSuggestions?: IAssigneeSuggestions[]
-  task?: TaskResponse
   clearExpandedComments?: boolean
-  accesibleTaskIds?: string[]
   accessibleTasks?: TaskResponse[]
   workspace?: WorkspaceResponse
-  template?: ITemplate
 } & UrlActionParamsType
 
-/**
- * This HOC is responsible in updating the client side state of the responses that are fetched in the server components.
- * The purpose of this HOC is to avoid prop drilling from server component to client component. Fetched response data from
- * the server component is used in the client component to achieve the functionalities of the task app.
- */
 export const ClientSideStateUpdate = ({
   children,
   workflowStates,
@@ -62,16 +52,18 @@ export const ClientSideStateUpdate = ({
   tokenPayload,
   templates,
   assigneeSuggestions,
-  task,
   clearExpandedComments,
-  accesibleTaskIds,
   accessibleTasks,
   workspace,
   action,
   pf,
-  template,
 }: ClientSideStateUpdateProps) => {
-  const { tasks: tasksInStore, viewSettingsTemp, accessibleTasks: accessibleTaskInStore } = useSelector(selectTaskBoard)
+  const {
+    tasks: tasksInStore,
+    viewSettingsTemp,
+    accessibleTasks: accessibleTaskInStore,
+    activeTask: activeTaskInStore,
+  } = useSelector(selectTaskBoard)
   const { templates: templatesInStore } = useSelector(selectCreateTemplate)
 
   useEffect(() => {
@@ -133,18 +125,6 @@ export const ClientSideStateUpdate = ({
       store.dispatch(setExpandedComments([]))
     }
 
-    if (task) {
-      const updatedTasks = tasksInStore.map((t) => (t.id === task.id ? task : t))
-      store.dispatch(setTasks(updatedTasks))
-      store.dispatch(setActiveTask(task))
-    } else {
-      store.dispatch(setActiveTask(undefined)) //when navigated elsewhere from details page, removing the previously set ActiveTask
-    } //for updating a task in store with respect to task response from db in task details page
-
-    if (accesibleTaskIds) {
-      store.dispatch(setAccesibleTaskIds(accesibleTaskIds))
-    }
-
     if (accessibleTasks) {
       const accessibleTaskData = accessibleTaskInStore.length ? accessibleTaskInStore : accessibleTasks
       store.dispatch(setAccessibleTasks(accessibleTaskData))
@@ -153,26 +133,7 @@ export const ClientSideStateUpdate = ({
     if (workspace) {
       store.dispatch(setWorkspace(workspace))
     }
-    if (template) {
-      store.dispatch(setActiveTemplate(template))
-    }
-    return () => {
-      store.dispatch(setActiveTask(undefined))
-      store.dispatch(setActiveTemplate(null))
-    } //when component is unmounted, we need to clear the active task.
-  }, [
-    workflowStates,
-    tasks,
-    token,
-    assignee,
-    viewSettings,
-    tokenPayload,
-    templates,
-    assigneeSuggestions,
-    task,
-    accesibleTaskIds,
-    accessibleTasks,
-  ])
+  }, [workflowStates, tasks, token, assignee, viewSettings, tokenPayload, templates, assigneeSuggestions, accessibleTasks])
 
   return children
 }
