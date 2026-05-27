@@ -57,7 +57,7 @@ describe('sendReminderEmail', () => {
       recipientCompanyId: 'company_1',
     })
     expect(payload.deliveryTargets.email).toEqual({
-      subject: 'Acme portal: [Reminder] You have a task to complete',
+      subject: '[Reminder] You have a task to complete',
       header: 'A task was assigned to you',
       title: 'View task',
       body: expect.stringContaining('‘Submit timesheet’'),
@@ -80,7 +80,7 @@ describe('sendReminderEmail', () => {
 
     const payload = createNotification.mock.calls[0][0]
     expect(payload.deliveryTargets.email.header).toBe('A task was assigned to your company')
-    expect(payload.deliveryTargets.email.subject).toBe('Acme portal: [Due Soon] Task due today')
+    expect(payload.deliveryTargets.email.subject).toBe('[Due Soon] Task due today')
   })
 
   it('omits recipientCompanyId when null', async () => {

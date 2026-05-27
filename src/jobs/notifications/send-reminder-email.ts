@@ -15,18 +15,8 @@ export type SendReminderEmailArgs = {
   copilot: CopilotAPI
 }
 
-/**
- * Dispatches a single task reminder email via Copilot's notification API.
- *
- * Email-only delivery: omits `deliveryTargets.inProduct` so no in-product notification
- * is created. We also deliberately skip writing to `ClientNotification` —
- * `ClientNotification` tracks read-state for in-product notifications, which reminders
- * don't create. Reminder dedupe state lives in `TaskReminderSent`, which the caller
- * inserts on success (the unique constraint is the idempotency primitive).
- *
- * Throws on Copilot failure. Callers compensate by NOT inserting into
- * `TaskReminderSent`, so a future cron run will retry the same `(task, recipient, type)`.
- */
+// Email-only: omits deliveryTargets.inProduct and does not write to ClientNotification.
+// Reminder dedupe lives in TaskReminderSent (caller's responsibility).
 export const sendReminderEmail = async ({
   task,
   recipientClientId,
