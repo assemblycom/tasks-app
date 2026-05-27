@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { copilotAPIKey } from '@/config'
+import { Sentry } from '@/jobs/sentry'
 import DBClient from '@/lib/db'
 import { WorkspaceResponse } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
@@ -42,6 +43,17 @@ export const dispatchReminderEmailRun = async (payload: DispatchReminderEmailPay
 // The SDK types the hook's payload as `unknown`; we cast once via destructure.
 export const dispatchReminderEmailOnFailure = async ({ payload, error }: { payload: unknown; error: unknown }) => {
   const { ledgerId, workspaceId, task, recipientClientId, reminderType } = payload as DispatchReminderEmailPayload
+  // Terminal send failure (Copilot 500 etc. survived all retries). Capture here, not in
+  // run's catch, so transient errors a retry recovers don't generate Sentry noise.
+  Sentry.captureException(error, {
+    tags: {
+      job: 'dispatch-reminder-email',
+      taskId: task.id,
+      recipientId: recipientClientId,
+      reminderType,
+      workspaceId,
+    },
+  })
   logger.error('dispatch-reminder-email: retries exhausted, compensating ledger', {
     ledgerId,
     workspaceId,

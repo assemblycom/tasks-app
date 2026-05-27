@@ -7,6 +7,7 @@ const mockBatchTrigger = jest.fn()
 const mockGetWorkspace = jest.fn()
 const mockGetCompanyClients = jest.fn()
 const mockCopilotApiCtor = jest.fn()
+const mockCaptureException = jest.fn()
 
 jest.mock('@trigger.dev/sdk/v3', () => ({
   schedules: {
@@ -16,6 +17,10 @@ jest.mock('@trigger.dev/sdk/v3', () => ({
 }))
 
 jest.mock('@/config', () => ({ copilotAPIKey: 'test-api-key' }))
+
+jest.mock('@/jobs/sentry', () => ({
+  Sentry: { captureException: (...args: unknown[]) => mockCaptureException(...args) },
+}))
 
 jest.mock('@/lib/db', () => ({
   __esModule: true,
@@ -90,6 +95,7 @@ describe('sendTaskReminders', () => {
     mockGetWorkspace.mockReset()
     mockGetCompanyClients.mockReset()
     mockCopilotApiCtor.mockReset()
+    mockCaptureException.mockReset()
     mockGetWorkspace.mockResolvedValue(workspace)
     mockBatchTrigger.mockResolvedValue({ batchId: 'b1' })
   })
@@ -159,6 +165,19 @@ describe('sendTaskReminders', () => {
 
     expect(result).toEqual({ enqueued: 0, skipped: 1, workspaceCount: 1 })
     expect(mockBatchTrigger).not.toHaveBeenCalled()
+    // ON CONFLICT dedupe is normal — it must never reach Sentry.
+    expect(mockCaptureException).not.toHaveBeenCalled()
+  })
+
+  it('captures eligibility-query failures to Sentry and rethrows so the run fails', async () => {
+    const boom = new Error('eligibility SQL blew up')
+    mockGetEligibleReminders.mockRejectedValueOnce(boom)
+
+    await expect(runJob()).rejects.toThrow('eligibility SQL blew up')
+    expect(mockCaptureException).toHaveBeenCalledWith(boom, {
+      tags: { job: 'send-task-reminders', phase: 'eligibility' },
+    })
+    expect(mockTaskReminderSentCreateManyAndReturn).not.toHaveBeenCalled()
   })
 
   it('fans out a company-assigned task to one dispatch per current member', async () => {

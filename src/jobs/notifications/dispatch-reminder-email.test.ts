@@ -3,6 +3,7 @@ import { TaskReminderType } from '@prisma/client'
 const mockSendReminderEmail = jest.fn()
 const mockTaskReminderSentDelete = jest.fn()
 const mockCopilotApiCtor = jest.fn()
+const mockCaptureException = jest.fn()
 
 jest.mock('@trigger.dev/sdk/v3', () => ({
   task: ({ run }: { run: (payload: unknown) => unknown }) => ({ run }),
@@ -11,6 +12,10 @@ jest.mock('@trigger.dev/sdk/v3', () => ({
 }))
 
 jest.mock('@/config', () => ({ copilotAPIKey: 'test-api-key' }))
+
+jest.mock('@/jobs/sentry', () => ({
+  Sentry: { captureException: (...args: unknown[]) => mockCaptureException(...args) },
+}))
 
 jest.mock('@/lib/db', () => ({
   __esModule: true,
@@ -56,6 +61,7 @@ describe('dispatchReminderEmail', () => {
     mockSendReminderEmail.mockReset()
     mockTaskReminderSentDelete.mockReset()
     mockCopilotApiCtor.mockReset()
+    mockCaptureException.mockReset()
   })
 
   describe('run', () => {
@@ -81,6 +87,7 @@ describe('dispatchReminderEmail', () => {
 
       await expect(dispatchReminderEmailRun(buildPayload())).rejects.toThrow('copilot 5xx')
       expect(mockTaskReminderSentDelete).not.toHaveBeenCalled() // compensation is onFailure's job, not run's
+      expect(mockCaptureException).not.toHaveBeenCalled() // capture waits for retries to exhaust (onFailure)
     })
   })
 
@@ -94,6 +101,23 @@ describe('dispatchReminderEmail', () => {
       })
 
       expect(mockTaskReminderSentDelete).toHaveBeenCalledWith({ where: { id: 'ledger_1' } })
+    })
+
+    it('captures the terminal failure to Sentry with task/recipient/reminder/workspace tags', async () => {
+      mockTaskReminderSentDelete.mockResolvedValueOnce({ id: 'ledger_1' })
+      const error = new Error('copilot 500 after retries')
+
+      await dispatchReminderEmailOnFailure({ payload: buildPayload(), error })
+
+      expect(mockCaptureException).toHaveBeenCalledWith(error, {
+        tags: {
+          job: 'dispatch-reminder-email',
+          taskId: 'task_1',
+          recipientId: 'client_1',
+          reminderType: TaskReminderType.NO_DUE_DATE_3D,
+          workspaceId: 'ws_1',
+        },
+      })
     })
 
     it('does not throw if the ledger DELETE itself fails (logs and moves on)', async () => {
