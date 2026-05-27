@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { copilotAPIKey } from '@/config'
+import { Sentry } from '@/jobs/sentry'
 import DBClient from '@/lib/db'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { serializeError } from '@/utils/serializeError'
@@ -32,7 +33,16 @@ export const sendTaskReminders = schedules.task({
   run: async (payload) => {
     const db = DBClient.getInstance()
 
-    const eligibleTasks = await getEligibleReminders(db)
+    let eligibleTasks: EligibilityRow[]
+    try {
+      eligibleTasks = await getEligibleReminders(db)
+    } catch (err) {
+      // A broken eligibility query means zero reminders go out for the day — make it loud.
+      // Rethrow so Trigger.dev also marks the run failed; the Sentry event carries the cause.
+      Sentry.captureException(err, { tags: { job: 'send-task-reminders', phase: 'eligibility' } })
+      logger.error('send-task-reminders: eligibility query failed', { error: serializeError(err) })
+      throw err
+    }
     const tasks = eligibleTasks.filter((t) => t.assigneeType !== AssigneeType.internalUser)
 
     const tasksByWorkspace = new Map<string, EligibilityRow[]>()
@@ -80,10 +90,16 @@ export const sendTaskReminders = schedules.task({
       ),
     )
 
-    logger.log('send-task-reminders: sweep complete', {
-      ...totals,
-      workspaceCount,
-      totalEligible: eligibleTasks.length,
+    // One greppable structured summary per run. `enqueued`/`skipped` are what this
+    // orchestrator can know: it fans out to dispatch-reminder-email rather than sending
+    // inline, so per-email sent/failed counts live in that task's Trigger.dev run metrics
+    // and its onFailure Sentry capture, not here. `skipped` is ON CONFLICT dedupe, not a failure.
+    logger.log('send-task-reminders: run summary', {
+      eligibleWorkspaces: workspaceCount,
+      totalEligibleTasks: eligibleTasks.length,
+      enqueued: totals.enqueued,
+      skipped: totals.skipped,
+      runAt: payload.timestamp,
     })
 
     return { ...totals, workspaceCount }
