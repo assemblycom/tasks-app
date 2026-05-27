@@ -1,13 +1,12 @@
 export const fetchCache = 'force-no-store'
 
 import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'
-import { AssigneeFetcher } from '@/app/_fetchers/AssigneeFetcher'
-import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { OneTaskDataFetcher } from '@/app/_fetchers/OneTaskDataFetcher'
-import { getViewSettings } from '@/app/(home)/page'
 import { TemplatesFetcher } from '@/app/_fetchers/TemplatesFetcher'
 import { WorkflowStateFetcher } from '@/app/_fetchers/WorkflowStateFetcher'
 import { UserRole } from '@/app/api/core/types/user'
+import { authenticateWithToken } from '@/app/api/core/utils/authenticate'
+import { loadSubtaskStatus, loadTask, loadTaskPath, loadViewSettings } from '@/app/detail/[task_id]/[user_type]/loaders'
 import {
   clientUpdateTask,
   deleteAttachment,
@@ -30,16 +29,13 @@ import { TaskEditor } from '@/app/detail/ui/TaskEditor'
 import { DeletedRedirectPage } from '@/components/layouts/DeletedRedirectPage'
 import { HeaderBreadcrumbs } from '@/components/layouts/HeaderBreadcrumbs'
 import { SilentError } from '@/components/templates/SilentError'
-import { apiUrl } from '@/config'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { AttachmentProvider } from '@/hoc/PostAttachmentProvider'
 import { RealTime } from '@/hoc/RealTime'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
-import { WorkspaceResponse } from '@/types/common'
-import { AncestorTaskResponse, SubTaskStatusResponse, TaskResponse } from '@/types/dto/tasks.dto'
+import { Token } from '@/types/common'
 import { UserType } from '@/types/interfaces'
 import { getAssigneeCacheLookupKey, UserIdsWithAssociationSharedType } from '@/utils/assignee'
-import { CopilotAPI } from '@/utils/CopilotAPI'
 import EscapeHandler from '@/utils/escapeHandler'
 import { getPreviewMode } from '@/utils/previewMode'
 import { checkIfTaskViewer } from '@/utils/taskViewer'
@@ -47,38 +43,6 @@ import { truncateText } from '@/utils/truncateText'
 import { Box, Stack } from '@mui/material'
 import { Suspense } from 'react'
 import { z } from 'zod'
-
-async function getOneTask(token: string, taskId: string): Promise<TaskResponse | null> {
-  try {
-    const data = await fetchWithErrorHandler<{ task: TaskResponse }>(`${apiUrl}/api/tasks/${taskId}?token=${token}`, {
-      cache: 'no-store',
-    })
-    return data.task
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('(404)')) {
-      //the message surely includes 404 if the task is not found.
-      return null
-    }
-    throw error
-  }
-}
-
-async function getWorkspace(token: string): Promise<WorkspaceResponse> {
-  const copilot = new CopilotAPI(token)
-  return await copilot.getWorkspace()
-}
-
-async function getSubTasksStatus(token: string, taskId: string): Promise<SubTaskStatusResponse> {
-  const res = await fetch(`${apiUrl}/api/tasks/${taskId}/subtask-count?token=${token}`, {})
-  const data = await res.json()
-  return data
-}
-
-async function getTaskPath(token: string, taskId: string): Promise<AncestorTaskResponse[]> {
-  const res = await fetch(`${apiUrl}/api/tasks/${taskId}/path?token=${token}`)
-  const { path } = await res.json()
-  return path
-}
 
 export default async function TaskDetailPage(props: {
   params: Promise<{ task_id: string; task_name: string; user_type: UserType }>
@@ -93,20 +57,21 @@ export default async function TaskDetailPage(props: {
     return <SilentError message="Please provide a Valid Token" />
   }
 
-  const copilotClient = new CopilotAPI(token)
+  const user = await authenticateWithToken(token)
+  const tokenPayload: Token = {
+    internalUserId: user.internalUserId,
+    clientId: user.clientId,
+    companyId: user.companyId,
+    workspaceId: user.workspaceId,
+  }
 
-  const [task, tokenPayload, workspace, subTaskStatus, taskPath, viewSettings] = await Promise.all([
-    getOneTask(token, task_id),
-    copilotClient.getTokenPayload(),
-    getWorkspace(token),
-    getSubTasksStatus(token, task_id),
-    getTaskPath(token, task_id),
-    getViewSettings(token),
+  const [task, subTaskStatus, taskPath, viewSettings] = await Promise.all([
+    loadTask(user, task_id),
+    loadSubtaskStatus(user, task_id),
+    loadTaskPath(user, task_id),
+    loadViewSettings(user),
   ])
 
-  if (!tokenPayload) {
-    throw new Error('Please provide a Valid Token')
-  }
   const fromNotificationCenter = !!searchParams.fromNotificationCenter
 
   console.info(`app/detail/${task_id}/${user_type}/page.tsx | Serving user ${token} with payload`, tokenPayload)
@@ -139,10 +104,9 @@ export default async function TaskDetailPage(props: {
       token={token}
       tokenPayload={tokenPayload}
       task={task}
-      workspace={workspace}
       viewSettings={viewSettings}
     >
-      {token && <OneTaskDataFetcher token={token} task_id={task_id} initialTask={task} />}
+      {!!token && <OneTaskDataFetcher token={token} task_id={task_id} initialTask={task} />}
       <Suspense fallback={null}>
         <TemplatesFetcher token={token} />
       </Suspense>
@@ -167,12 +131,7 @@ export default async function TaskDetailPage(props: {
                 </StyledBox>
               ) : (
                 <>
-                  <HeaderBreadcrumbs
-                    token={token}
-                    items={breadcrumbItems}
-                    userType={params.user_type}
-                    portalUrl={workspace.portalUrl}
-                  />
+                  <HeaderBreadcrumbs token={token} items={breadcrumbItems} userType={params.user_type} />
                   <ArchiveWrapper taskId={task_id} userType={user_type} />
                 </>
               )}
@@ -244,19 +203,11 @@ export default async function TaskDetailPage(props: {
                 : {})}
             >
               <AssigneeCacheGetter lookupKey={getAssigneeCacheLookupKey(user_type, tokenPayload, isPreviewMode)} />
-              <AssigneeFetcher
-                token={token}
-                userType={params.user_type}
-                isPreview={!!getPreviewMode(tokenPayload)}
-                task={task}
-                tokenPayload={tokenPayload}
-              />
-              <WorkflowStateFetcher token={token} task={task} />
+              <WorkflowStateFetcher token={token} />
               <Sidebar
                 task_id={task_id}
                 selectedAssigneeId={task?.assigneeId}
                 userType={user_type}
-                portalUrl={workspace.portalUrl}
                 selectedWorkflowState={task?.workflowState}
                 fromNotificationCenter={fromNotificationCenter}
                 updateWorkflowState={async (workflowState, skipSubtaskCascade) => {
