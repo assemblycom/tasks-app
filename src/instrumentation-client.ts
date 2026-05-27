@@ -7,6 +7,43 @@ import * as Sentry from '@sentry/nextjs'
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
 const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV
 const isProd = process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
+const serverActionNotFoundPattern = /Server Action "[^"]+" was not found on the server|failed-to-find-server-action/i
+const serverActionReloadSessionKey = 'tasks-app:server-action-reload-at'
+
+const getErrorMessage = (reason: unknown) => {
+  if (reason instanceof Error) {
+    return `${reason.name}: ${reason.message}`
+  }
+
+  if (typeof reason === 'string') {
+    return reason
+  }
+
+  if (reason && typeof reason === 'object' && 'message' in reason && typeof reason.message === 'string') {
+    return reason.message
+  }
+
+  return ''
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (!serverActionNotFoundPattern.test(getErrorMessage(event.reason))) {
+      return
+    }
+
+    event.preventDefault()
+
+    const now = Date.now()
+    const lastReloadAt = Number(window.sessionStorage.getItem(serverActionReloadSessionKey) || 0)
+
+    // A refresh is the safest recovery from deploy skew: it downloads the current server-action manifest.
+    if (now - lastReloadAt > 10000) {
+      window.sessionStorage.setItem(serverActionReloadSessionKey, String(now))
+      window.location.reload()
+    }
+  })
+}
 
 if (dsn) {
   Sentry.init({
@@ -34,7 +71,7 @@ if (dsn) {
     ],
 
     // ignoreErrors: [/fetch failed/i],
-    ignoreErrors: [/fetch failed/i],
+    ignoreErrors: [/fetch failed/i, serverActionNotFoundPattern],
 
     beforeSend(event) {
       if (!isProd && event.type === undefined) {
