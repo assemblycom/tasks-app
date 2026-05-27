@@ -3,6 +3,7 @@ import 'server-only'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { UserType } from '@/types/interfaces'
+import { buildTokenQueryString, normalizeTokenParam } from '@/utils/tokenQuery'
 
 // Relative redirects only. An absolute redirect built from apiUrl (VERCEL_URL) would cross
 // the iframe to the per-deployment hash origin (tasks-xxx.vercel.app) and off the stable
@@ -17,14 +18,18 @@ export const redirectIfTaskCta = (
   const commentId = z.string().safeParse(searchParams.commentId)
 
   if (taskId.data) {
-    const notificationCenterParam = fromNotificationCenter ? '&fromNotificationCenter=1' : ''
-    const token = z.string().parse(searchParams.token)
+    const token = normalizeTokenParam(searchParams.token)
+    if (!token) return
+
+    const queryParams: Record<string, string> = { isRedirect: '1' }
+    if (commentId.data) queryParams.commentId = commentId.data
+    if (fromNotificationCenter) queryParams.fromNotificationCenter = '1'
+
+    const queryString = buildTokenQueryString(token, queryParams)
     if (commentId.data) {
-      redirect(
-        `/detail/${taskId.data}/${userType}?token=${token}&commentId=${commentId.data}&isRedirect=1${notificationCenterParam}`,
-      )
+      redirect(`/detail/${taskId.data}/${userType}?${queryString}`)
     }
-    redirect(`/detail/${taskId.data}/${userType}?token=${token}&isRedirect=1${notificationCenterParam}`)
+    redirect(`/detail/${taskId.data}/${userType}?${queryString}`)
   }
 }
 
