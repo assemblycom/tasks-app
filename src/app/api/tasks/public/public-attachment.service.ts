@@ -6,7 +6,7 @@ import { getSignedUrl, getUnsignedUrl } from '@/utils/signUrl'
 import { sanitizeFileName } from '@/utils/sanitizeFileName'
 import {
   TaskAppUploadedAttachment,
-  extractPublicAttachmentUrls,
+  extractPublicAttachmentMarkers,
   replacePublicAttachmentMarkers,
 } from '@api/tasks/public/buildTaskAppAttachmentMarkup'
 import httpStatus from 'http-status'
@@ -32,12 +32,29 @@ export class PublicTaskAttachmentService extends BaseService {
    */
   async expandPublicAttachmentMarkers(body: string | undefined): Promise<string | undefined> {
     if (!body) return body
-    const urls = extractPublicAttachmentUrls(body)
-    if (!urls.length) return body
+    const markers = extractPublicAttachmentMarkers(body)
+    if (!markers.length) return body
+
+    markers.forEach((marker, idx) => {
+      if (!marker.src) {
+        throw new APIError(
+          httpStatus.BAD_REQUEST,
+          `<public-attachment> marker #${idx + 1} is missing required data-src attribute`,
+        )
+      }
+    })
 
     // Parallel downloads — sequential would risk tripping the route's Sentry exec-time cap
     // (and is wasted wall time even when no cap is hit).
-    const uploaded = await Promise.all(urls.map((url) => this.uploadFromUrl(url)))
+    const uploaded = await Promise.all(
+      markers.map((marker) =>
+        this.uploadFromUrl({
+          externalUrl: marker.src,
+          overrideFileName: marker.fileName,
+          overrideMimeType: marker.fileType,
+        }),
+      ),
+    )
     return replacePublicAttachmentMarkers(body, uploaded)
   }
 
@@ -45,8 +62,19 @@ export class PublicTaskAttachmentService extends BaseService {
    * Download a remote file by URL and stage it through the same workspace-root upload path as
    * the in-app pre-task-save flow. Returns the same fields as `PublicAttachmentsService.uploadFile`
    * plus a `downloadUrl` ready to embed in the task body.
+   *
+   * `overrideFileName` / `overrideMimeType` win over the values inferred from the remote
+   * response. Callers pass these when they have ground truth the remote server can't supply
+   * (e.g., signed-download URLs that return opaque `Content-Disposition` filenames or generic
+   * `application/octet-stream`). `fileSize` is never overridable — it's always measured from
+   * the downloaded bytes.
    */
-  async uploadFromUrl(externalUrl: string): Promise<TaskAppUploadedAttachment & { filePath: string }> {
+  async uploadFromUrl(args: {
+    externalUrl: string
+    overrideFileName?: string
+    overrideMimeType?: string
+  }): Promise<TaskAppUploadedAttachment & { filePath: string }> {
+    const { externalUrl, overrideFileName, overrideMimeType } = args
     let parsedUrl: URL
     try {
       parsedUrl = new URL(externalUrl)
@@ -99,8 +127,8 @@ export class PublicTaskAttachmentService extends BaseService {
       )
     }
 
-    const fileName = deriveFileNameFromResponse(parsedUrl, response)
-    const mimeType = response.headers.get('content-type')?.split(';')[0]?.trim() || FALLBACK_MIME_TYPE
+    const fileName = overrideFileName ?? deriveFileNameFromResponse(parsedUrl, response)
+    const mimeType = overrideMimeType ?? response.headers.get('content-type')?.split(';')[0]?.trim() ?? FALLBACK_MIME_TYPE
     const downloadedFile = new File([downloadedBuffer], fileName, { type: mimeType })
 
     const uploaded = await new PublicAttachmentsService(this.user).uploadFile(downloadedFile)

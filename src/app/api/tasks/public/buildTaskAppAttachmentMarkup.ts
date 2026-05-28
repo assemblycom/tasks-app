@@ -5,6 +5,12 @@ export interface TaskAppUploadedAttachment {
   fileSize: number
 }
 
+export interface PublicAttachmentMarker {
+  src: string
+  fileName?: string
+  fileType?: string
+}
+
 const escapeHtmlAttribute = (value: string): string =>
   value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
@@ -21,20 +27,36 @@ export const buildTaskAppAttachmentMarkup = (attachment: TaskAppUploadedAttachme
   )
 }
 
-// API-only marker: senders embed external attachment URLs in the task body via
-// `<public-attachment src="https://..." />`. The server downloads each src, uploads to our
-// storage, then swaps the marker out for the proper Tiptap node (img for image mime types,
-// attachment div otherwise). Both quote styles and the paired closing form are tolerated.
-const PUBLIC_ATTACHMENT_MARKER_REGEX =
-  /<public-attachment\b[^>]*?\bsrc=(?:"([^"]*)"|'([^']*)')[^>]*?\/?\s*>(\s*<\/public-attachment\s*>)?/gi
+// API-only marker. Callers embed external URLs via
+// `<public-attachment data-src="https://..." [data-filename="..."] [data-filetype="..."] />`.
+// Tolerates both quote styles, any attribute order, and the paired closing form.
+// Not parsed by an HTML parser because custom elements aren't void per HTML5 — JSDOM would
+// pull following siblings into the marker as children. Bounded attribute set + known shape
+// keeps regex tractable and matches the codebase's pre-existing body-scanning style.
+const PUBLIC_ATTACHMENT_MARKER_REGEX = /<public-attachment\b([^>]*?)\/?\s*>(\s*<\/public-attachment\s*>)?/gi
+const ATTRIBUTE_REGEX = /\b([a-zA-Z][a-zA-Z0-9-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g
 
-export const extractPublicAttachmentUrls = (body: string): string[] => {
-  const urls: string[] = []
-  for (const match of body.matchAll(PUBLIC_ATTACHMENT_MARKER_REGEX)) {
-    const url = match[1] ?? match[2]
-    if (url) urls.push(url)
+const parseMarkerAttributes = (attributeString: string): Record<string, string> => {
+  const attrs: Record<string, string> = {}
+  for (const match of attributeString.matchAll(ATTRIBUTE_REGEX)) {
+    const name = match[1].toLowerCase()
+    const value = match[2] ?? match[3] ?? ''
+    attrs[name] = value
   }
-  return urls
+  return attrs
+}
+
+export const extractPublicAttachmentMarkers = (body: string): PublicAttachmentMarker[] => {
+  const markers: PublicAttachmentMarker[] = []
+  for (const match of body.matchAll(PUBLIC_ATTACHMENT_MARKER_REGEX)) {
+    const attrs = parseMarkerAttributes(match[1] ?? '')
+    markers.push({
+      src: attrs['data-src'] ?? '',
+      fileName: attrs['data-filename'] || undefined,
+      fileType: attrs['data-filetype'] || undefined,
+    })
+  }
+  return markers
 }
 
 export const replacePublicAttachmentMarkers = (body: string, attachments: TaskAppUploadedAttachment[]): string => {
