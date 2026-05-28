@@ -27,21 +27,47 @@ interface Assignable {
 export class SubtaskService extends BaseService {
   async getSubtaskCounts(id: string): Promise<number> {
     const taskId = z.string().uuid().parse(id)
-    const level = (
-      await this.db.$queryRaw<{ level: number }[] | null>`
+    const taskWithLevel = (
+      await this.db.$queryRaw<{ level: number | null }[] | null>`
       SELECT nlevel("path") as level FROM "Tasks"
       WHERE id = ${taskId}::uuid AND "workspaceId" = ${this.user.workspaceId}
     `
-    )?.[0]?.level
-    if (!level) {
-      throw new APIError(httpStatus.INTERNAL_SERVER_ERROR, 'Path for task was not set')
+    )?.[0]
+    if (!taskWithLevel) {
+      throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
     }
-    return level
+    return taskWithLevel.level ?? this.getDepthFromParentChain(taskId)
   }
 
   async getSubtaskStatus(id: string): Promise<{ count: number; canCreateSubtask: boolean }> {
     const count = await this.getSubtaskCounts(id)
     return { count, canCreateSubtask: count < 2 }
+  }
+
+  private async getDepthFromParentChain(taskId: string): Promise<number> {
+    const depth = (
+      await this.db.$queryRaw<{ level: number }[] | null>`
+        WITH RECURSIVE ancestors AS (
+          SELECT id, "parentId", 1 AS level
+          FROM "Tasks"
+          WHERE id = ${taskId}::uuid AND "workspaceId" = ${this.user.workspaceId}
+
+          UNION ALL
+
+          SELECT parent.id, parent."parentId", ancestors.level + 1
+          FROM "Tasks" parent
+          INNER JOIN ancestors ON ancestors."parentId" = parent.id
+          WHERE parent."workspaceId" = ${this.user.workspaceId}
+            AND ancestors.level < 10
+        )
+        SELECT MAX(level)::int as level FROM ancestors
+      `
+    )?.[0]?.level
+
+    if (!depth) {
+      throw new APIError(httpStatus.INTERNAL_SERVER_ERROR, 'Unable to determine task depth')
+    }
+    return depth
   }
 
   async addSubtaskCount(id: string, increment: number = 1) {

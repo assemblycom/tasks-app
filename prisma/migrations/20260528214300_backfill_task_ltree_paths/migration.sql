@@ -1,4 +1,3 @@
--- Seeds and backfills the path column for all tasks created before column was added
 WITH RECURSIVE task_paths AS (
   SELECT
     id,
@@ -21,4 +20,3 @@ SET path = task_paths.path
 FROM task_paths
 WHERE "Tasks".id = task_paths.id
   AND "Tasks".path IS NULL;
-

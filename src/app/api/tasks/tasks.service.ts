@@ -708,9 +708,10 @@ export class TasksService extends TasksSharedService {
 
   async getTraversalPath(id: string): Promise<AncestorTaskResponse[]> {
     const taskWithPath = (
-      await this.db.$queryRaw<{ path: string }[]>`
+      await this.db.$queryRaw<{ path: string | null }[]>`
       SELECT "path" from "Tasks"
       WHERE id = ${id}::uuid
+        AND "workspaceId" = ${this.user.workspaceId}
       LIMIT 1
     `
     )?.[0]

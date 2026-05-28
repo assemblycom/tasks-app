@@ -6,4 +6,5 @@ export const buildLtreeNodeString = (str: string) => {
   return str.toLowerCase().replaceAll('-', '_')
 }
 
-export const getIdsFromLtreePath = (path: string): string[] => path.replaceAll('_', '-').split('.')
+export const getIdsFromLtreePath = (path: string | null | undefined): string[] =>
+  path ? path.replaceAll('_', '-').split('.') : []
