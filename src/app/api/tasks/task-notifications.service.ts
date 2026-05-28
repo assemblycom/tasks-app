@@ -216,10 +216,9 @@ export class TaskNotificationsService extends BaseService {
     ) {
       const completedAssociations = getTaskAssociations(updatedTask)
       if (completedAssociations) {
-        const sendCompletedSharedNotification = completedAssociations.clientId
-          ? this.sendUserTaskCompletedSharedNotification
-          : this.sendCompanyTaskCompletedSharedNotification
-        await sendCompletedSharedNotification(updatedTask)
+        completedAssociations.clientId
+          ? await this.sendUserTaskCompletedSharedNotification(updatedTask)
+          : await this.sendCompanyTaskCompletedSharedNotification(updatedTask)
       }
     }
 
