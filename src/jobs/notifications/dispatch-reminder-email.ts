@@ -64,7 +64,11 @@ export const dispatchReminderEmailOnFailure = async ({ payload, error }: { paylo
   })
   const db = DBClient.getInstance()
   try {
-    await db.taskReminderSent.delete({ where: { id: ledgerId } })
+    // Hard delete via raw SQL: the global softDelete Prisma extension rewrites .delete() into
+    // an update that sets deletedAt, but TaskReminderSents has no such column — so .delete()
+    // would throw and leave the row, and the unique constraint would then block every future
+    // re-send. Raw SQL bypasses the extension so the row truly clears for the next cron run.
+    await db.$executeRaw`DELETE FROM "TaskReminderSents" WHERE id::text = ${ledgerId}`
   } catch (deleteErr) {
     logger.error('dispatch-reminder-email: ledger compensation DELETE failed, reminder will not retry', {
       ledgerId,
