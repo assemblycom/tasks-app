@@ -82,6 +82,16 @@ export const getInProductNotificationDetails = (
       body: `The task ‘${task?.title}’ was completed by ${actionUser}.`,
       ctaParams,
     },
+    [NotificationTaskActions.CompletedToSharedCU]: {
+      title: 'A task has been completed',
+      body: `The task ‘${task?.title}’ has been marked as done by ${actionUser}.`,
+      ctaParams,
+    },
+    [NotificationTaskActions.CompletedToSharedCompany]: {
+      title: 'A task has been completed',
+      body: `The task ‘${task?.title}’ has been marked as done by ${actionUser}.`,
+      ctaParams,
+    },
 
     [NotificationTaskActions.Commented]: commentDetail,
     [NotificationTaskActions.CommentToCU]: commentDetail,
@@ -190,6 +200,20 @@ export const getEmailDetails = (
       header: `A task was shared with you by ${actionUser}`,
       title: 'View task',
       body: `${actionUser} shared the task '${task?.title}'. View the task below to see updates and leave comments.`,
+      ctaParams,
+    },
+    [NotificationTaskActions.CompletedToSharedCU]: {
+      subject: 'Task marked as done',
+      header: 'A task has been completed',
+      title: 'View task',
+      body: `The task ‘${task?.title}’ has been marked as done by ${actionUser}.\n\nTo see details about the task, open it below.`,
+      ctaParams,
+    },
+    [NotificationTaskActions.CompletedToSharedCompany]: {
+      subject: 'Task marked as done',
+      header: 'A task has been completed',
+      title: 'View task',
+      body: `The task ‘${task?.title}’ has been marked as done by ${actionUser}.\n\nTo see details about the task, open it below.`,
       ctaParams,
     },
     [NotificationTaskActions.SharedToCompany]: {
