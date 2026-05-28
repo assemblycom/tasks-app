@@ -144,6 +144,7 @@
     "seed:activity-logs": "tsx ./src/cmd/fill-activity-logs",
     "start": "next start",
     "test": "jest",
+    "tsc": "tsc --noEmit",
     "trigger": "npx trigger.dev@latest",
     "trigger:deploy-staging": "yarn trigger deploy -e staging",
     "vercel-build": "prisma generate && next build",

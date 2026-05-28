@@ -7,6 +7,8 @@ import { StyledSwitch } from '@/components/inputs/StyledSwitch'
 import { usePrimaryCta } from '@/hooks/app-bridge/usePrimaryCta'
 import { AUTO_ARCHIVE_AFTER_DAYS_OPTIONS, AutoArchiveAfterDays } from '@/types/dto/workspaceSettings.dto'
 import { updateWorkspaceSettings } from '@/app/configure-tasks-app/actions'
+import { useSelector } from 'react-redux'
+import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 
 const DEFAULT_DAYS_ON_ENABLE = 30
 
@@ -15,15 +17,17 @@ const DAY_OPTIONS = AUTO_ARCHIVE_AFTER_DAYS_OPTIONS.filter((days) => days !== 0)
 interface AutoArchiveSectionProps {
   initialAutoArchiveAfterDays: number
   token: string
-  portalUrl?: string
 }
 
-export const AutoArchiveSection = ({ initialAutoArchiveAfterDays, token, portalUrl }: AutoArchiveSectionProps) => {
+export const AutoArchiveSection = ({ initialAutoArchiveAfterDays, token }: AutoArchiveSectionProps) => {
   const [savedValue, setSavedValue] = useState<AutoArchiveAfterDays>(initialAutoArchiveAfterDays as AutoArchiveAfterDays)
   const [draftValue, setDraftValue] = useState<AutoArchiveAfterDays>(initialAutoArchiveAfterDays as AutoArchiveAfterDays)
   const [isSaving, setIsSaving] = useState(false)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const isMenuOpen = Boolean(anchorEl)
+
+  const { workspace } = useSelector(selectAuthDetails)
+  const portalUrl = workspace?.portalUrl
 
   const isEnabled = draftValue > 0
   const hasUnsavedChanges = draftValue !== savedValue
