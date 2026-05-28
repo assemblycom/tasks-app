@@ -206,10 +206,13 @@ export class TaskNotificationsService extends BaseService {
     // Case 5b (OUT-3038)
     // -- Shared tasks are IU-assigned and only an IU can complete them. When that happens, email the
     //    client users the task is shared with (viewers): a single client, or every client in a company.
+    // -- assigneeId guard mirrors Case 5 and makes the IU-only invariant explicit; without it, an
+    //    edge-case shared task with no assignee would throw a swallowed ZodError on senderId parsing.
     if (
       prevTask?.workflowState?.type !== StateType.completed &&
       updatedTask?.workflowState?.type === StateType.completed &&
-      updatedTask.isShared
+      updatedTask.isShared &&
+      updatedTask.assigneeId
     ) {
       const completedAssociations = getTaskAssociations(updatedTask)
       if (completedAssociations) {
