@@ -1,7 +1,7 @@
 import { TaskReminderType } from '@prisma/client'
 
 const mockSendReminderEmail = jest.fn()
-const mockTaskReminderSentDelete = jest.fn()
+const mockExecuteRaw = jest.fn()
 const mockCopilotApiCtor = jest.fn()
 const mockCaptureException = jest.fn()
 
@@ -21,7 +21,8 @@ jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
     getInstance: () => ({
-      taskReminderSent: { delete: mockTaskReminderSentDelete },
+      // Compensation hard-deletes via $executeRaw to bypass the softDelete extension.
+      $executeRaw: mockExecuteRaw,
     }),
   },
 }))
@@ -59,7 +60,7 @@ describe('dispatchReminderEmail', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockSendReminderEmail.mockReset()
-    mockTaskReminderSentDelete.mockReset()
+    mockExecuteRaw.mockReset()
     mockCopilotApiCtor.mockReset()
     mockCaptureException.mockReset()
   })
@@ -86,25 +87,27 @@ describe('dispatchReminderEmail', () => {
       mockSendReminderEmail.mockRejectedValueOnce(new Error('copilot 5xx'))
 
       await expect(dispatchReminderEmailRun(buildPayload())).rejects.toThrow('copilot 5xx')
-      expect(mockTaskReminderSentDelete).not.toHaveBeenCalled() // compensation is onFailure's job, not run's
+      expect(mockExecuteRaw).not.toHaveBeenCalled() // compensation is onFailure's job, not run's
       expect(mockCaptureException).not.toHaveBeenCalled() // capture waits for retries to exhaust (onFailure)
     })
   })
 
   describe('onFailure', () => {
-    it('deletes the ledger row so the next cron run can retry', async () => {
-      mockTaskReminderSentDelete.mockResolvedValueOnce({ id: 'ledger_1' })
+    it('hard-deletes the ledger row (raw SQL, bypassing softDelete) so the next cron run can retry', async () => {
+      mockExecuteRaw.mockResolvedValueOnce(1)
 
       await dispatchReminderEmailOnFailure({
         payload: buildPayload(),
         error: new Error('all retries exhausted'),
       })
 
-      expect(mockTaskReminderSentDelete).toHaveBeenCalledWith({ where: { id: 'ledger_1' } })
+      expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
+      // $executeRaw is a tagged template: calls[0] = [stringsArray, ...boundValues].
+      expect(mockExecuteRaw.mock.calls[0][1]).toBe('ledger_1')
     })
 
     it('captures the terminal failure to Sentry with task/recipient/reminder/workspace tags', async () => {
-      mockTaskReminderSentDelete.mockResolvedValueOnce({ id: 'ledger_1' })
+      mockExecuteRaw.mockResolvedValueOnce(1)
       const error = new Error('copilot 500 after retries')
 
       await dispatchReminderEmailOnFailure({ payload: buildPayload(), error })
@@ -121,7 +124,7 @@ describe('dispatchReminderEmail', () => {
     })
 
     it('does not throw if the ledger DELETE itself fails (logs and moves on)', async () => {
-      mockTaskReminderSentDelete.mockRejectedValueOnce(new Error('db blew up'))
+      mockExecuteRaw.mockRejectedValueOnce(new Error('db blew up'))
 
       await expect(
         dispatchReminderEmailOnFailure({
