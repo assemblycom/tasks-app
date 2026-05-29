@@ -9,6 +9,10 @@ import httpStatus from 'http-status'
 const DOWNLOAD_TIMEOUT_MS = 8_000
 const FALLBACK_FILE_NAME = 'attachment'
 const FALLBACK_MIME_TYPE = 'application/octet-stream'
+// Per-request cap. Each marker triggers a parallel external fetch + Supabase upload — without
+// a bound an authenticated caller could submit a body with hundreds of markers and exhaust
+// the function's concurrency / wall-time budget.
+const MAX_PUBLIC_ATTACHMENT_MARKERS = 10
 
 // Outer regex finds each `<public-attachment ...>` marker; inner regex extracts attributes
 // from the captured attribute string in any order, both quote styles. Not parsed by an HTML
@@ -59,6 +63,13 @@ export class PublicTaskAttachmentService extends BaseService {
     const matches = [...body.matchAll(MARKER_RE)]
     if (!matches.length) return body
 
+    if (matches.length > MAX_PUBLIC_ATTACHMENT_MARKERS) {
+      throw new APIError(
+        httpStatus.BAD_REQUEST,
+        `Too many <public-attachment> markers (${matches.length}); max ${MAX_PUBLIC_ATTACHMENT_MARKERS} per task`,
+      )
+    }
+
     const markers = matches.map((match, idx) => {
       const attrs = parseAttrs(match[1] ?? '')
       const src = attrs['data-src']
@@ -104,12 +115,36 @@ export class PublicTaskAttachmentService extends BaseService {
       throw new APIError(httpStatus.BAD_REQUEST, `Attachment URL must use http(s): ${externalUrl}`)
     }
 
+    // Single abort signal covers both fetch (header receipt) AND body read. Without this,
+    // a malicious server that returns headers fast but trickles the body byte-by-byte would
+    // hold response.arrayBuffer() open indefinitely. clearTimeout fires in an outer finally
+    // after the body has been fully read.
     const abortController = new AbortController()
     const timeoutHandle = setTimeout(() => abortController.abort(), DOWNLOAD_TIMEOUT_MS)
+    let buffer: ArrayBuffer
     let response: Response
     try {
       response = await fetch(externalUrl, { signal: abortController.signal, redirect: 'follow' })
+      if (!response.ok) {
+        throw new APIError(
+          httpStatus.BAD_REQUEST,
+          `Failed to download attachment from URL: ${externalUrl} (status ${response.status})`,
+        )
+      }
+
+      // Content-Length is just an upfront short-circuit; the post-download byte count below
+      // is the authoritative check.
+      const advertised = Number(response.headers.get('content-length') ?? NaN)
+      if (Number.isFinite(advertised) && advertised > MAX_UPLOAD_LIMIT) {
+        throw new APIError(
+          httpStatus.REQUEST_ENTITY_TOO_LARGE,
+          `Attachment at ${externalUrl} exceeds maximum upload size of ${MAX_UPLOAD_LIMIT} bytes`,
+        )
+      }
+
+      buffer = await response.arrayBuffer()
     } catch (err) {
+      if (err instanceof APIError) throw err
       throw new APIError(
         httpStatus.BAD_REQUEST,
         `Failed to download attachment from URL: ${externalUrl} (${(err as Error).message})`,
@@ -117,24 +152,7 @@ export class PublicTaskAttachmentService extends BaseService {
     } finally {
       clearTimeout(timeoutHandle)
     }
-    if (!response.ok) {
-      throw new APIError(
-        httpStatus.BAD_REQUEST,
-        `Failed to download attachment from URL: ${externalUrl} (status ${response.status})`,
-      )
-    }
 
-    // Content-Length is just an upfront short-circuit; the post-download byte count below
-    // is the authoritative check.
-    const advertised = Number(response.headers.get('content-length') ?? NaN)
-    if (Number.isFinite(advertised) && advertised > MAX_UPLOAD_LIMIT) {
-      throw new APIError(
-        httpStatus.REQUEST_ENTITY_TOO_LARGE,
-        `Attachment at ${externalUrl} exceeds maximum upload size of ${MAX_UPLOAD_LIMIT} bytes`,
-      )
-    }
-
-    const buffer = await response.arrayBuffer()
     if (buffer.byteLength > MAX_UPLOAD_LIMIT) {
       throw new APIError(
         httpStatus.REQUEST_ENTITY_TOO_LARGE,
@@ -161,13 +179,18 @@ export class PublicTaskAttachmentService extends BaseService {
 function deriveFileNameFromResponse(parsedUrl: URL, response: Response): string {
   const cd = response.headers.get('content-disposition')
   if (cd) {
-    // RFC 5987 filename*=UTF-8''... wins over plain filename=
+    // RFC 5987 filename*=<charset>''<percent-encoded> wins over plain filename=, but only
+    // decode when the declared charset is UTF-8 (or empty/default) — decodeURIComponent
+    // can't handle non-UTF-8 byte sequences and would mangle ISO-8859-1 / Windows-1252.
     const encoded = cd.match(/filename\*=([^']*)''([^;]+)/i)
     if (encoded?.[2]) {
-      try {
-        return decodeURIComponent(encoded[2].trim().replace(/^"|"$/g, ''))
-      } catch {
-        // fall through to plain filename
+      const charset = encoded[1].trim().toUpperCase()
+      if (!charset || charset === 'UTF-8') {
+        try {
+          return decodeURIComponent(encoded[2].trim().replace(/^"|"$/g, ''))
+        } catch {
+          // fall through to plain filename
+        }
       }
     }
     const plain = cd.match(/filename=("([^"]+)"|([^;]+))/i)
