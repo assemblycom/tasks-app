@@ -10,9 +10,9 @@ const DOWNLOAD_TIMEOUT_MS = 8_000
 const FALLBACK_FILE_NAME = 'attachment'
 const FALLBACK_MIME_TYPE = 'application/octet-stream'
 // Per-request cap. Each marker triggers a parallel external fetch + Supabase upload — without
-// a bound an authenticated caller could submit a body with hundreds of markers and exhaust
-// the function's concurrency / wall-time budget.
-const MAX_PUBLIC_ATTACHMENT_MARKERS = 10
+// a bound an authenticated caller could submit a body with many markers and exhaust the
+// function's concurrency / wall-time budget. Keep this conservative; bump if real usage needs it.
+const MAX_PUBLIC_ATTACHMENT_MARKERS = 2
 
 // Outer regex finds each `<public-attachment ...>` marker; inner regex extracts attributes
 // from the captured attribute string in any order, both quote styles. Not parsed by an HTML
@@ -65,8 +65,8 @@ export class PublicTaskAttachmentService extends BaseService {
 
     if (matches.length > MAX_PUBLIC_ATTACHMENT_MARKERS) {
       throw new APIError(
-        httpStatus.BAD_REQUEST,
-        `Too many <public-attachment> markers (${matches.length}); max ${MAX_PUBLIC_ATTACHMENT_MARKERS} per task`,
+        httpStatus.UNPROCESSABLE_ENTITY,
+        `Too many <public-attachment> markers in description: received ${matches.length}, maximum is ${MAX_PUBLIC_ATTACHMENT_MARKERS} per task. Split the attachments across multiple task creates.`,
       )
     }
 
@@ -75,8 +75,8 @@ export class PublicTaskAttachmentService extends BaseService {
       const src = attrs['data-src']
       if (!src) {
         throw new APIError(
-          httpStatus.BAD_REQUEST,
-          `<public-attachment> marker #${idx + 1} is missing required data-src attribute`,
+          httpStatus.UNPROCESSABLE_ENTITY,
+          `<public-attachment> marker at position ${idx + 1} is missing the required data-src attribute. Each marker must declare the URL to download, e.g. <public-attachment data-src="https://..." />`,
         )
       }
       return { src, fileName: attrs['data-filename'] || undefined, fileType: attrs['data-filetype'] || undefined }
