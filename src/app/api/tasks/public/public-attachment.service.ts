@@ -1,9 +1,12 @@
-import { PublicAttachmentsService } from '@/app/api/attachments/public/public.service'
+import { AttachmentsService } from '@/app/api/attachments/attachments.service'
 import { BaseService } from '@api/core/services/base.service'
+import { ScrapMediaService } from '@/app/api/scrap-medias/scrap-medias.service'
 import APIError from '@api/core/exceptions/api'
 import { MAX_UPLOAD_LIMIT } from '@/constants/attachments'
+import { generateRandomString } from '@/utils/generateRandomString'
 import { getSignedUrl, getUnsignedUrl } from '@/utils/signUrl'
 import { sanitizeFileName } from '@/utils/sanitizeFileName'
+import { SupabaseActions } from '@/utils/SupabaseActions'
 import httpStatus from 'http-status'
 
 const DOWNLOAD_TIMEOUT_MS = 8_000
@@ -119,7 +122,7 @@ export class PublicTaskAttachmentService extends BaseService {
     const mimeType = overrideMimeType ?? response.headers.get('content-type')?.split(';')[0]?.trim() ?? FALLBACK_MIME_TYPE
     const file = new File([buffer], fileName, { type: mimeType })
 
-    const uploaded = await new PublicAttachmentsService(this.user).uploadFile(file)
+    const uploaded = await this.stageFile(file)
     const downloadUrl = (await getSignedUrl(uploaded.filePath)) ?? getUnsignedUrl(uploaded.filePath)
     return {
       filePath: uploaded.filePath,
@@ -127,6 +130,61 @@ export class PublicTaskAttachmentService extends BaseService {
       fileSize: uploaded.fileSize,
       mimeType: uploaded.fileType,
       downloadUrl,
+    }
+  }
+
+  /**
+   * Stages a File at the workspace-root path (same as the in-app pre-task-save flow) and
+   * registers a ScrapMedia row so the file gets reaped by cron if it never makes it into a
+   * task body. No Attachment row is created here — when the staged URL lands in a task body,
+   * the post-create sweep (`updateTaskIdOfAttachmentsAfterCreation`) moves the file to the
+   * task-scoped path and creates the Attachment row.
+   */
+  private async stageFile(uploadedFile: File): Promise<{
+    filePath: string
+    fileName: string
+    fileSize: number
+    fileType: string
+  }> {
+    // Workspace-root path — matches the in-app pre-task-save upload location.
+    const workspaceRootFilePath = `/${this.user.workspaceId}`
+    const uniqueFileName = generateRandomString(uploadedFile.name)
+
+    const attachmentsService = new AttachmentsService(this.user)
+    const supabaseActions = new SupabaseActions()
+
+    const signedUploadInfo = await attachmentsService.signUrlUpload(uniqueFileName, workspaceRootFilePath)
+
+    const { filePayload, error: supabaseUploadError } = await supabaseActions.uploadAttachment(
+      uploadedFile,
+      signedUploadInfo,
+      null,
+    )
+    if (supabaseUploadError || !filePayload) {
+      throw new APIError(httpStatus.BAD_REQUEST, 'Failed to upload attachment to storage')
+    }
+
+    // Register the file with the ScrapMedia worker so it gets cleaned up if the caller never
+    // embeds the returned URL in a task body. If tracking registration fails we roll back the
+    // Supabase upload so the caller can retry cleanly — otherwise the file would leak permanently.
+    try {
+      await new ScrapMediaService(this.user).createScrapImage({ filePath: filePayload.filePath })
+    } catch (scrapMediaTrackingError) {
+      console.error('PublicTaskAttachmentService#stageFile | Failed to register ScrapMedia, rolling back', {
+        filePath: filePayload.filePath,
+        error: scrapMediaTrackingError,
+      })
+      await supabaseActions.removeAttachment(filePayload.filePath).catch((cleanupError) => {
+        console.error('PublicTaskAttachmentService#stageFile | Failed to remove Supabase file during rollback', cleanupError)
+      })
+      throw new APIError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to register attachment for cleanup tracking')
+    }
+
+    return {
+      filePath: filePayload.filePath,
+      fileName: filePayload.fileName,
+      fileSize: filePayload.fileSize,
+      fileType: filePayload.fileType,
     }
   }
 }
