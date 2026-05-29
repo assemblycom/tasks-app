@@ -7,16 +7,14 @@ import APIError from '@api/core/exceptions/api'
 import httpStatus from 'http-status'
 
 /**
- * Server-side orchestrator that condenses the in-app 3-hop upload flow
- * (request signed URL → PUT to Supabase → POST attachment row) into a
- * single multipart POST suitable for public API callers.
+ * Stages a File at the workspace-root path (same as the in-app pre-task-save flow) and
+ * registers a ScrapMedia row so the file gets reaped by cron if it never makes it into a
+ * task body. No Attachment row is created here — when the staged URL lands in a task body,
+ * the post-create sweep (`updateTaskIdOfAttachmentsAfterCreation`) moves the file to the
+ * task-scoped path and creates the Attachment row.
  *
- * No Attachment row is created here — the file lands at the workspace-root
- * path (same as the in-app pre-task-save flow) and a ScrapMedia row is
- * registered so the file gets reaped if the caller never embeds it in a
- * task body. When the caller does embed the returned downloadUrl in a task
- * description, the existing post-create body sweep creates the Attachment
- * row and moves the file to the task-scoped path.
+ * Currently consumed by `PublicTaskAttachmentService.uploadFromUrl` (the public task-create
+ * `<public-attachment>` marker expansion path).
  */
 export class PublicAttachmentsService extends BaseService {
   async uploadFile(uploadedFile: File): Promise<{
