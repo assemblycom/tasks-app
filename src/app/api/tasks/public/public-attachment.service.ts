@@ -36,10 +36,8 @@ const buildMarkup = (attachment: UploadedAttachment): string => {
   if (attachment.mimeType.toLowerCase().startsWith('image/')) {
     return `<img alt="${safeFileName}" src="${url}" />`
   }
-  // `data-src` must stay immediately before no other `src=` attribute: the post-create sweep
-  // (`updateTaskIdOfAttachmentsAfterCreation`) matches `data-type="attachment"...src="(...)"`,
-  // which captures this `data-src` value. Reordering so another `src=`-suffixed attr follows
-  // would make the sweep grab the wrong URL and skip promotion to the task-scoped path.
+  // Keep `data-src` the only src-suffixed attribute: the post-create sweep grabs the last
+  // `src="..."` in the tag, and `data-src` is what it must capture to promote the file.
   return (
     `<div data-type="attachment" data-src="${url}" data-filename="${safeFileName}"` +
     ` data-filetype="${escapeAttr(attachment.mimeType)}" data-filesize="${attachment.fileSize}" data-loading="false"></div>`
@@ -64,7 +62,7 @@ export class PublicTaskAttachmentService extends BaseService {
     if (matches.length > MAX_PUBLIC_ATTACHMENT_MARKERS) {
       throw new APIError(
         httpStatus.UNPROCESSABLE_ENTITY,
-        `Too many <public-attachment> markers in description: received ${matches.length}, maximum is ${MAX_PUBLIC_ATTACHMENT_MARKERS} per task. Split the attachments across multiple task creates.`,
+        `Too many <public-attachment> markers in description: received ${matches.length}, maximum is ${MAX_PUBLIC_ATTACHMENT_MARKERS} per task.`,
       )
     }
 
@@ -92,10 +90,8 @@ export class PublicTaskAttachmentService extends BaseService {
   }
 
   /**
-   * `overrideFileName` / `overrideMimeType` win over values inferred from the remote response.
-   * Useful for signed-download URLs that return opaque `Content-Disposition` filenames or
-   * generic `application/octet-stream`. `fileSize` is never overridable — always measured
-   * from the downloaded bytes.
+   * `overrideFileName` / `overrideMimeType` win over values inferred from the response (useful for
+   * signed URLs with opaque filenames or generic mime types). `fileSize` is always the byte count.
    */
   async uploadFromUrl(args: {
     externalUrl: string
@@ -134,11 +130,9 @@ export class PublicTaskAttachmentService extends BaseService {
   }
 
   /**
-   * Stages a File at the workspace-root path (same as the in-app pre-task-save flow) and
-   * registers a ScrapMedia row so the file gets reaped by cron if it never makes it into a
-   * task body. No Attachment row is created here — when the staged URL lands in a task body,
-   * the post-create sweep (`updateTaskIdOfAttachmentsAfterCreation`) moves the file to the
-   * task-scoped path and creates the Attachment row.
+   * Stages a File at the workspace-root path and registers a ScrapMedia row so cron reaps it if
+   * it never lands in a task body. The post-create sweep moves it to the task-scoped path and
+   * creates the Attachment row.
    */
   private async stageFile(uploadedFile: File): Promise<{
     filePath: string
@@ -164,9 +158,7 @@ export class PublicTaskAttachmentService extends BaseService {
       throw new APIError(httpStatus.BAD_REQUEST, 'Failed to upload attachment to storage')
     }
 
-    // Register the file with the ScrapMedia worker so it gets cleaned up if the caller never
-    // embeds the returned URL in a task body. If tracking registration fails we roll back the
-    // Supabase upload so the caller can retry cleanly — otherwise the file would leak permanently.
+    // Track with ScrapMedia for cron cleanup; if that fails, roll back the upload so it can't leak.
     try {
       await new ScrapMediaService(this.user).createScrapImage({ filePath: filePayload.filePath })
     } catch (scrapMediaTrackingError) {
@@ -189,12 +181,7 @@ export class PublicTaskAttachmentService extends BaseService {
   }
 }
 
-/**
- * Single abort signal covers both the fetch (header receipt) AND the body read. Without this,
- * a server that sends headers fast but trickles the body byte-by-byte would hold
- * `response.arrayBuffer()` open indefinitely. `clearTimeout` fires in `finally` after the body
- * has been fully read (or an error has propagated).
- */
+/** One abort signal bounds both header receipt and the body read, so a slow-trickle body can't hang `arrayBuffer()`. */
 async function fetchWithTimeout(
   url: string,
   { timeoutMs, maxBytes }: { timeoutMs: number; maxBytes: number },
@@ -237,9 +224,8 @@ async function fetchWithTimeout(
 function deriveFileNameFromResponse({ parsedUrl, response }: { parsedUrl: URL; response: Response }): string {
   const cd = response.headers.get('content-disposition')
   if (cd) {
-    // RFC 5987 filename*=<charset>''<percent-encoded> wins over plain filename=, but only
-    // decode when the declared charset is UTF-8 (or empty/default) — decodeURIComponent
-    // can't handle non-UTF-8 byte sequences and would mangle ISO-8859-1 / Windows-1252.
+    // RFC 5987 filename*= wins over plain filename=, but only decode when the charset is UTF-8 —
+    // decodeURIComponent can't handle other byte sequences (ISO-8859-1 / Windows-1252).
     const encoded = cd.match(/filename\*=([^']*)''([^;]+)/i)
     if (encoded?.[2]) {
       const charset = encoded[1].trim().toUpperCase()
