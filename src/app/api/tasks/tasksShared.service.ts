@@ -558,9 +558,7 @@ export abstract class TasksSharedService extends BaseService {
     await Promise.all(signedUrlPromises)
 
     for (const { originalSrc, newUrl } of replacements) {
-      // replaceAll: native non-image attachments embed the same URL twice
-      // (outer <div data-src="..."> + inner <attachment-view src="...">), and
-      // both must be rewritten so the inner link doesn't 404 after the file move.
+      // replaces src in both (outer <div data-src="..."> + inner <attachment-view src="...">)
       htmlString = htmlString.replaceAll(originalSrc, newUrl)
     }
     const filePaths = newFilePaths.map(({ newFilePath }) => newFilePath)
