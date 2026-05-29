@@ -9,15 +9,11 @@ import httpStatus from 'http-status'
 const DOWNLOAD_TIMEOUT_MS = 8_000
 const FALLBACK_FILE_NAME = 'attachment'
 const FALLBACK_MIME_TYPE = 'application/octet-stream'
-// Per-request cap. Each marker triggers a parallel external fetch + Supabase upload — without
-// a bound an authenticated caller could submit a body with many markers and exhaust the
-// function's concurrency / wall-time budget. Keep this conservative; bump if real usage needs it.
+
+// only allow max of 2 attachment for task creation via public api
 const MAX_PUBLIC_ATTACHMENT_MARKERS = 2
 
-// Outer regex finds each `<public-attachment ...>` marker; inner regex extracts attributes
-// from the captured attribute string in any order, both quote styles. Not parsed by an HTML
-// parser because custom elements aren't void per HTML5 — JSDOM would pull following siblings
-// into the marker as children, and re-serializing would normalize the whole body.
+// Outer regex finds each `<public-attachment ...>` and their attributes
 const MARKER_RE = /<public-attachment\b([^>]*?)\/?\s*>(\s*<\/public-attachment\s*>)?/gi
 const ATTR_RE = /\b([a-zA-Z][a-zA-Z0-9-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g
 
@@ -33,11 +29,12 @@ const escapeAttr = (value: string): string =>
 
 const buildMarkup = (attachment: UploadedAttachment): string => {
   const url = escapeAttr(attachment.downloadUrl)
+  const safeFileName = escapeAttr(attachment.fileName)
   if (attachment.mimeType.toLowerCase().startsWith('image/')) {
-    return `<img src="${url}" />`
+    return `<img alt="${safeFileName}" src="${url}" />`
   }
   return (
-    `<div data-type="attachment" data-src="${url}" data-filename="${escapeAttr(attachment.fileName)}"` +
+    `<div data-type="attachment" data-src="${url}" data-filename="${safeFileName}"` +
     ` data-filetype="${escapeAttr(attachment.mimeType)}" data-filesize="${attachment.fileSize}" data-loading="false"></div>`
   )
 }
@@ -50,13 +47,7 @@ const parseAttrs = (attrString: string): Record<string, string> => {
   return attrs
 }
 
-/**
- * Expands `<public-attachment data-src="..." />` markers in the public task-create body. Each
- * marker's URL is downloaded, staged at workspace-root via `PublicAttachmentsService.uploadFile`
- * (ScrapMedia-tracked so failed creates get reaped by cron), then swapped for the proper Tiptap
- * node — `<img>` for image mimes, attachment div otherwise. The existing post-create body sweep
- * then promotes staged files to the task-scoped path and creates Attachment rows.
- */
+/** Expands `<public-attachment>` markers in the public task-create body into real attachments. */
 export class PublicTaskAttachmentService extends BaseService {
   async expandPublicAttachmentMarkers(body: string | undefined): Promise<string | undefined> {
     if (!body) return body
@@ -115,50 +106,10 @@ export class PublicTaskAttachmentService extends BaseService {
       throw new APIError(httpStatus.BAD_REQUEST, `Attachment URL must use http(s): ${externalUrl}`)
     }
 
-    // Single abort signal covers both fetch (header receipt) AND body read. Without this,
-    // a malicious server that returns headers fast but trickles the body byte-by-byte would
-    // hold response.arrayBuffer() open indefinitely. clearTimeout fires in an outer finally
-    // after the body has been fully read.
-    const abortController = new AbortController()
-    const timeoutHandle = setTimeout(() => abortController.abort(), DOWNLOAD_TIMEOUT_MS)
-    let buffer: ArrayBuffer
-    let response: Response
-    try {
-      response = await fetch(externalUrl, { signal: abortController.signal, redirect: 'follow' })
-      if (!response.ok) {
-        throw new APIError(
-          httpStatus.BAD_REQUEST,
-          `Failed to download attachment from URL: ${externalUrl} (status ${response.status})`,
-        )
-      }
-
-      // Content-Length is just an upfront short-circuit; the post-download byte count below
-      // is the authoritative check.
-      const advertised = Number(response.headers.get('content-length') ?? NaN)
-      if (Number.isFinite(advertised) && advertised > MAX_UPLOAD_LIMIT) {
-        throw new APIError(
-          httpStatus.REQUEST_ENTITY_TOO_LARGE,
-          `Attachment at ${externalUrl} exceeds maximum upload size of ${MAX_UPLOAD_LIMIT} bytes`,
-        )
-      }
-
-      buffer = await response.arrayBuffer()
-    } catch (err) {
-      if (err instanceof APIError) throw err
-      throw new APIError(
-        httpStatus.BAD_REQUEST,
-        `Failed to download attachment from URL: ${externalUrl} (${(err as Error).message})`,
-      )
-    } finally {
-      clearTimeout(timeoutHandle)
-    }
-
-    if (buffer.byteLength > MAX_UPLOAD_LIMIT) {
-      throw new APIError(
-        httpStatus.REQUEST_ENTITY_TOO_LARGE,
-        `Attachment at ${externalUrl} exceeds maximum upload size of ${MAX_UPLOAD_LIMIT} bytes`,
-      )
-    }
+    const { response, buffer } = await fetchWithTimeout(externalUrl, {
+      timeoutMs: DOWNLOAD_TIMEOUT_MS,
+      maxBytes: MAX_UPLOAD_LIMIT,
+    })
 
     const fileName = overrideFileName ?? deriveFileNameFromResponse(parsedUrl, response)
     const mimeType = overrideMimeType ?? response.headers.get('content-type')?.split(';')[0]?.trim() ?? FALLBACK_MIME_TYPE
@@ -173,6 +124,51 @@ export class PublicTaskAttachmentService extends BaseService {
       mimeType: uploaded.fileType,
       downloadUrl,
     }
+  }
+}
+
+/**
+ * Single abort signal covers both the fetch (header receipt) AND the body read. Without this,
+ * a server that sends headers fast but trickles the body byte-by-byte would hold
+ * `response.arrayBuffer()` open indefinitely. `clearTimeout` fires in `finally` after the body
+ * has been fully read (or an error has propagated).
+ */
+async function fetchWithTimeout(
+  url: string,
+  { timeoutMs, maxBytes }: { timeoutMs: number; maxBytes: number },
+): Promise<{ response: Response; buffer: ArrayBuffer }> {
+  const abortController = new AbortController()
+  const timeoutHandle = setTimeout(() => abortController.abort(), timeoutMs)
+  try {
+    const response = await fetch(url, { signal: abortController.signal, redirect: 'follow' })
+    if (!response.ok) {
+      throw new APIError(
+        httpStatus.BAD_REQUEST,
+        `Failed to download attachment from URL: ${url} (status ${response.status})`,
+      )
+    }
+    // Content-Length is just an upfront short-circuit; the post-download byte count below
+    // is the authoritative check.
+    const advertised = Number(response.headers.get('content-length') ?? NaN)
+    if (Number.isFinite(advertised) && advertised > maxBytes) {
+      throw new APIError(
+        httpStatus.REQUEST_ENTITY_TOO_LARGE,
+        `Attachment at ${url} exceeds maximum upload size of ${maxBytes} bytes`,
+      )
+    }
+    const buffer = await response.arrayBuffer()
+    if (buffer.byteLength > maxBytes) {
+      throw new APIError(
+        httpStatus.REQUEST_ENTITY_TOO_LARGE,
+        `Attachment at ${url} exceeds maximum upload size of ${maxBytes} bytes`,
+      )
+    }
+    return { response, buffer }
+  } catch (err) {
+    if (err instanceof APIError) throw err
+    throw new APIError(httpStatus.BAD_REQUEST, `Failed to download attachment from URL: ${url} (${(err as Error).message})`)
+  } finally {
+    clearTimeout(timeoutHandle)
   }
 }
 
