@@ -33,6 +33,10 @@ const buildMarkup = (attachment: UploadedAttachment): string => {
   if (attachment.mimeType.toLowerCase().startsWith('image/')) {
     return `<img alt="${safeFileName}" src="${url}" />`
   }
+  // `data-src` must stay immediately before no other `src=` attribute: the post-create sweep
+  // (`updateTaskIdOfAttachmentsAfterCreation`) matches `data-type="attachment"...src="(...)"`,
+  // which captures this `data-src` value. Reordering so another `src=`-suffixed attr follows
+  // would make the sweep grab the wrong URL and skip promotion to the task-scoped path.
   return (
     `<div data-type="attachment" data-src="${url}" data-filename="${safeFileName}"` +
     ` data-filetype="${escapeAttr(attachment.mimeType)}" data-filesize="${attachment.fileSize}" data-loading="false"></div>`
@@ -111,7 +115,7 @@ export class PublicTaskAttachmentService extends BaseService {
       maxBytes: MAX_UPLOAD_LIMIT,
     })
 
-    const fileName = overrideFileName ?? deriveFileNameFromResponse(parsedUrl, response)
+    const fileName = overrideFileName ?? deriveFileNameFromResponse({ parsedUrl, response })
     const mimeType = overrideMimeType ?? response.headers.get('content-type')?.split(';')[0]?.trim() ?? FALLBACK_MIME_TYPE
     const file = new File([buffer], fileName, { type: mimeType })
 
@@ -172,7 +176,7 @@ async function fetchWithTimeout(
   }
 }
 
-function deriveFileNameFromResponse(parsedUrl: URL, response: Response): string {
+function deriveFileNameFromResponse({ parsedUrl, response }: { parsedUrl: URL; response: Response }): string {
   const cd = response.headers.get('content-disposition')
   if (cd) {
     // RFC 5987 filename*=<charset>''<percent-encoded> wins over plain filename=, but only
