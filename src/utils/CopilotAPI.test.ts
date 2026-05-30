@@ -12,6 +12,10 @@ jest.mock('@/config', () => ({
   copilotAPIKey: 'test-api-key',
 }))
 
+jest.mock('@/app/api/core/utils/withRetry', () => ({
+  withRetry: jest.fn((fn, args) => fn(...args)),
+}))
+
 import { CopilotAPI } from './CopilotAPI'
 
 describe('CopilotAPI#createNotification', () => {
