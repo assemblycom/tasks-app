@@ -208,9 +208,17 @@ export class CopilotAPI {
     return InternalUsersSchema.parse(await this.copilot.retrieveInternalUser({ id }))
   }
 
-  async _createNotification(requestBody: NotificationRequestBody): Promise<NotificationCreatedResponse> {
+  async _createNotification(requestBody: NotificationRequestBody): Promise<NotificationCreatedResponse | null> {
     console.info('CopilotAPI#_createNotification', this.token)
     const notification = await this.copilot.createNotification({ requestBody })
+    if (!notification) {
+      if (!requestBody.deliveryTargets?.inProduct) {
+        console.info('CopilotAPI#_createNotification | No notification resource returned for email-only delivery')
+        return null
+      }
+
+      throw new Error('CopilotAPI#createNotification returned no notification for an in-product delivery')
+    }
     return NotificationCreatedResponseSchema.parse(notification)
   }
 

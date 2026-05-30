@@ -66,11 +66,15 @@ export class NotificationService extends BaseService {
       )
       console.info('NotificationService#create | Creating single notification:', notificationDetails)
 
-      let notification: NotificationCreatedResponse
+      let notification: NotificationCreatedResponse | null
       try {
         notification = await this.copilot.createNotification(notificationDetails)
       } catch (e: unknown) {
         notification = await this.handleIfSenderCompanyIdError(e, notificationDetails)
+      }
+      if (!notification) {
+        console.info('NotificationService#create | Notification delivery did not create an in-product resource')
+        return null
       }
 
       console.info('NotificationService#create | Created single notification:', notification)
@@ -169,7 +173,7 @@ export class NotificationService extends BaseService {
           )
 
           console.info('NotificationService#bulkCreate | Creating single notification:', notificationDetails)
-          let notification: NotificationCreatedResponse
+          let notification: NotificationCreatedResponse | null
           try {
             notification = await this.copilot.createNotification(notificationDetails)
           } catch (e: unknown) {
