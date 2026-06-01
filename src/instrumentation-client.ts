@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/nextjs'
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
 const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV
 const isProd = process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
+const cefSharpObjectNotFoundRejection = /Object Not Found Matching Id:\d+, MethodName:\w+, ParamCount:\d+/
 
 if (dsn) {
   Sentry.init({
@@ -33,8 +34,8 @@ if (dsn) {
       //   }),
     ],
 
-    // ignoreErrors: [/fetch failed/i],
-    ignoreErrors: [/fetch failed/i],
+    // CefSharp-based crawlers/link scanners can reject non-Error objects with this message.
+    ignoreErrors: [/fetch failed/i, cefSharpObjectNotFoundRejection],
 
     beforeSend(event) {
       if (!isProd && event.type === undefined) {
