@@ -8,6 +8,9 @@ export enum NotificationTaskActions {
   CompletedForCompanyByIU = 'completedForCompanyByIu',
   Completed = 'completed',
   CompletedByIU = 'completedByIu',
+  // Completion notifications for client users a task is *shared* with (viewers), not assignees
+  CompletedToSharedCU = 'completedToSharedCU',
+  CompletedToSharedCompany = 'completedToSharedCompany',
   Commented = 'commented',
   // these two comment actions below are sub actions of Commented.
   // Its used to handle the cases for CU vs IU being notified of comments appropriately
