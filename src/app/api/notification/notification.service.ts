@@ -435,6 +435,19 @@ export class NotificationService extends BaseService {
         recipientId = task.createdById
         actionTrigger = await this.copilot.getInternalUser(senderId)
         break
+      case NotificationTaskActions.CompletedToSharedCU:
+        // Shared task is IU-assigned and only an IU can complete it, so the sender is the completing IU
+        senderId = z.string().parse(this.user.internalUserId)
+        recipientId = !!associations?.length ? z.string().parse(associations[0].clientId) : ''
+        actionTrigger = await this.copilot.getInternalUser(senderId)
+        break
+      case NotificationTaskActions.CompletedToSharedCompany:
+        senderId = z.string().parse(this.user.internalUserId)
+        recipientIds = !!associations?.length
+          ? (await this.copilot.getCompanyClients(z.string().parse(associations[0].companyId))).map((client) => client.id)
+          : []
+        actionTrigger = await this.copilot.getInternalUser(senderId)
+        break
       case NotificationTaskActions.CommentToCU:
         if (task.assigneeType === AssigneeType.client && task.assigneeId) {
           // the client is the assignee, they are part of the task

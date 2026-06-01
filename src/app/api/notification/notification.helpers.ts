@@ -1,7 +1,7 @@
 import { WorkspaceResponse } from '@/types/common'
 import { getWorkspaceLabels } from '@/utils/getWorkspaceLabels'
 import { NotificationTaskActions } from '@api/core/types/tasks'
-import { Task } from '@prisma/client'
+import { Task, TaskReminderType } from '@prisma/client'
 
 /**
  * Helper function that sets the in-product notification title and body for a given notification trigger
@@ -80,6 +80,16 @@ export const getInProductNotificationDetails = (
     [NotificationTaskActions.CompletedByIU]: {
       title: 'Task was completed',
       body: `The task ‘${task?.title}’ was completed by ${actionUser}.`,
+      ctaParams,
+    },
+    [NotificationTaskActions.CompletedToSharedCU]: {
+      title: 'A task has been completed',
+      body: `The task ‘${task?.title}’ has been marked as done by ${actionUser}.`,
+      ctaParams,
+    },
+    [NotificationTaskActions.CompletedToSharedCompany]: {
+      title: 'A task has been completed',
+      body: `The task ‘${task?.title}’ has been marked as done by ${actionUser}.`,
       ctaParams,
     },
 
@@ -192,11 +202,92 @@ export const getEmailDetails = (
       body: `${actionUser} shared the task '${task?.title}'. View the task below to see updates and leave comments.`,
       ctaParams,
     },
+    [NotificationTaskActions.CompletedToSharedCU]: {
+      subject: 'Task marked as done',
+      header: 'A task has been completed',
+      title: 'View task',
+      body: `The task ‘${task?.title}’ has been marked as done by ${actionUser}.\n\nTo see details about the task, open it below.`,
+      ctaParams,
+    },
+    [NotificationTaskActions.CompletedToSharedCompany]: {
+      subject: 'Task marked as done',
+      header: 'A task has been completed',
+      title: 'View task',
+      body: `The task ‘${task?.title}’ has been marked as done by ${actionUser}.\n\nTo see details about the task, open it below.`,
+      ctaParams,
+    },
     [NotificationTaskActions.SharedToCompany]: {
       subject: `A task has been shared with you`,
       header: `A task was shared with you by ${actionUser}`,
       title: 'View task',
       body: `${actionUser} shared the task '${task?.title}'. View the task below to see updates and leave comments.`,
+      ctaParams,
+    },
+  }
+}
+
+// Subjects intentionally omit any `<brandName> portal:` prefix — Copilot's email
+// service prepends that itself, and adding it here results in a duplicated prefix.
+export const getReminderEmailDetails = (
+  workspace: WorkspaceResponse,
+  task: Pick<Task, 'id' | 'title'>,
+  isCompanyRecipient: boolean,
+): Record<
+  TaskReminderType,
+  {
+    title: string
+    subject: string
+    header: string
+    body: string
+    ctaParams: { taskId: string }
+  }
+> => {
+  const labels = getWorkspaceLabels(workspace)
+  const header = isCompanyRecipient ? `A task was assigned to your ${labels.groupTerm}` : 'A task was assigned to you'
+  const ctaParams = { taskId: task.id }
+  const title = 'View task'
+
+  return {
+    [TaskReminderType.NO_DUE_DATE_3D]: {
+      subject: '[Reminder] You have a task to complete',
+      header,
+      title,
+      body: `This is a friendly reminder that you have a task ‘${task.title}’ assigned to you that's still pending completion.\n\nIf you've already completed this task, please mark it as done in the portal.`,
+      ctaParams,
+    },
+    [TaskReminderType.NO_DUE_DATE_7D]: {
+      subject: '[Reminder] Task still pending',
+      header,
+      title,
+      body: `This is a friendly reminder that you have a task ‘${task.title}’ that was assigned to you a week ago and is still pending.\n\nIf you've already completed this task, please mark it as done in the portal.`,
+      ctaParams,
+    },
+    [TaskReminderType.DUE_DATE_BEFORE_3D]: {
+      subject: '[Due Soon] Task due in 3 days',
+      header,
+      title,
+      body: `This is a friendly reminder that you have a task ‘${task.title}’ due in 3 days.\n\nPlease make sure to complete this task by the due date.`,
+      ctaParams,
+    },
+    [TaskReminderType.DUE_DATE_TODAY]: {
+      subject: '[Due Soon] Task due today',
+      header,
+      title,
+      body: `This is a friendly reminder that you have a task ‘${task.title}’ due today.\n\nPlease complete this task as soon as possible.`,
+      ctaParams,
+    },
+    [TaskReminderType.DUE_DATE_OVERDUE_3D]: {
+      subject: '[Overdue] Task was due 3 days ago',
+      header,
+      title,
+      body: `This is a friendly reminder that the task ‘${task.title}’ is now overdue. It was due 3 days ago and is still pending completion.`,
+      ctaParams,
+    },
+    [TaskReminderType.DUE_DATE_OVERDUE_7D]: {
+      subject: '[Overdue] Task overdue by one week',
+      header,
+      title,
+      body: `This is a friendly reminder that the task ‘${task.title}’ is now one week overdue.\n\nPlease complete this task as soon as possible.`,
       ctaParams,
     },
   }
