@@ -20,7 +20,7 @@ interface ReplyInputProps {
   token: string
   task_id: string
   comment: any
-  createComment: (postCommentPayload: CreateComment) => void
+  createComment: (postCommentPayload: CreateComment) => Promise<void>
   focusReplyInput: boolean
   setFocusReplyInput: Dispatch<SetStateAction<boolean>>
 }
@@ -62,12 +62,14 @@ export const ReplyInput = ({
   useEffect(() => {
     if (pendingReplies.length > 0 && !comment.details.id.includes('temp-comment')) {
       const { content, taskId } = pendingReplies[0]
+      setPendingReplies((prev) => prev.slice(1)) //handling the reply submission 1 by 1
       createComment({
         content,
         taskId,
         parentId: comment.details.id,
+      }).catch(() => {
+        setDetail((current) => (isTapwriteContentEmpty(current) ? content : current))
       })
-      setPendingReplies((prev) => prev.slice(1)) //handling the reply submission 1 by 1
     }
   }, [comment.details.id, pendingReplies])
 
