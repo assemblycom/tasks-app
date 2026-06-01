@@ -1,4 +1,4 @@
--- Seeds and backfills the path column for all tasks created before column was added.
+-- Backfill task ltree paths that were missed by the original root-only path seed.
 WITH RECURSIVE task_paths AS (
     SELECT
         id,

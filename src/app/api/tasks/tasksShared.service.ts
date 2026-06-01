@@ -18,6 +18,7 @@ import { SupabaseActions } from '@/utils/SupabaseActions'
 import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { UserRole } from '@api/core/types/user'
+import { getTaskPath } from '@api/tasks/taskPath.utils'
 import { AssigneeType, Prisma, PrismaClient, StateType, Task, TaskTemplate } from '@prisma/client'
 import httpStatus from 'http-status'
 import z from 'zod'
@@ -429,14 +430,7 @@ export abstract class TasksSharedService extends BaseService {
   }
 
   private async getPathOfTask(id: string) {
-    return (
-      await this.db.$queryRaw<{ path: string }[] | null>`
-          SELECT "path"
-          FROM "Tasks"
-          WHERE id::text = ${id}
-            AND "workspaceId" = ${this.user.workspaceId}
-        `
-    )?.[0]?.path
+    return getTaskPath(this.db, this.user.workspaceId, id)
   }
 
   protected async getCompletionInfo(targetWorkflowStateId?: string | null): Promise<{
@@ -587,7 +581,7 @@ export abstract class TasksSharedService extends BaseService {
 
     await this.db.$executeRaw`
       UPDATE "Tasks"
-      SET path = ${buildLtreeNodeString(path)}::ltree
+      SET path = ${path}::ltree
       WHERE id::text = ${task.id}
         AND "workspaceId" = ${this.user.workspaceId}
     `
