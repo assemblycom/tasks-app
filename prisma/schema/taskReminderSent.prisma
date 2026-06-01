@@ -1,0 +1,21 @@
+enum TaskReminderType {
+  NO_DUE_DATE_3D
+  NO_DUE_DATE_7D
+  DUE_DATE_BEFORE_3D
+  DUE_DATE_TODAY
+  DUE_DATE_OVERDUE_3D
+  DUE_DATE_OVERDUE_7D
+}
+
+model TaskReminderSent {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task         Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId       String           @db.Uuid
+  workspaceId  String           @db.VarChar(32)
+  recipientId  String           @db.Uuid
+  reminderType TaskReminderType
+  sentAt       DateTime         @default(now())
+
+  @@unique([taskId, recipientId, reminderType])
+  @@map("TaskReminderSents")
+}

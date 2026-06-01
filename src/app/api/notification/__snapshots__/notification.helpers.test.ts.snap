@@ -1,0 +1,139 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`getReminderEmailDetails matches snapshot for company recipient 1`] = `
+{
+  "DUE_DATE_BEFORE_3D": {
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ due in 3 days.
+
+Please make sure to complete this task by the due date.",
+    "ctaParams": {
+      "taskId": "task_1",
+    },
+    "header": "A task was assigned to your company",
+    "subject": "[Due Soon] Task due in 3 days",
+    "title": "View task",
+  },
+  "DUE_DATE_OVERDUE_3D": {
+    "body": "This is a friendly reminder that the task ‘Submit timesheet’ is now overdue. It was due 3 days ago and is still pending completion.",
+    "ctaParams": {
+      "taskId": "task_1",
+    },
+    "header": "A task was assigned to your company",
+    "subject": "[Overdue] Task was due 3 days ago",
+    "title": "View task",
+  },
+  "DUE_DATE_OVERDUE_7D": {
+    "body": "This is a friendly reminder that the task ‘Submit timesheet’ is now one week overdue.
+
+Please complete this task as soon as possible.",
+    "ctaParams": {
+      "taskId": "task_1",
+    },
+    "header": "A task was assigned to your company",
+    "subject": "[Overdue] Task overdue by one week",
+    "title": "View task",
+  },
+  "DUE_DATE_TODAY": {
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ due today.
+
+Please complete this task as soon as possible.",
+    "ctaParams": {
+      "taskId": "task_1",
+    },
+    "header": "A task was assigned to your company",
+    "subject": "[Due Soon] Task due today",
+    "title": "View task",
+  },
+  "NO_DUE_DATE_3D": {
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ assigned to you that's still pending completion.
+
+If you've already completed this task, please mark it as done in the portal.",
+    "ctaParams": {
+      "taskId": "task_1",
+    },
+    "header": "A task was assigned to your company",
+    "subject": "[Reminder] You have a task to complete",
+    "title": "View task",
+  },
+  "NO_DUE_DATE_7D": {
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ that was assigned to you a week ago and is still pending.
+
+If you've already completed this task, please mark it as done in the portal.",
+    "ctaParams": {
+      "taskId": "task_1",
+    },
+    "header": "A task was assigned to your company",
+    "subject": "[Reminder] Task still pending",
+    "title": "View task",
+  },
+}
+`;
+
+exports[`getReminderEmailDetails matches snapshot for individual recipient 1`] = `
+{
+  "DUE_DATE_BEFORE_3D": {
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ due in 3 days.
+
+Please make sure to complete this task by the due date.",
+    "ctaParams": {
+      "taskId": "task_1",
+    },
+    "header": "A task was assigned to you",
+    "subject": "[Due Soon] Task due in 3 days",
+    "title": "View task",
+  },
+  "DUE_DATE_OVERDUE_3D": {
+    "body": "This is a friendly reminder that the task ‘Submit timesheet’ is now overdue. It was due 3 days ago and is still pending completion.",
+    "ctaParams": {
+      "taskId": "task_1",
+    },
+    "header": "A task was assigned to you",
+    "subject": "[Overdue] Task was due 3 days ago",
+    "title": "View task",
+  },
+  "DUE_DATE_OVERDUE_7D": {
+    "body": "This is a friendly reminder that the task ‘Submit timesheet’ is now one week overdue.
+
+Please complete this task as soon as possible.",
+    "ctaParams": {
+      "taskId": "task_1",
+    },
+    "header": "A task was assigned to you",
+    "subject": "[Overdue] Task overdue by one week",
+    "title": "View task",
+  },
+  "DUE_DATE_TODAY": {
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ due today.
+
+Please complete this task as soon as possible.",
+    "ctaParams": {
+      "taskId": "task_1",
+    },
+    "header": "A task was assigned to you",
+    "subject": "[Due Soon] Task due today",
+    "title": "View task",
+  },
+  "NO_DUE_DATE_3D": {
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ assigned to you that's still pending completion.
+
+If you've already completed this task, please mark it as done in the portal.",
+    "ctaParams": {
+      "taskId": "task_1",
+    },
+    "header": "A task was assigned to you",
+    "subject": "[Reminder] You have a task to complete",
+    "title": "View task",
+  },
+  "NO_DUE_DATE_7D": {
+    "body": "This is a friendly reminder that you have a task ‘Submit timesheet’ that was assigned to you a week ago and is still pending.
+
+If you've already completed this task, please mark it as done in the portal.",
+    "ctaParams": {
+      "taskId": "task_1",
+    },
+    "header": "A task was assigned to you",
+    "subject": "[Reminder] Task still pending",
+    "title": "View task",
+  },
+}
+`;
