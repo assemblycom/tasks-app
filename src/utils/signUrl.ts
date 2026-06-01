@@ -6,10 +6,14 @@ export const getSignedUrl = async (filePath: string) => {
   const supabase = new SupabaseService()
   const { data } = await supabase.supabase.storage.from(supabaseBucket).createSignedUrl(filePath, signedUrlTtl)
 
-  const url = data?.signedUrl
+  return data?.signedUrl
+}
 
-  return url
-} // used to replace urls for images in task body
+export const getUnsignedUrl = (filePath: string): string => {
+  const supabase = new SupabaseService()
+  const { data } = supabase.supabase.storage.from(supabaseBucket).getPublicUrl(filePath)
+  return data.publicUrl
+}
 
 export const createSignedUrls = async (filePaths: string[]) => {
   const supabase = new SupabaseService()
