@@ -20,7 +20,7 @@ if (dsn) {
 
     // Uncomment the line below to enable Spotlight (https://spotlightjs.com)
     // spotlight: process.env.NODE_ENV === 'development',
-    ignoreErrors: [/fetch failed/i],
+    ignoreErrors: [/fetch failed/i, /failed to fetch/i],
 
     beforeSend(event) {
       if (!isProd && event.type === undefined) {
