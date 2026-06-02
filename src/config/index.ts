@@ -2,12 +2,27 @@ import z from 'zod'
 
 export const copilotAPIKey = process.env.COPILOT_API_KEY || ''
 
-export const apiUrl =
-  process.env.VERCEL_ENV === 'production'
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : process.env.VERCEL_ENV === 'preview' || process.env.VERCEL_ENV === 'staging'
-      ? `https://${process.env.VERCEL_URL}`
-      : `http://${process.env.VERCEL_URL}`
+function getAppUrl() {
+  const vercelEnv = process.env.VERCEL_ENV || 'development'
+  if (vercelEnv === 'production') {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  }
+
+  if (process.env.VERCEL_BRANCH_URL) {
+    return `https://${process.env.VERCEL_BRANCH_URL}`
+  }
+
+  const url = process.env.VERCEL_URL
+  if (url && url.startsWith('http')) {
+    return url
+  }
+
+  const isVercelDeployment = vercelEnv === 'preview' || vercelEnv === 'staging'
+
+  return `${isVercelDeployment ? 'https' : 'http'}://${url}`
+}
+
+export const apiUrl = getAppUrl()
 
 export const isProd = process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
 export const SentryConfig = {

@@ -15,7 +15,7 @@ Task App uses full-stack NextJS - relying on Server + Client Components, Materia
 2. Install the dependencies using yarn
 
    ```shell
-    yarn
+    yarn install
    ```
 
 3. Run the project

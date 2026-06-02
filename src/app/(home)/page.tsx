@@ -3,7 +3,6 @@ export const fetchCache = 'force-no-store'
 import { createMultipleAttachments } from '@/app/(home)/actions'
 import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'
 import { AllTasksFetcher } from '@/app/_fetchers/AllTasksFetcher'
-import { AssigneeFetcher } from '@/app/_fetchers/AssigneeFetcher'
 import { TemplatesFetcher } from '@/app/_fetchers/TemplatesFetcher'
 import { ModalNewTaskForm } from '@/app/ui/Modal_NewTaskForm'
 import { TaskBoard } from '@/app/ui/TaskBoard'
@@ -11,7 +10,7 @@ import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { RealTime } from '@/hoc/RealTime'
-import { UrlActionParamsType, Token, TokenSchema, WorkspaceResponse } from '@/types/common'
+import { UrlActionParamsType, Token, TokenSchema } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
@@ -61,11 +60,6 @@ export async function getTokenPayload(token: string): Promise<Token> {
   return payload as Token
 }
 
-export async function getWorkspace(token: string): Promise<WorkspaceResponse> {
-  const copilot = new CopilotAPI(token)
-  return await copilot.getWorkspace()
-}
-
 export async function getViewSettings(token: string): Promise<CreateViewSettingsDTO> {
   const res = await fetch(`${apiUrl}/api/view-settings?token=${token}`, {
     next: { tags: ['getViewSettings'] },
@@ -96,10 +90,9 @@ export default async function Main(props: {
   redirectIfTaskCta(searchParams, userRole)
 
   const viewSettings = await getViewSettings(token)
-  const [workflowStates, tasks, workspace] = await Promise.all([
+  const [workflowStates, tasks] = await Promise.all([
     getAllWorkflowStates(token),
     getAllTasks(token, { showArchived: viewSettings.showArchived, showUnarchived: viewSettings.showUnarchived }),
-    getWorkspace(token),
   ])
 
   if (tokenPayload.companyId) {
@@ -118,14 +111,10 @@ export default async function Main(props: {
         viewSettings={viewSettings}
         tokenPayload={tokenPayload}
         clearExpandedComments={true}
-        workspace={workspace}
         action={searchParams?.action}
         pf={searchParams?.pf}
       >
         {/* Async fetchers */}
-        <Suspense fallback={null}>
-          <AssigneeFetcher token={token} viewSettings={viewSettings} tokenPayload={tokenPayload} />
-        </Suspense>
         <Suspense fallback={null}>
           <TemplatesFetcher token={token} />
         </Suspense>
@@ -135,7 +124,7 @@ export default async function Main(props: {
 
         <RealTime tokenPayload={tokenPayload}>
           <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
-            <TaskBoard mode={UserRole.IU} workspace={workspace} token={token} />
+            <TaskBoard mode={UserRole.IU} token={token} />
             <ModalNewTaskForm
               handleCreateMultipleAttachments={async (attachments: CreateAttachmentRequest[]) => {
                 'use server'

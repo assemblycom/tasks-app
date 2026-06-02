@@ -39,6 +39,11 @@ export class SubtaskService extends BaseService {
     return level
   }
 
+  async getSubtaskStatus(id: string): Promise<{ count: number; canCreateSubtask: boolean }> {
+    const count = await this.getSubtaskCounts(id)
+    return { count, canCreateSubtask: count < 2 }
+  }
+
   async addSubtaskCount(id: string, increment: number = 1) {
     await this.db.task.update({
       where: { id, workspaceId: this.user.workspaceId },

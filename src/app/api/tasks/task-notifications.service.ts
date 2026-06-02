@@ -203,6 +203,25 @@ export class TaskNotificationsService extends BaseService {
       await this.handleTaskCompletionNotifications(prevTask, updatedTask)
     }
 
+    // Case 5b (OUT-3038)
+    // -- Shared tasks are IU-assigned and only an IU can complete them. When that happens, email the
+    //    client users the task is shared with (viewers): a single client, or every client in a company.
+    // -- assigneeId guard mirrors Case 5 and makes the IU-only invariant explicit; without it, an
+    //    edge-case shared task with no assignee would throw a swallowed ZodError on senderId parsing.
+    if (
+      prevTask?.workflowState?.type !== StateType.completed &&
+      updatedTask?.workflowState?.type === StateType.completed &&
+      updatedTask.isShared &&
+      updatedTask.assigneeId
+    ) {
+      const completedAssociations = getTaskAssociations(updatedTask)
+      if (completedAssociations) {
+        completedAssociations.clientId
+          ? await this.sendUserTaskCompletedSharedNotification(updatedTask)
+          : await this.sendCompanyTaskCompletedSharedNotification(updatedTask)
+      }
+    }
+
     // Case 6
     // -- Handle task moved from completed to incomplete IU logic
     const isSelfAssignedIU =
@@ -392,6 +411,31 @@ export class TaskNotificationsService extends BaseService {
       email: true,
       disableInProduct: true,
     })
+  }
+
+  // Email-only notification to a single client user a task is shared with, when an IU completes it.
+  private sendUserTaskCompletedSharedNotification = async (task: Task) => {
+    const notification = await this.notificationService.create(NotificationTaskActions.CompletedToSharedCU, task, {
+      disableInProduct: true,
+      disableEmail: false,
+    })
+    if (!notification) {
+      console.error('Completed-shared notification failed to trigger for task:', task)
+    }
+  }
+
+  // Email-only notification to every client user in a company a task is shared with, when an IU completes it.
+  private sendCompanyTaskCompletedSharedNotification = async (task: Task) => {
+    const { recipientIds } = await this.notificationService.getNotificationParties(
+      task,
+      NotificationTaskActions.CompletedToSharedCompany,
+    )
+    await this.notificationService.createBulkNotification(
+      NotificationTaskActions.CompletedToSharedCompany,
+      task,
+      recipientIds,
+      { email: true, disableInProduct: true },
+    )
   }
 
   private sendUserTaskNotification = async (task: Task, isReassigned = false) => {

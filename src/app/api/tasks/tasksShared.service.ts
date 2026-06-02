@@ -558,7 +558,8 @@ export abstract class TasksSharedService extends BaseService {
     await Promise.all(signedUrlPromises)
 
     for (const { originalSrc, newUrl } of replacements) {
-      htmlString = htmlString.replace(originalSrc, newUrl)
+      // replaces src in both (outer <div data-src="..."> + inner <attachment-view src="...">)
+      htmlString = htmlString.replaceAll(originalSrc, newUrl)
     }
     const filePaths = newFilePaths.map(({ newFilePath }) => newFilePath)
     await this.db.scrapMedia.updateMany({

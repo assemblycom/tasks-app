@@ -3,20 +3,22 @@
 import { Clickable, Icons } from '@/hooks/app-bridge/types'
 import { useActionsMenu } from '@/hooks/app-bridge/useActionsMenu'
 import { useAwake } from '@/hooks/app-bridge/useAwake'
-import { useBreadcrumbs } from '@/hooks/app-bridge/useBreadcrumbs'
 import { usePrimaryCta } from '@/hooks/app-bridge/usePrimaryCta'
+import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { setShowConfirmDeleteModal } from '@/redux/features/taskDetailsSlice'
 import { setCreateTemplateFields, setTargetTemplateId } from '@/redux/features/templateSlice'
 import store from '@/redux/store'
 import { ITemplate } from '@/types/interfaces'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
+import { useSelector } from 'react-redux'
 
 interface ManageTemplateDetailsAppBridgeProps {
-  portalUrl?: string
   template: ITemplate
 }
 
-export const ManageTemplateDetailsAppBridge = ({ portalUrl, template }: ManageTemplateDetailsAppBridgeProps) => {
+export const ManageTemplateDetailsAppBridge = ({ template }: ManageTemplateDetailsAppBridgeProps) => {
+  const { workspace } = useSelector(selectAuthDetails)
+  const portalUrl = workspace?.portalUrl
   const awake = useAwake()
 
   const handleDeleteTemplate = useCallback(() => {
