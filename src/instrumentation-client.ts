@@ -33,7 +33,9 @@ if (dsn) {
       //   }),
     ],
 
-    ignoreErrors: [/fetch failed/i, /failed to fetch/i],
+    // Safari reports aborted/failed fetches as "Load failed"; treat it like
+    // the existing browser/network fetch failures instead of alerting on it.
+    ignoreErrors: [/fetch failed/i, /failed to fetch/i, /load failed/i],
 
     beforeSend(event) {
       if (!isProd && event.type === undefined) {
