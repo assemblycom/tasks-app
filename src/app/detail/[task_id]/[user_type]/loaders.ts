@@ -15,7 +15,7 @@ export const loadTask = async (user: User, taskId: string): Promise<TaskResponse
     const task = await new TasksService(user).getOneTask(taskId)
     return toJsonSafe(task) as unknown as TaskResponse
   } catch (err) {
-    if (err instanceof APIError && [httpStatus.NOT_FOUND, httpStatus.UNAUTHORIZED].includes(err.status)) return null
+    if (err instanceof APIError && (err.status === httpStatus.NOT_FOUND || err.status === httpStatus.UNAUTHORIZED)) return null
     throw err
   }
 }
