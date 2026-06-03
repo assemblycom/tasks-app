@@ -86,7 +86,7 @@ describe('home page redirects', () => {
       'NEXT_REDIRECT_CLIENT_PORTAL',
     )
 
-    expect(mockRedirectIfTaskCta).toHaveBeenCalledWith({ token: 'client-token' }, 'client')
+    expect(mockRedirectIfTaskCta).toHaveBeenCalledWith({ token: 'client-token' }, 'cu')
     expect(mockRedirectToClientPortal).toHaveBeenCalledWith('client-token')
     expect(global.fetch).not.toHaveBeenCalled()
   })
