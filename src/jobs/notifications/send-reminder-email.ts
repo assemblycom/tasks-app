@@ -25,7 +25,7 @@ export const sendReminderEmail = async ({
   isCompanyRecipient,
   workspace,
   copilot,
-}: SendReminderEmailArgs): Promise<string> => {
+}: SendReminderEmailArgs): Promise<string | null> => {
   const details = getReminderEmailDetails(workspace, task, isCompanyRecipient)[reminderType]
 
   const payload: NotificationRequestBody = {
@@ -44,5 +44,5 @@ export const sendReminderEmail = async ({
   }
 
   const notification = await copilot.createNotification(payload)
-  return notification.id
+  return notification?.id ?? null
 }

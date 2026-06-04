@@ -244,6 +244,8 @@ export const NotificationCreatedResponseSchema = z.object({
   senderType: z.string().optional(),
 })
 export type NotificationCreatedResponse = z.infer<typeof NotificationCreatedResponseSchema>
+export const NotificationCreatedResponseOrNullSchema = NotificationCreatedResponseSchema.nullable()
+export type NotificationCreatedResponseOrNull = z.infer<typeof NotificationCreatedResponseOrNullSchema>
 
 export const UserSchema = z.object({
   token: z.string(),
