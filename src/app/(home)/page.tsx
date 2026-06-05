@@ -23,6 +23,7 @@ import { Suspense } from 'react'
 import { z } from 'zod'
 import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
+import { shouldRedirectToClientPortal } from '@/utils/portalRouting'
 
 export const maxDuration = 300
 
@@ -89,15 +90,15 @@ export default async function Main(props: {
   // Both clients and IUs can access this page so hardcoding a UserRole will not work
   redirectIfTaskCta(searchParams, userRole)
 
+  if (shouldRedirectToClientPortal(tokenPayload)) {
+    redirectToClientPortal(token)
+  }
+
   const viewSettings = await getViewSettings(token)
   const [workflowStates, tasks] = await Promise.all([
     getAllWorkflowStates(token),
     getAllTasks(token, { showArchived: viewSettings.showArchived, showUnarchived: viewSettings.showUnarchived }),
   ])
-
-  if (tokenPayload.companyId) {
-    redirectToClientPortal(token)
-  }
 
   console.info(`app/page.tsx | Serving user ${token} with payload`, tokenPayload)
 
