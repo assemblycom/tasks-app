@@ -80,7 +80,7 @@ describe('internalApi utils', () => {
 
   describe('assertOkResponse', () => {
     it('allows successful responses without reading the body', async () => {
-      await expect(assertOkResponse(new Response('', { status: 204 }), 'Delete task')).resolves.toBeUndefined()
+      await expect(assertOkResponse(new Response(null, { status: 204 }), 'Delete task')).resolves.toBeUndefined()
     })
 
     it('throws an actionable error for failed responses', async () => {
