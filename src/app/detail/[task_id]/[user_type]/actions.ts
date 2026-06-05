@@ -1,11 +1,16 @@
 'use server'
 
-import { advancedFeatureFlag, apiUrl } from '@/config'
 import { ScrapMediaRequest } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { CreateComment, UpdateComment } from '@/types/dto/comment.dto'
 import { UpdateTaskRequest, Associations } from '@/types/dto/tasks.dto'
+import { assertOkResponse, getInternalApiUrl, parseJsonResponse } from '@/utils/internalApi'
 import { getForwardedAssemblyHeaders } from '@/utils/serverHeaders'
+
+const jsonHeaders = async (): Promise<Record<string, string>> => ({
+  ...(await getForwardedAssemblyHeaders()),
+  'Content-Type': 'application/json',
+})
 
 export const updateTaskDetail = async ({
   token,
@@ -16,9 +21,9 @@ export const updateTaskDetail = async ({
   taskId: string
   payload: UpdateTaskRequest
 }) => {
-  await fetch(`${apiUrl}/api/tasks/${taskId}?token=${token}`, {
+  const response = await fetch(await getInternalApiUrl(`/api/tasks/${taskId}?token=${token}`), {
     method: 'PATCH',
-    headers: await getForwardedAssemblyHeaders(),
+    headers: await jsonHeaders(),
     body: JSON.stringify({
       workflowStateId: payload.workflowStateId,
       internalUserId: payload.internalUserId,
@@ -31,6 +36,7 @@ export const updateTaskDetail = async ({
       skipSubtaskCascade: payload.skipSubtaskCascade,
     }),
   })
+  await assertOkResponse(response, 'Update task detail')
 }
 
 /**
@@ -42,14 +48,15 @@ export const updateWorkflowStateIdOfTask = async (
   targetWorkflowStateId: string,
   skipSubtaskCascade?: boolean,
 ) => {
-  await fetch(`${apiUrl}/api/tasks/${taskId}?token=${token}`, {
+  const response = await fetch(await getInternalApiUrl(`/api/tasks/${taskId}?token=${token}`), {
     method: 'PATCH',
-    headers: await getForwardedAssemblyHeaders(),
+    headers: await jsonHeaders(),
     body: JSON.stringify({
       workflowStateId: targetWorkflowStateId,
       skipSubtaskCascade,
     }),
   })
+  await assertOkResponse(response, 'Update task workflow state')
 }
 
 export const updateAssignee = async (
@@ -61,9 +68,9 @@ export const updateAssignee = async (
   associations?: Associations,
   isShared?: boolean,
 ) => {
-  await fetch(`${apiUrl}/api/tasks/${task_id}?token=${token}`, {
+  const response = await fetch(await getInternalApiUrl(`/api/tasks/${task_id}?token=${token}`), {
     method: 'PATCH',
-    headers: await getForwardedAssemblyHeaders(),
+    headers: await jsonHeaders(),
     body: JSON.stringify({
       internalUserId,
       clientId,
@@ -72,6 +79,7 @@ export const updateAssignee = async (
       isShared: isShared ?? undefined,
     }),
   })
+  await assertOkResponse(response, 'Update task assignee')
 }
 
 export const clientUpdateTask = async (
@@ -81,59 +89,74 @@ export const clientUpdateTask = async (
   skipSubtaskCascade?: boolean,
 ) => {
   const skipParam = skipSubtaskCascade ? '&skipSubtaskCascade=true' : ''
-  await fetch(`${apiUrl}/api/tasks/${taskId}/client?token=${token}&workflowStateId=${targetWorkflowStateId}${skipParam}`, {
-    method: 'PATCH',
-    headers: await getForwardedAssemblyHeaders(),
-  })
+  const response = await fetch(
+    await getInternalApiUrl(
+      `/api/tasks/${taskId}/client?token=${token}&workflowStateId=${targetWorkflowStateId}${skipParam}`,
+    ),
+    {
+      method: 'PATCH',
+      headers: await getForwardedAssemblyHeaders(),
+    },
+  )
+  await assertOkResponse(response, 'Update client task workflow state')
 }
 
 export const deleteTask = async (token: string, task_id: string) => {
-  await fetch(`${apiUrl}/api/tasks/${task_id}?token=${token}`, {
+  const response = await fetch(await getInternalApiUrl(`/api/tasks/${task_id}?token=${token}`), {
     method: 'DELETE',
     headers: await getForwardedAssemblyHeaders(),
   })
+  await assertOkResponse(response, 'Delete task')
 }
 
 export const postAttachment = async (token: string, payload: CreateAttachmentRequest) => {
-  await fetch(`${apiUrl}/api/attachments?token=${token}`, {
+  const response = await fetch(await getInternalApiUrl(`/api/attachments?token=${token}`), {
     method: 'POST',
+    headers: await jsonHeaders(),
     body: JSON.stringify(payload),
   })
+  await assertOkResponse(response, 'Create attachment')
 }
 
 export const deleteAttachment = async (token: string, id: string) => {
-  await fetch(`${apiUrl}/api/attachments/${id}/?token=${token}`, {
+  const response = await fetch(await getInternalApiUrl(`/api/attachments/${id}/?token=${token}`), {
     method: 'DELETE',
   })
+  await assertOkResponse(response, 'Delete attachment')
 }
 
 export const postComment = async (token: string, payload: CreateComment) => {
-  const res = await fetch(`${apiUrl}/api/comments?token=${token}`, {
+  const res = await fetch(await getInternalApiUrl(`/api/comments?token=${token}`), {
     method: 'POST',
+    headers: await jsonHeaders(),
     body: JSON.stringify(payload),
   })
-  const data = await res.json()
+  const data = await parseJsonResponse<{ comment: unknown }>(res, 'Create comment')
   return data.comment
 }
 
 export const updateComment = async (token: string, id: string, payload: UpdateComment) => {
-  const res = await fetch(`${apiUrl}/api/comments/${id}?token=${token}`, {
+  const res = await fetch(await getInternalApiUrl(`/api/comments/${id}?token=${token}`), {
     method: 'PATCH',
+    headers: await jsonHeaders(),
     body: JSON.stringify(payload),
   })
-  const data = await res.json()
+  const data = await parseJsonResponse<{ comment: unknown }>(res, 'Update comment')
   return data.comment
 }
 
 export const deleteComment = async (token: string, id: string) => {
-  await fetch(`${apiUrl}/api/comments/${id}?token=${token}`, {
+  const response = await fetch(await getInternalApiUrl(`/api/comments/${id}?token=${token}`), {
     method: 'DELETE',
   })
+  await assertOkResponse(response, 'Delete comment')
 }
 
 export const postScrapMedia = async (token: string, payload: ScrapMediaRequest) => {
-  await fetch(`${apiUrl}/api/scrap-medias/?token=${token}`, {
+  const response = await fetch(await getInternalApiUrl(`/api/scrap-medias/?token=${token}`), {
     method: 'POST',
+    headers: await jsonHeaders(),
     body: JSON.stringify(payload),
   })
+  await assertOkResponse(response, 'Create scrap media')
 }
