@@ -7,6 +7,8 @@ import { UpdateTaskRequest, Associations } from '@/types/dto/tasks.dto'
 import { assertOkResponse, getInternalApiUrl, parseJsonResponse } from '@/utils/internalApi'
 import { getForwardedAssemblyHeaders } from '@/utils/serverHeaders'
 
+type ActionComment = { id: string }
+
 const jsonHeaders = async (): Promise<Record<string, string>> => ({
   ...(await getForwardedAssemblyHeaders()),
   'Content-Type': 'application/json',
@@ -131,7 +133,7 @@ export const postComment = async (token: string, payload: CreateComment) => {
     headers: await jsonHeaders(),
     body: JSON.stringify(payload),
   })
-  const data = await parseJsonResponse<{ comment: unknown }>(res, 'Create comment')
+  const data = await parseJsonResponse<{ comment: ActionComment }>(res, 'Create comment')
   return data.comment
 }
 
@@ -141,7 +143,7 @@ export const updateComment = async (token: string, id: string, payload: UpdateCo
     headers: await jsonHeaders(),
     body: JSON.stringify(payload),
   })
-  const data = await parseJsonResponse<{ comment: unknown }>(res, 'Update comment')
+  const data = await parseJsonResponse<{ comment: ActionComment }>(res, 'Update comment')
   return data.comment
 }
 
