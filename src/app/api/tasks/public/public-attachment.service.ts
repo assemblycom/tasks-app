@@ -7,7 +7,6 @@ import { generateRandomString } from '@/utils/generateRandomString'
 import { getSignedUrl, getUnsignedUrl } from '@/utils/signUrl'
 import { sanitizeFileName } from '@/utils/sanitizeFileName'
 import { SupabaseActions } from '@/utils/SupabaseActions'
-import { JSDOM } from 'jsdom'
 import httpStatus from 'http-status'
 
 const DOWNLOAD_TIMEOUT_MS = 8_000
@@ -17,6 +16,10 @@ const FALLBACK_MIME_TYPE = 'application/octet-stream'
 // only allow max of 2 attachment for task creation via public api
 const MAX_PUBLIC_ATTACHMENT_MARKERS = 2
 
+// Outer regex finds each `<public-attachment ...>` and their attributes
+const MARKER_RE = /<public-attachment\b([^>]*?)\/?\s*>(\s*<\/public-attachment\s*>)?/gi
+const ATTR_RE = /\b([a-zA-Z][a-zA-Z0-9-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g
+
 interface UploadedAttachment {
   downloadUrl: string
   fileName: string
@@ -24,63 +27,58 @@ interface UploadedAttachment {
   fileSize: number
 }
 
-/**
- * Builds the attachment DOM node the task editor recognizes. Attribute escaping is handled by
- * `setAttribute` + serialization, so raw values are safe to pass in.
- */
-const createAttachmentNode = (document: Document, attachment: UploadedAttachment): Element => {
+const escapeAttr = (value: string): string =>
+  value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+const buildMarkup = (attachment: UploadedAttachment): string => {
+  const url = escapeAttr(attachment.downloadUrl)
+  const safeFileName = escapeAttr(attachment.fileName)
   if (attachment.mimeType.toLowerCase().startsWith('image/')) {
-    const img = document.createElement('img')
-    img.setAttribute('alt', attachment.fileName)
-    img.setAttribute('src', attachment.downloadUrl)
-    return img
+    return `<img alt="${safeFileName}" src="${url}" />`
   }
   // Keep `data-src` the only src-suffixed attribute: the post-create sweep grabs the last
   // `src="..."` in the tag, and `data-src` is what it must capture to promote the file.
-  const div = document.createElement('div')
-  div.setAttribute('data-type', 'attachment')
-  div.setAttribute('data-src', attachment.downloadUrl)
-  div.setAttribute('data-filename', attachment.fileName)
-  div.setAttribute('data-filetype', attachment.mimeType)
-  div.setAttribute('data-filesize', String(attachment.fileSize))
-  div.setAttribute('data-loading', 'false')
-  return div
+  return (
+    `<div data-type="attachment" data-src="${url}" data-filename="${safeFileName}"` +
+    ` data-filetype="${escapeAttr(attachment.mimeType)}" data-filesize="${attachment.fileSize}" data-loading="false"></div>`
+  )
+}
+
+const parseAttrs = (attrString: string): Record<string, string> => {
+  const attrs: Record<string, string> = {}
+  for (const match of attrString.matchAll(ATTR_RE)) {
+    attrs[match[1].toLowerCase()] = match[2] ?? match[3] ?? ''
+  }
+  return attrs
 }
 
 /** Expands `<public-attachment>` markers in the public task-create body into real attachments. */
 export class PublicTaskAttachmentService extends BaseService {
   async expandPublicAttachmentMarkers(body: string | undefined): Promise<string | undefined> {
     if (!body) return body
+    const matches = [...body.matchAll(MARKER_RE)]
+    if (!matches.length) {
+      console.info('No public attachments found.')
+      return body
+    }
 
-    // Parse as a DOM rather than regex over the raw string. `<public-attachment>` is a custom
-    // element, NOT a void element, so a `<.../>` marker is parsed as an open tag whose following
-    // siblings become its children — the same way the editor parses it. Operating on the DOM lets
-    // us read attributes reliably and hoist any mis-nested content back out when we swap the node.
-    const dom = new JSDOM(body)
-    const { document } = dom.window
-    const markerEls = Array.from(document.querySelectorAll('public-attachment'))
-    if (!markerEls.length) return body
-
-    if (markerEls.length > MAX_PUBLIC_ATTACHMENT_MARKERS) {
+    if (matches.length > MAX_PUBLIC_ATTACHMENT_MARKERS) {
       throw new APIError(
         httpStatus.UNPROCESSABLE_ENTITY,
-        `Too many <public-attachment> markers in description: received ${markerEls.length}, maximum is ${MAX_PUBLIC_ATTACHMENT_MARKERS} per task.`,
+        `Too many <public-attachment> markers in description: received ${matches.length}, maximum is ${MAX_PUBLIC_ATTACHMENT_MARKERS} per task.`,
       )
     }
 
-    const markers = markerEls.map((el, idx) => {
-      const src = el.getAttribute('data-src')
+    const markers = matches.map((match, idx) => {
+      const attrs = parseAttrs(match[1] ?? '')
+      const src = attrs['data-src']
       if (!src) {
         throw new APIError(
           httpStatus.UNPROCESSABLE_ENTITY,
           `<public-attachment> marker at position ${idx + 1} is missing the required data-src attribute. Each marker must declare the URL to download, e.g. <public-attachment data-src="https://..." />`,
         )
       }
-      return {
-        src,
-        fileName: el.getAttribute('data-filename') || undefined,
-        fileType: el.getAttribute('data-filetype') || undefined,
-      }
+      return { src, fileName: attrs['data-filename'] || undefined, fileType: attrs['data-filetype'] || undefined }
     })
 
     // Parallel downloads — sequential would risk tripping the route's Sentry exec-time cap.
@@ -90,14 +88,10 @@ export class PublicTaskAttachmentService extends BaseService {
       ),
     )
 
-    markerEls.forEach((el, i) => {
-      const attachmentNode = createAttachmentNode(document, uploaded[i])
-      // Replace the marker with the attachment node, preserving any content the parser mis-nested
-      // inside the (non-void) marker by re-emitting those children as following siblings.
-      el.replaceWith(attachmentNode, ...Array.from(el.childNodes))
-    })
+    console.info('Attachments uploaded.')
 
-    return document.body.innerHTML
+    let i = 0
+    return body.replace(MARKER_RE, () => buildMarkup(uploaded[i++]))
   }
 
   /**
