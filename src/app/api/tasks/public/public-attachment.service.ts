@@ -57,7 +57,10 @@ export class PublicTaskAttachmentService extends BaseService {
   async expandPublicAttachmentMarkers(body: string | undefined): Promise<string | undefined> {
     if (!body) return body
     const matches = [...body.matchAll(MARKER_RE)]
-    if (!matches.length) return body
+    if (!matches.length) {
+      console.info('No public attachments found.')
+      return body
+    }
 
     if (matches.length > MAX_PUBLIC_ATTACHMENT_MARKERS) {
       throw new APIError(
@@ -84,6 +87,8 @@ export class PublicTaskAttachmentService extends BaseService {
         this.uploadFromUrl({ externalUrl: src, overrideFileName: fileName, overrideMimeType: fileType }),
       ),
     )
+
+    console.info('Attachments uploaded.')
 
     let i = 0
     return body.replace(MARKER_RE, () => buildMarkup(uploaded[i++]))
@@ -120,6 +125,8 @@ export class PublicTaskAttachmentService extends BaseService {
 
     const uploaded = await this.stageFile(file)
     const downloadUrl = (await getSignedUrl(uploaded.filePath)) ?? getUnsignedUrl(uploaded.filePath)
+
+    console.info(`Attachments uploaded. ${fileName}`, uploaded.filePath)
     return {
       filePath: uploaded.filePath,
       fileName: sanitizeFileName(uploaded.fileName),
