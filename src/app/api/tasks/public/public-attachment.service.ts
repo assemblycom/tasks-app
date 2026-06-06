@@ -125,6 +125,8 @@ export class PublicTaskAttachmentService extends BaseService {
 
     const uploaded = await this.stageFile(file)
     const downloadUrl = (await getSignedUrl(uploaded.filePath)) ?? getUnsignedUrl(uploaded.filePath)
+
+    console.info(`Attachments uploaded. ${fileName}`, uploaded.filePath)
     return {
       filePath: uploaded.filePath,
       fileName: sanitizeFileName(uploaded.fileName),
