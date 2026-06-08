@@ -203,22 +203,15 @@ export class PublicTasksService extends TasksSharedService {
     console.info('PublicTasksService#createTask | Task created with ID:', newTask.id)
 
     if (newTask) {
+      // Add activity logs
+      const activityLogger = new TasksActivityLogger(this.user, newTask)
+      await activityLogger.logNewTask({
+        userId: createdById,
+        role: AssigneeType.internalUser,
+      }) //hardcoding internalUser as role since task can only be created by IUs.
+      console.info('TasksService#createTask | Activity log created for new task ID:', newTask.id)
+
       try {
-        // Set the ltree path FIRST — immediately after create, before any other awaited work.
-        // The task row is already committed and queryable here, so any gap before the path is
-        // set is a window where a concurrent detail-page load reads a NULL-path row and 500s in
-        // SubtaskService#getSubtaskCounts. Doing this first (ahead of the activity-log write and
-        // the slow attachment rewrite) shrinks that window to back-to-back queries.
-        await this.addPathToTask(newTask)
-
-        // Add activity logs
-        const activityLogger = new TasksActivityLogger(this.user, newTask)
-        await activityLogger.logNewTask({
-          userId: createdById,
-          role: AssigneeType.internalUser,
-        }) //hardcoding internalUser as role since task can only be created by IUs.
-        console.info('TasksService#createTask | Activity log created for new task ID:', newTask.id)
-
         if (newTask.body) {
           const newBody = await this.updateTaskIdOfAttachmentsAfterCreation(newTask.body, newTask.id)
           await this.db.task.update({
@@ -230,6 +223,9 @@ export class PublicTasksService extends TasksSharedService {
           newTask.body = newBody
           console.info('TasksService#createTask | Task body attachments updated for task ID:', newTask.id)
         }
+
+        // Add ltree path for task
+        await this.addPathToTask(newTask)
 
         // Increment parent task's subtask count, if exists
         if (newTask.parentId) {
