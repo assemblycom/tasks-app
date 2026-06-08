@@ -44,6 +44,7 @@ export class SubtaskService extends BaseService {
       return level
     }
 
+    // 2 means it is a subtask and 1 means a parent task
     return parentId ? 2 : 1
   }
 
