@@ -71,7 +71,6 @@ export const createTaskPublic = async (req: NextRequest) => {
   console.info('Parsed public task creation data:', data)
 
   data.description = await new PublicTaskAttachmentService(user).expandPublicAttachmentMarkers(data.description)
-  console.info('Public attachment checked.')
 
   const createPayload = await PublicTaskSerializer.deserializeCreatePayload(data, user.workspaceId)
   console.info('Deserialized create payload:', createPayload)
