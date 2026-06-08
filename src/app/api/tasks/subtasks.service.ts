@@ -28,7 +28,7 @@ export class SubtaskService extends BaseService {
   async getSubtaskCounts(id: string): Promise<number> {
     const taskId = z.string().uuid().parse(id)
     const data = (
-      await this.db.$queryRaw<{ level: number; parentId?: string }[] | null>`
+      await this.db.$queryRaw<{ level: number | null; parentId: string | null }[]>`
       SELECT "parentId"::uuid, nlevel("path") as level FROM "Tasks"
       WHERE id = ${taskId}::uuid AND "workspaceId" = ${this.user.workspaceId}
     `
