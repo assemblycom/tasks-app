@@ -721,6 +721,8 @@ export class TasksService extends TasksSharedService {
 
     const parentIds = getIdsFromLtreePath(taskWithPath.path)
 
+    console.warn({ parentIds })
+
     const fetchedParents = (await this.db.task.findMany({
       where: {
         id: {
