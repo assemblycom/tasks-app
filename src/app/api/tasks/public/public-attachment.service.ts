@@ -57,10 +57,7 @@ export class PublicTaskAttachmentService extends BaseService {
   async expandPublicAttachmentMarkers(body: string | undefined): Promise<string | undefined> {
     if (!body) return body
     const matches = [...body.matchAll(MARKER_RE)]
-    if (!matches.length) {
-      console.info('No public attachments found.')
-      return body
-    }
+    if (!matches.length) return body
 
     if (matches.length > MAX_PUBLIC_ATTACHMENT_MARKERS) {
       throw new APIError(
