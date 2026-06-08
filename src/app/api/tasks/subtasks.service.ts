@@ -29,10 +29,11 @@ export class SubtaskService extends BaseService {
     const taskId = z.string().uuid().parse(id)
     const data = (
       await this.db.$queryRaw<{ level: number; parentId?: string }[] | null>`
-      SELECT parentId, nlevel("path") as level FROM "Tasks"
+      SELECT "parentId"::uuid, nlevel("path") as level FROM "Tasks"
       WHERE id = ${taskId}::uuid AND "workspaceId" = ${this.user.workspaceId}
     `
     )?.[0]
+
     if (!data) {
       throw new APIError(httpStatus.NOT_FOUND, 'Unable to get the task data while querying subtasks count.')
     }
