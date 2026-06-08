@@ -214,13 +214,13 @@ export class PublicTasksService extends TasksSharedService {
       try {
         if (newTask.body) {
           const newBody = await this.updateTaskIdOfAttachmentsAfterCreation(newTask.body, newTask.id)
-          // Update task body with replaced attachment sources
           await this.db.task.update({
             where: { id: newTask.id },
-            data: {
-              body: newBody,
-            },
+            data: { body: newBody },
           })
+          // Refresh the in-memory body so the immediate response + webhook payload carry the
+          // rewritten task-scoped URLs (the original `newTask.body` still holds workspace-root URLs).
+          newTask.body = newBody
           console.info('TasksService#createTask | Task body attachments updated for task ID:', newTask.id)
         }
 

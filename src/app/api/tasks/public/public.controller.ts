@@ -10,6 +10,7 @@ import { decode, encode } from 'js-base64'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { PublicTasksService } from '@api/tasks/public/public.service'
+import { PublicTaskAttachmentService } from '@api/tasks/public/public-attachment.service'
 import { ValidateUuid } from '@api/core/utils/validateUuid'
 import { PublicResource } from '@api/core/types/public'
 
@@ -68,6 +69,8 @@ export const createTaskPublic = async (req: NextRequest) => {
   console.info('Authenticated public user:', user)
   const data = await publicTaskCreateDtoSchemaFactory(user.token).parseAsync(await req.json())
   console.info('Parsed public task creation data:', data)
+
+  data.description = await new PublicTaskAttachmentService(user).expandPublicAttachmentMarkers(data.description)
 
   const createPayload = await PublicTaskSerializer.deserializeCreatePayload(data, user.workspaceId)
   console.info('Deserialized create payload:', createPayload)
