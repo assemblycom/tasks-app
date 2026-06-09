@@ -27,16 +27,25 @@ interface Assignable {
 export class SubtaskService extends BaseService {
   async getSubtaskCounts(id: string): Promise<number> {
     const taskId = z.string().uuid().parse(id)
-    const level = (
-      await this.db.$queryRaw<{ level: number }[] | null>`
-      SELECT nlevel("path") as level FROM "Tasks"
+    const data = (
+      await this.db.$queryRaw<{ level: number | null; parentId: string | null }[]>`
+      SELECT "parentId"::uuid, nlevel("path") as level FROM "Tasks"
       WHERE id = ${taskId}::uuid AND "workspaceId" = ${this.user.workspaceId}
     `
-    )?.[0]?.level
-    if (!level) {
-      throw new APIError(httpStatus.INTERNAL_SERVER_ERROR, 'Path for task was not set')
+    )?.[0]
+
+    if (!data) {
+      throw new APIError(httpStatus.NOT_FOUND, 'Unable to get the task data while querying subtasks count.')
     }
-    return level
+
+    const { level, parentId } = data
+
+    if (level) {
+      return level
+    }
+
+    // 2 means it is a subtask and 1 means a parent task
+    return parentId ? 2 : 1
   }
 
   async getSubtaskStatus(id: string): Promise<{ count: number; canCreateSubtask: boolean }> {
