@@ -125,7 +125,7 @@ sequenceDiagram
 
 ## Why staging + ScrapMedia?
 
-Files are first uploaded to a **workspace-root path** (`/{workspaceId}/`) — the same location the in-app
+Files are first uploaded to a **workspace-root path** (`/{workspaceId}`) — the same location the in-app
 editor uses before a task is saved — and tracked with a **ScrapMedia** row. This gives two guarantees:
 
 1. **No leaks**: if the task is never created (or the upload is orphaned), a cron job reaps the staged file.
