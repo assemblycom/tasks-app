@@ -2,9 +2,11 @@ import type { Event } from '@sentry/nextjs'
 
 import { shouldDropClientSentryEvent } from './sentryClientFilters'
 
-const eventWithException = (
-  exception: NonNullable<Event['exception']>['values'][number],
-): Event => ({
+type SentryException = NonNullable<
+  NonNullable<Event['exception']>['values']
+>[number]
+
+const eventWithException = (exception: SentryException): Event => ({
   exception: {
     values: [exception],
   },
