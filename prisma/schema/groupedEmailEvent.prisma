@@ -29,7 +29,6 @@ model GroupedEmailEvent {
   sentAt  DateTime?
 
   @@unique([windowKey, eventType, taskId, commentId])
-  @@index([windowKey])
   @@index([workspaceId, sentAt])
   @@map("GroupedEmailEvents")
 }

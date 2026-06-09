@@ -21,10 +21,7 @@ CREATE TABLE "GroupedEmailEvents" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "GroupedEmailEvents_windowKey_eventType_taskId_commentId_key" ON "GroupedEmailEvents"("windowKey", "eventType", "taskId", "commentId");
-
--- CreateIndex
-CREATE INDEX "GroupedEmailEvents_windowKey_idx" ON "GroupedEmailEvents"("windowKey");
+CREATE UNIQUE INDEX "GroupedEmailEvents_windowKey_eventType_taskId_commentId_key" ON "GroupedEmailEvents"("windowKey", "eventType", "taskId", "commentId") NULLS NOT DISTINCT;
 
 -- CreateIndex
 CREATE INDEX "GroupedEmailEvents_workspaceId_sentAt_idx" ON "GroupedEmailEvents"("workspaceId", "sentAt");
