@@ -1,0 +1,35 @@
+enum GroupedEmailEventType {
+  ASSIGNED
+  SHARED
+  COMMENT
+  COMPLETED
+}
+
+/// Buffers task notification events per recipient during the 5-minute grouping window and
+/// doubles as the idempotency ledger for the flushGroupedEmail dispatcher.
+
+model GroupedEmailEvent {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String @db.VarChar(32)
+
+  recipientClientId  String? @db.Uuid
+  recipientCompanyId String? @db.Uuid
+  recipientIuId      String? @db.Uuid
+
+  eventType         GroupedEmailEventType
+  task              Task                  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId            String                @db.Uuid
+  taskTitleSnapshot String                @db.VarChar(255)
+  commentId         String?               @db.Uuid
+
+  windowKey String
+  createdAt DateTime @default(now())
+
+  batchId String?   @db.Uuid
+  sentAt  DateTime?
+
+  @@unique([windowKey, eventType, taskId, commentId])
+  @@index([windowKey])
+  @@index([workspaceId, sentAt])
+  @@map("GroupedEmailEvents")
+}
