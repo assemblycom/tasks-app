@@ -708,7 +708,7 @@ export class TasksService extends TasksSharedService {
 
   async getTraversalPath(id: string): Promise<AncestorTaskResponse[]> {
     const taskWithPath = (
-      await this.db.$queryRaw<{ path: string }[]>`
+      await this.db.$queryRaw<{ path: string | null }[]>`
       SELECT "path" from "Tasks"
       WHERE id = ${id}::uuid
       LIMIT 1
@@ -719,7 +719,11 @@ export class TasksService extends TasksSharedService {
       throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
     }
 
-    const parentIds = getIdsFromLtreePath(taskWithPath.path)
+    const parentIds = getIdsFromLtreePath(taskWithPath.path || '')
+
+    if (!parentIds) {
+      return []
+    }
 
     const fetchedParents = (await this.db.task.findMany({
       where: {

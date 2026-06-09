@@ -7,7 +7,7 @@ export const buildLtreeNodeString = (str: string) => {
 }
 
 export const getIdsFromLtreePath = (path: string): string[] =>
-  path
+  (path || '')
     .replaceAll('_', '-')
     .split('.')
     .filter((id) => !!id)
