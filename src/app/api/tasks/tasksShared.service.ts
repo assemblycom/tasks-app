@@ -18,6 +18,7 @@ import { SupabaseActions } from '@/utils/SupabaseActions'
 import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { UserRole } from '@api/core/types/user'
+import { getTaskPath } from '@api/tasks/taskPath.utils'
 import { AssigneeType, Prisma, PrismaClient, StateType, Task, TaskTemplate } from '@prisma/client'
 import httpStatus from 'http-status'
 import z from 'zod'
@@ -420,23 +421,13 @@ export abstract class TasksSharedService extends BaseService {
 
   protected async canCreateSubTask(taskId: string): Promise<boolean> {
     const parentPath = await this.getPathOfTask(taskId)
-    if (!parentPath) {
-      throw new APIError(httpStatus.NOT_FOUND, 'The requested parent task was not found')
-    }
     const uuidLength = parentPath.split('.').length
     if (!uuidLength) return true
     return uuidLength <= maxSubTaskDepth
   }
 
   private async getPathOfTask(id: string) {
-    return (
-      await this.db.$queryRaw<{ path: string }[] | null>`
-          SELECT "path"
-          FROM "Tasks"
-          WHERE id::text = ${id}
-            AND "workspaceId" = ${this.user.workspaceId}
-        `
-    )?.[0]?.path
+    return getTaskPath(this.db, id, this.user.workspaceId)
   }
 
   protected async getCompletionInfo(targetWorkflowStateId?: string | null): Promise<{

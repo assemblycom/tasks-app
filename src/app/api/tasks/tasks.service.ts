@@ -12,7 +12,6 @@ import {
 import { DISPATCHABLE_EVENT } from '@/types/webhook'
 import { UserIdsType } from '@/utils/assignee'
 import { isPastDateString } from '@/utils/dateHelper'
-import { getIdsFromLtreePath } from '@/utils/ltree'
 import { replaceImageSrc } from '@/utils/signedUrlReplacer'
 import { getSignedUrl } from '@/utils/signUrl'
 import APIError from '@api/core/exceptions/api'
@@ -22,6 +21,7 @@ import { UserAction, UserRole } from '@api/core/types/user'
 import { LabelMappingService } from '@api/label-mapping/label-mapping.service'
 import { PublicTaskSerializer } from '@api/tasks/public/public.serializer'
 import { SubtaskCascadePair, SubtaskService } from '@api/tasks/subtasks.service'
+import { getTaskPathIds } from '@api/tasks/taskPath.utils'
 import { dispatchUpdatedWebhookEvent, getArchivedStatus, getTaskTimestamps } from '@api/tasks/tasks.helpers'
 import { TasksActivityLogger } from '@api/tasks/tasks.logger'
 import { TasksSharedService } from '@/app/api/tasks/tasksShared.service'
@@ -707,19 +707,7 @@ export class TasksService extends TasksSharedService {
   }
 
   async getTraversalPath(id: string): Promise<AncestorTaskResponse[]> {
-    const taskWithPath = (
-      await this.db.$queryRaw<{ path: string }[]>`
-      SELECT "path" from "Tasks"
-      WHERE id = ${id}::uuid
-      LIMIT 1
-    `
-    )?.[0]
-
-    if (!taskWithPath) {
-      throw new APIError(httpStatus.NOT_FOUND, 'The requested task was not found')
-    }
-
-    const parentIds = getIdsFromLtreePath(taskWithPath.path)
+    const parentIds = await getTaskPathIds(this.db, id, this.user.workspaceId)
 
     const fetchedParents = (await this.db.task.findMany({
       where: {

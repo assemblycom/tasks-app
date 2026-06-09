@@ -6,6 +6,7 @@ import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { UserRole } from '@api/core/types/user'
 import { TaskWithWorkflowStateAndAttachments } from '@api/tasks/public/public.serializer'
+import { getTaskPathIds } from '@api/tasks/taskPath.utils'
 import { AssigneeType, Prisma, StateType, Task, WorkflowState } from '@prisma/client'
 import { JsonValue } from '@prisma/client/runtime/library'
 import httpStatus from 'http-status'
@@ -27,25 +28,7 @@ interface Assignable {
 export class SubtaskService extends BaseService {
   async getSubtaskCounts(id: string): Promise<number> {
     const taskId = z.string().uuid().parse(id)
-    const data = (
-      await this.db.$queryRaw<{ level: number | null; parentId: string | null }[]>`
-      SELECT "parentId"::uuid, nlevel("path") as level FROM "Tasks"
-      WHERE id = ${taskId}::uuid AND "workspaceId" = ${this.user.workspaceId}
-    `
-    )?.[0]
-
-    if (!data) {
-      throw new APIError(httpStatus.NOT_FOUND, 'Unable to get the task data while querying subtasks count.')
-    }
-
-    const { level, parentId } = data
-
-    if (level) {
-      return level
-    }
-
-    // 2 means it is a subtask and 1 means a parent task
-    return parentId ? 2 : 1
+    return (await getTaskPathIds(this.db, taskId, this.user.workspaceId)).length
   }
 
   async getSubtaskStatus(id: string): Promise<{ count: number; canCreateSubtask: boolean }> {
