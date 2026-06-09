@@ -140,8 +140,8 @@ export class PublicTaskSerializer {
         body,
         workflowStateId,
       )
-      title = resolveDynamicFields(updated.title)
-      body = resolveAutofillTags(updated.body)
+      title = resolveDynamicFields(updated.title, payload.customVariables)
+      body = resolveDynamicFields(resolveAutofillTags(updated.body), payload.customVariables)
       workflowStateId = updated.workflowStateId
     }
 

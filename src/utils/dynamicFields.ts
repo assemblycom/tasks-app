@@ -62,14 +62,17 @@ export function getWorstCaseResolvedLength(text: string): number {
 
 /**
  * Resolves all dynamic field tokens in a string.
- * Tokens are in the format {{fieldKey}}, e.g. {{Current Month}}, {{Current Year}}
+ * Tokens are in the format {{fieldKey}}, e.g. {{Current Month}}, {{Current Year}}.
+ * Built-in date fields take precedence; any remaining token is resolved against
+ * the caller-supplied customVariables map (e.g. {{hotelName}}), if provided.
  */
-export function resolveDynamicFields(text: string): string {
+export function resolveDynamicFields(text: string, customVariables?: Record<string, string>): string {
   const now = dayjs()
   return text.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
     const field = DYNAMIC_FIELDS.find((f) => f.key === key)
-    if (!field) return match
-    return resolveDynamicField(field.key, now)
+    if (field) return resolveDynamicField(field.key, now)
+    const custom = customVariables?.[key.trim()]
+    return custom !== undefined ? custom : match
   })
 }
 

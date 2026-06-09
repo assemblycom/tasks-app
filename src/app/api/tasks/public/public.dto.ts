@@ -83,6 +83,7 @@ export const publicTaskCreateDtoSchemaFactory = (token: string) => {
       status: StatusSchema.optional(),
       dueDate: RFC3339DateSchema.optional(),
       templateId: z.string().uuid().nullish(),
+      customVariables: z.record(z.string(), z.string()).optional(),
       createdBy: z.string().uuid().optional(),
       internalUserId: z.string().uuid().optional(),
       clientId: z.string().uuid().optional(),
