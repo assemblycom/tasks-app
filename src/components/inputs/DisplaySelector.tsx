@@ -14,6 +14,8 @@ interface DisplaySelectorProps {
   displayOptions: DisplayOptions
   handleDisplayOptionsChange: (displayOptions: DisplayOptions) => void
   mobileView?: boolean
+  lockViewMode?: boolean
+  lockShowSubtasks?: boolean
 }
 
 export const DisplaySelector = ({
@@ -22,6 +24,8 @@ export const DisplaySelector = ({
   displayOptions,
   handleDisplayOptionsChange,
   mobileView,
+  lockViewMode,
+  lockShowSubtasks,
 }: DisplaySelectorProps) => {
   const [anchorEl, setAnchorEl] = useState<null | Element>(null)
   const open = Boolean(anchorEl)
@@ -97,6 +101,8 @@ export const DisplaySelector = ({
             alignItems: 'flex-start',
             alignSelf: 'stretch',
             paddingBottom: '8px',
+            opacity: lockViewMode ? 0.5 : 1,
+            pointerEvents: lockViewMode ? 'none' : 'auto',
           }}
         >
           <IconContainer
@@ -140,6 +146,7 @@ export const DisplaySelector = ({
           <Typography variant="bodyMd"> Show subtasks</Typography>
           <StyledSwitch
             checked={displayOptions.showSubtasks}
+            disabled={lockShowSubtasks}
             onChange={(e) =>
               handleDisplayOptionsChange({
                 ...displayOptions,

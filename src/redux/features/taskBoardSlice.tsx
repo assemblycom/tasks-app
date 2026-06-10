@@ -1,7 +1,7 @@
 import { RootState } from '@/redux/store'
 import { PreviewClientCompanyType, PreviewMode, UrlActionParamsType } from '@/types/common'
 import { TaskResponse } from '@/types/dto/tasks.dto'
-import { CreateViewSettingsDTO, FilterOptionsType } from '@/types/dto/viewSettings.dto'
+import { ClientViewLocks, CreateViewSettingsDTO, FilterOptionsType } from '@/types/dto/viewSettings.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { FilterByOptions, FilterOptions, IAssigneeCombined, IFilterOptions, UserIds } from '@/types/interfaces'
 import { emptyAssignee, UserIdsType } from '@/utils/assignee'
@@ -21,6 +21,7 @@ interface IInitialState {
   showUnarchived: boolean | undefined
   showSubtasks: boolean | undefined
   viewSettingsTemp: CreateViewSettingsDTO | undefined
+  clientViewLocks: ClientViewLocks
   isTasksLoading: boolean
   activeTask: TaskResponse | undefined
   previewMode: PreviewMode
@@ -53,6 +54,7 @@ const initialState: IInitialState = {
   showUnarchived: undefined,
   showSubtasks: undefined,
   viewSettingsTemp: undefined,
+  clientViewLocks: { viewMode: false, showSubtasks: false },
   // Use this state as a global loading flag for tasks
   isTasksLoading: true,
   activeTask: undefined,
@@ -153,6 +155,10 @@ const taskBoardSlice = createSlice({
 
     setViewSettingsTemp: (state, action: { payload: CreateViewSettingsDTO }) => {
       state.viewSettingsTemp = action.payload
+    },
+
+    setClientViewLocks: (state, action: { payload: ClientViewLocks }) => {
+      state.clientViewLocks = action.payload
     },
 
     setFilterOptions: (state, action: { payload: { optionType: FilterOptions; newValue: string | null | UserIdsType } }) => {
@@ -273,6 +279,7 @@ export const {
   setFilterOptions,
   setFilteredAssigneeList,
   setViewSettingsTemp,
+  setClientViewLocks,
   setIsTasksLoading,
   setActiveTask,
   setPreviewMode,

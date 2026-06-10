@@ -26,8 +26,17 @@ interface FilterBarProps {
 }
 
 export const FilterBar = ({ mode }: FilterBarProps) => {
-  const { view, filterOptions, viewSettingsTemp, showArchived, showUnarchived, showSubtasks, previewMode, tasks } =
-    useSelector(selectTaskBoard)
+  const {
+    view,
+    filterOptions,
+    viewSettingsTemp,
+    showArchived,
+    showUnarchived,
+    showSubtasks,
+    previewMode,
+    tasks,
+    clientViewLocks,
+  } = useSelector(selectTaskBoard)
 
   const { updateViewModeSetting, handleFilterOptionsChange, iuFilterButtons, clientFilterButtons, previewFilterButtons } =
     useFilterBar()
@@ -148,6 +157,8 @@ export const FilterBar = ({ mode }: FilterBarProps) => {
               }}
               displayOptions={displayOptions}
               handleDisplayOptionsChange={handleDisplayOptionsChange}
+              lockViewMode={clientViewLocks.viewMode}
+              lockShowSubtasks={clientViewLocks.showSubtasks}
             />
             {previewMode && (
               <IconBtn
@@ -221,6 +232,8 @@ export const FilterBar = ({ mode }: FilterBarProps) => {
                 }}
                 displayOptions={displayOptions}
                 handleDisplayOptionsChange={handleDisplayOptionsChange}
+                lockViewMode={clientViewLocks.viewMode}
+                lockShowSubtasks={clientViewLocks.showSubtasks}
               />
             </Stack>
           </Stack>

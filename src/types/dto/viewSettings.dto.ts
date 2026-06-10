@@ -28,3 +28,10 @@ export const CreateViewSettingsSchema = z.object({
   showSubtasks: z.boolean().optional(),
 })
 export type CreateViewSettingsDTO = z.infer<typeof CreateViewSettingsSchema>
+
+export type ClientViewLocks = {
+  viewMode: boolean
+  showSubtasks: boolean
+}
+
+export type ViewSettingsResponse = CreateViewSettingsDTO & { clientLocks?: ClientViewLocks }

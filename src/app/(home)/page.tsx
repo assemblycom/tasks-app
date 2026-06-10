@@ -13,7 +13,7 @@ import { RealTime } from '@/hoc/RealTime'
 import { UrlActionParamsType, Token, TokenSchema } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
-import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
+import { ViewSettingsResponse } from '@/types/dto/viewSettings.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { UserType } from '@/types/interfaces'
 import { CopilotAPI } from '@/utils/CopilotAPI'
@@ -60,7 +60,7 @@ export async function getTokenPayload(token: string): Promise<Token> {
   return payload as Token
 }
 
-export async function getViewSettings(token: string): Promise<CreateViewSettingsDTO> {
+export async function getViewSettings(token: string): Promise<ViewSettingsResponse> {
   const res = await fetch(`${apiUrl}/api/view-settings?token=${token}`, {
     next: { tags: ['getViewSettings'] },
   })

@@ -5,7 +5,7 @@ import { TasksService } from '@api/tasks/tasks.service'
 import { ViewSettingsService } from '@api/view-settings/viewSettings.service'
 import httpStatus from 'http-status'
 import type { AncestorTaskResponse, SubTaskStatusResponse, TaskResponse } from '@/types/dto/tasks.dto'
-import type { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
+import type { ViewSettingsResponse } from '@/types/dto/viewSettings.dto'
 
 // this is needed since we are no longer making api round trip our dates are actual dates when we need it as string.
 const toJsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
@@ -38,5 +38,5 @@ export const loadSubtaskStatus = async (user: User, taskId: string): Promise<Sub
   }
 }
 
-export const loadViewSettings = async (user: User): Promise<CreateViewSettingsDTO> =>
-  toJsonSafe(await new ViewSettingsService(user).getViewSettingsForUser()) as unknown as CreateViewSettingsDTO
+export const loadViewSettings = async (user: User): Promise<ViewSettingsResponse> =>
+  toJsonSafe(await new ViewSettingsService(user).getViewSettingsForUser()) as unknown as ViewSettingsResponse

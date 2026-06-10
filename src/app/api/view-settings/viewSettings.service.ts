@@ -40,7 +40,21 @@ export class ViewSettingsService extends BaseService {
       viewSettings.filterOptions = { ...filterOptions, [FilterOptions.ASSOCIATION]: emptyAssignee }
     }
 
-    return viewSettings
+    const enforced = await this.getEnforcedClientView()
+    if (enforced.viewMode) {
+      viewSettings.viewMode = enforced.viewMode
+    }
+    if (enforced.showSubtasks !== null) {
+      viewSettings.showSubtasks = enforced.showSubtasks
+    }
+
+    return {
+      ...viewSettings,
+      clientLocks: {
+        viewMode: enforced.viewMode !== null,
+        showSubtasks: enforced.showSubtasks !== null,
+      },
+    }
   }
 
   async createOrUpdateViewSettings(data: CreateViewSettingsDTO) {
@@ -53,8 +67,11 @@ export class ViewSettingsService extends BaseService {
       companyId: this.user.companyId || null,
     }
     const parsedUserIds = ViewSettingUserIds.parse(userIds)
+    const enforced = await this.getEnforcedClientView()
     const newViewSettingData = {
       ...data,
+      ...(enforced.viewMode ? { viewMode: enforced.viewMode } : {}),
+      ...(enforced.showSubtasks !== null ? { showSubtasks: enforced.showSubtasks } : {}),
       ...parsedUserIds,
       workspaceId: this.user.workspaceId,
     }
@@ -71,6 +88,27 @@ export class ViewSettingsService extends BaseService {
       where: { id: viewSettings.id },
       data: newViewSettingData,
     })
+  }
+
+  // Locked client view settings configured at workspace level win over a client's own values.
+  // Returns the enforced value per field, or null when the field is not locked (IUs are never locked).
+  private async getEnforcedClientView(): Promise<{ viewMode: ViewMode | null; showSubtasks: boolean | null }> {
+    if (this.user.internalUserId) {
+      return { viewMode: null, showSubtasks: null }
+    }
+    const workspaceSetting = await this.db.workspaceSetting.findUnique({
+      where: { workspaceId: this.user.workspaceId },
+    })
+    return {
+      viewMode:
+        workspaceSetting?.clientLockViewMode && workspaceSetting.clientDefaultViewMode
+          ? workspaceSetting.clientDefaultViewMode
+          : null,
+      showSubtasks:
+        workspaceSetting?.clientLockShowSubtasks && workspaceSetting.clientShowSubtasks !== null
+          ? workspaceSetting.clientShowSubtasks
+          : null,
+    }
   }
 
   private async createInitialViewSettings(userIds: ViewSettingUserIdsType) {

@@ -8,6 +8,7 @@ import {
   setFilteredAssigneeList,
   setPreviewMode,
   setTasks,
+  setClientViewLocks,
   setToken,
   setUrlActionParams,
   setViewSettings,
@@ -19,7 +20,7 @@ import store from '@/redux/store'
 import { Token, UrlActionParamsType, WorkspaceResponse } from '@/types/common'
 import { HomeParamActions } from '@/types/constants'
 import { TaskResponse } from '@/types/dto/tasks.dto'
-import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
+import { ViewSettingsResponse } from '@/types/dto/viewSettings.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { FilterOptionsKeywords, IAssigneeCombined, IAssigneeSuggestions, ITemplate } from '@/types/interfaces'
 import { filterOptionsMap } from '@/types/objectMaps'
@@ -32,7 +33,7 @@ type ClientSideStateUpdateProps = {
   workflowStates?: WorkflowStateResponse[]
   tasks?: TaskResponse[]
   assignee?: IAssigneeCombined[]
-  viewSettings?: CreateViewSettingsDTO
+  viewSettings?: ViewSettingsResponse
   token?: string
   tokenPayload?: Token | null
   templates?: ITemplate[]
@@ -94,6 +95,7 @@ export const ClientSideStateUpdate = ({
         viewSettingsCopy.filterOptions.type = FilterOptionsKeywords.CLIENTS
       }
       store.dispatch(setViewSettings(viewSettingsCopy))
+      store.dispatch(setClientViewLocks(viewSettings.clientLocks ?? { viewMode: false, showSubtasks: false }))
       const view = viewSettingsTemp ? viewSettingsTemp.filterOptions : viewSettingsCopy.filterOptions
       store.dispatch(
         setFilteredAssigneeList({
