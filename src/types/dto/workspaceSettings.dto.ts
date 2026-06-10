@@ -14,18 +14,14 @@ export const UpdateWorkspaceSettingsSchema = z
         message: `autoArchiveAfterDays must be one of ${AUTO_ARCHIVE_AFTER_DAYS_OPTIONS.join(', ')}`,
       })
       .optional(),
-    clientDefaultViewMode: z.nativeEnum(ViewMode).nullable().optional(),
-    clientShowSubtasks: z.boolean().nullable().optional(),
-    clientLockViewMode: z.boolean().optional(),
-    clientLockShowSubtasks: z.boolean().optional(),
+    clientDefaultViewMode: z.nativeEnum(ViewMode).optional(),
+    clientHideSubtasks: z.boolean().optional(),
   })
   .strict()
 
 export type UpdateWorkspaceSettingsDTO = z.infer<typeof UpdateWorkspaceSettingsSchema>
 
 export type ClientViewSettings = {
-  clientDefaultViewMode: ViewMode | null
-  clientShowSubtasks: boolean | null
-  clientLockViewMode: boolean
-  clientLockShowSubtasks: boolean
+  clientDefaultViewMode: ViewMode
+  clientHideSubtasks: boolean
 }

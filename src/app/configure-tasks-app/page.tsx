@@ -89,10 +89,8 @@ export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPage
           <AutoArchiveSection initialAutoArchiveAfterDays={workspaceSetting.autoArchiveAfterDays} token={token} />
           <ClientViewSettingsSection
             initialSettings={{
-              clientDefaultViewMode: workspaceSetting.clientDefaultViewMode ?? null,
-              clientShowSubtasks: workspaceSetting.clientShowSubtasks ?? null,
-              clientLockViewMode: workspaceSetting.clientLockViewMode ?? false,
-              clientLockShowSubtasks: workspaceSetting.clientLockShowSubtasks ?? false,
+              clientDefaultViewMode: workspaceSetting.clientDefaultViewMode,
+              clientHideSubtasks: workspaceSetting.clientHideSubtasks,
             }}
             token={token}
           />

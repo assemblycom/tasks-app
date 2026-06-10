@@ -1,5 +1,3 @@
 -- AlterTable
-ALTER TABLE "WorkspaceSettings" ADD COLUMN     "clientDefaultViewMode" "ViewMode",
-ADD COLUMN     "clientLockShowSubtasks" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "clientLockViewMode" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "clientShowSubtasks" BOOLEAN;
+ALTER TABLE "WorkspaceSettings" ADD COLUMN     "clientDefaultViewMode" "ViewMode" NOT NULL DEFAULT 'board',
+ADD COLUMN     "clientHideSubtasks" BOOLEAN NOT NULL DEFAULT false;
