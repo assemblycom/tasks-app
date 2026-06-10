@@ -38,7 +38,12 @@ jest.mock('./send-grouped-email', () => ({
   sendGroupedEmail: (...args: unknown[]) => mockSendGroupedEmail(...args),
 }))
 
-import { flushGroupedEmailOnFailure, flushGroupedEmailRun } from './flush-grouped-email'
+import {
+  enqueueGroupedEmailFlush,
+  flushGroupedEmail,
+  flushGroupedEmailOnFailure,
+  flushGroupedEmailRun,
+} from './flush-grouped-email'
 
 let seq = 0
 const row = (overrides: Record<string, unknown> = {}) => {
@@ -141,6 +146,21 @@ describe('flushGroupedEmailRun', () => {
 
     await expect(flushGroupedEmailRun(payload)).rejects.toThrow('no internal user')
     expect(mockSendGroupedEmail).not.toHaveBeenCalled()
+  })
+})
+
+describe('enqueueGroupedEmailFlush', () => {
+  it('triggers with a 5-minute delay and a workspace-scoped idempotency key', () => {
+    enqueueGroupedEmailFlush(payload)
+
+    expect(flushGroupedEmail.trigger).toHaveBeenCalledTimes(1)
+    const [triggeredPayload, opts] = (flushGroupedEmail.trigger as jest.Mock).mock.calls[0]
+    expect(triggeredPayload).toEqual(payload)
+    expect(opts).toMatchObject({
+      delay: '5m',
+      idempotencyKey: 'ws_1:client_1:win_1',
+      idempotencyKeyTTL: '10m',
+    })
   })
 })
 

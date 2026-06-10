@@ -8,7 +8,6 @@ import { Sentry } from '@/jobs/sentry'
 import DBClient from '@/lib/db'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { serializeError } from '@/utils/serializeError'
-import { GroupedEmailEventType } from '@prisma/client'
 import { logger, task, tasks } from '@trigger.dev/sdk/v3'
 
 import { sendGroupedEmail } from './send-grouped-email'
@@ -147,6 +146,6 @@ tasks.onFailure(TASK_ID, flushGroupedEmailOnFailure)
 export const enqueueGroupedEmailFlush = (payload: FlushGroupedEmailPayload) =>
   flushGroupedEmail.trigger(payload, {
     delay: '5m',
-    idempotencyKey: payload.windowKey,
+    idempotencyKey: `${payload.workspaceId}:${payload.windowKey}`,
     idempotencyKeyTTL: '10m',
   })
