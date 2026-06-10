@@ -18,6 +18,10 @@ const sectionFor = (events: GroupedEmailEventInput[], type: GroupedEmailEventTyp
   composeGroupedEmail(events).sections.find((section) => section.eventType === type)
 
 describe('composeGroupedEmail', () => {
+  beforeEach(() => {
+    seq = 0
+  })
+
   it('orders sections ASSIGNED → SHARED → COMMENT → COMPLETED regardless of input order', () => {
     const events = [
       event({ eventType: GroupedEmailEventType.COMMENT }),
@@ -126,5 +130,24 @@ describe('composeGroupedEmail', () => {
     expect(section?.count).toBe(3)
     expect(section?.taskNames).toEqual(['Conversation'])
     expect(section?.overflowCount).toBe(0)
+  })
+
+  it('shows the latest title snapshot when a task is renamed mid-window', () => {
+    const events = [
+      event({
+        eventType: GroupedEmailEventType.COMMENT,
+        taskId: 'task_a',
+        taskTitleSnapshot: 'Old name',
+        createdAt: new Date('2026-06-09T10:01:00.000Z'),
+      }),
+      event({
+        eventType: GroupedEmailEventType.COMMENT,
+        taskId: 'task_a',
+        taskTitleSnapshot: 'New name',
+        createdAt: new Date('2026-06-09T10:02:00.000Z'),
+      }),
+    ]
+
+    expect(sectionFor(events, GroupedEmailEventType.COMMENT)?.taskNames).toEqual(['New name'])
   })
 })

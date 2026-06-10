@@ -30,14 +30,13 @@ const compareByCreatedAtThenTitle = (a: GroupedEmailEventInput, b: GroupedEmailE
 }
 
 const distinctTaskNames = (events: GroupedEmailEventInput[]): string[] => {
-  const seen = new Set<string>()
-  const names: string[] = []
+  const order: string[] = []
+  const latestTitle = new Map<string, string>()
   for (const event of events) {
-    if (seen.has(event.taskId)) continue
-    seen.add(event.taskId)
-    names.push(event.taskTitleSnapshot)
+    if (!latestTitle.has(event.taskId)) order.push(event.taskId)
+    latestTitle.set(event.taskId, event.taskTitleSnapshot)
   }
-  return names
+  return order.map((taskId) => latestTitle.get(taskId) as string)
 }
 
 const buildSection = (eventType: GroupedEmailEventType, events: GroupedEmailEventInput[]): GroupedEmailSection | null => {
