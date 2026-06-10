@@ -41,18 +41,18 @@ export class ViewSettingsService extends BaseService {
     }
 
     const enforced = await this.getEnforcedClientView()
-    if (enforced.viewMode !== null) {
+    if (enforced.viewMode != null) {
       viewSettings.viewMode = enforced.viewMode
     }
-    if (enforced.showSubtasks !== null) {
+    if (enforced.showSubtasks != null) {
       viewSettings.showSubtasks = enforced.showSubtasks
     }
 
     return {
       ...viewSettings,
       clientLocks: {
-        viewMode: enforced.viewMode !== null,
-        showSubtasks: enforced.showSubtasks !== null,
+        viewMode: enforced.viewMode != null,
+        showSubtasks: enforced.showSubtasks != null,
       },
     }
   }
@@ -70,8 +70,8 @@ export class ViewSettingsService extends BaseService {
     const enforced = await this.getEnforcedClientView()
     const newViewSettingData = {
       ...data,
-      ...(enforced.viewMode !== null ? { viewMode: enforced.viewMode } : {}),
-      ...(enforced.showSubtasks !== null ? { showSubtasks: enforced.showSubtasks } : {}),
+      ...(enforced.viewMode != null ? { viewMode: enforced.viewMode } : {}),
+      ...(enforced.showSubtasks != null ? { showSubtasks: enforced.showSubtasks } : {}),
       ...parsedUserIds,
       workspaceId: this.user.workspaceId,
     }
@@ -105,7 +105,7 @@ export class ViewSettingsService extends BaseService {
           ? workspaceSetting.clientDefaultViewMode
           : null,
       showSubtasks:
-        workspaceSetting?.clientLockShowSubtasks && workspaceSetting.clientShowSubtasks !== null
+        workspaceSetting?.clientLockShowSubtasks && workspaceSetting.clientShowSubtasks != null
           ? workspaceSetting.clientShowSubtasks
           : null,
     }
