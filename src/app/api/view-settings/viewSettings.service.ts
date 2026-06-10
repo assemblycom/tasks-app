@@ -74,10 +74,11 @@ export class ViewSettingsService extends BaseService {
   }
 
   private async createInitialViewSettings(userIds: ViewSettingUserIdsType) {
+    const clientDefaults = await this.getClientViewDefaults()
     const data = {
       ...userIds,
       workspaceId: this.user.workspaceId,
-      viewMode: this.DEFAULT_VIEW_MODE,
+      viewMode: clientDefaults?.viewMode ?? this.DEFAULT_VIEW_MODE,
       filterOptions: {
         [FilterOptions.ASSIGNEE]: emptyAssignee,
         [FilterOptions.ASSOCIATION]: emptyAssignee,
@@ -87,11 +88,28 @@ export class ViewSettingsService extends BaseService {
       },
       showUnarchived: true,
       showArchived: false,
-      showSubtasks: true, // If we DO need to default to false for IUs, we can add a condition here after confirmation
+      showSubtasks: clientDefaults?.showSubtasks ?? true,
     }
 
     return await this.db.viewSetting.create({
       data,
     })
+  }
+
+  // Workspace-level client defaults seed a new client's first view settings. IUs keep the hardcoded defaults.
+  private async getClientViewDefaults(): Promise<{ viewMode: ViewMode | null; showSubtasks: boolean | null } | null> {
+    if (this.user.internalUserId) {
+      return null
+    }
+    const workspaceSetting = await this.db.workspaceSetting.findUnique({
+      where: { workspaceId: this.user.workspaceId },
+    })
+    if (!workspaceSetting) {
+      return null
+    }
+    return {
+      viewMode: workspaceSetting.clientDefaultViewMode,
+      showSubtasks: workspaceSetting.clientShowSubtasks,
+    }
   }
 }
