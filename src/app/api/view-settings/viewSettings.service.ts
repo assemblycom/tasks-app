@@ -90,8 +90,8 @@ export class ViewSettingsService extends BaseService {
     })
   }
 
-  // Locked client view settings configured at workspace level win over a client's own values.
-  // Returns the enforced value per field, or null when the field is not locked (IUs are never locked).
+  // When the workspace locks client view settings, the configured defaults win over a client's
+  // own values. Returns enforced values per field, or null per field when not locked (IUs are never locked).
   private async getEnforcedClientView(): Promise<{ viewMode: ViewMode | null; showSubtasks: boolean | null }> {
     if (this.user.internalUserId) {
       return { viewMode: null, showSubtasks: null }
@@ -99,15 +99,12 @@ export class ViewSettingsService extends BaseService {
     const workspaceSetting = await this.db.workspaceSetting.findUnique({
       where: { workspaceId: this.user.workspaceId },
     })
+    if (!workspaceSetting?.clientViewSettingsLocked) {
+      return { viewMode: null, showSubtasks: null }
+    }
     return {
-      viewMode:
-        workspaceSetting?.clientLockViewMode && workspaceSetting.clientDefaultViewMode
-          ? workspaceSetting.clientDefaultViewMode
-          : null,
-      showSubtasks:
-        workspaceSetting?.clientLockShowSubtasks && workspaceSetting.clientShowSubtasks != null
-          ? workspaceSetting.clientShowSubtasks
-          : null,
+      viewMode: workspaceSetting.clientDefaultViewMode,
+      showSubtasks: !workspaceSetting.clientHideSubtasks,
     }
   }
 

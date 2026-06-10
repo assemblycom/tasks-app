@@ -91,6 +91,7 @@ export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPage
             initialSettings={{
               clientDefaultViewMode: workspaceSetting.clientDefaultViewMode,
               clientHideSubtasks: workspaceSetting.clientHideSubtasks,
+              clientViewSettingsLocked: workspaceSetting.clientViewSettingsLocked,
             }}
             token={token}
           />

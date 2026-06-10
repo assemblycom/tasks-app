@@ -65,6 +65,23 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
             onChange={(e) => persist({ ...settings, clientHideSubtasks: e.target.checked })}
           />
         </Stack>
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          sx={{ px: '16px', py: '14px', borderTop: (theme) => `1px solid ${theme.color.borders.border}` }}
+        >
+          <Stack>
+            <Typography variant="bodyMd">Lock for clients</Typography>
+            <Typography variant="bodySm" sx={{ color: (theme) => theme.color.gray[600] }}>
+              Clients can&apos;t change these settings
+            </Typography>
+          </Stack>
+          <StyledSwitch
+            checked={settings.clientViewSettingsLocked}
+            onChange={(e) => persist({ ...settings, clientViewSettingsLocked: e.target.checked })}
+          />
+        </Stack>
       </Box>
     </Box>
   )

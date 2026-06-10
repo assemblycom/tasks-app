@@ -26,17 +26,9 @@ interface FilterBarProps {
 }
 
 export const FilterBar = ({ mode }: FilterBarProps) => {
-  const {
-    view,
-    filterOptions,
-    viewSettingsTemp,
-    showArchived,
-    showUnarchived,
-    showSubtasks,
-    previewMode,
-    tasks,
-    clientViewLocks,
-  } = useSelector(selectTaskBoard)
+  const { view, filterOptions, viewSettingsTemp, showArchived, showUnarchived, showSubtasks, previewMode, tasks } =
+    useSelector(selectTaskBoard)
+  const { clientViewLocks } = useSelector(selectTaskBoard)
 
   const { updateViewModeSetting, handleFilterOptionsChange, iuFilterButtons, clientFilterButtons, previewFilterButtons } =
     useFilterBar()

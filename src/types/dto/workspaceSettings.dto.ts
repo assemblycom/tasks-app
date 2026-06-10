@@ -15,6 +15,7 @@ export const UpdateWorkspaceSettingsSchema = z.object({
     .optional(),
   clientDefaultViewMode: z.nativeEnum(ViewMode).optional(),
   clientHideSubtasks: z.boolean().optional(),
+  clientViewSettingsLocked: z.boolean().optional(),
 })
 
 export type UpdateWorkspaceSettingsDTO = z.infer<typeof UpdateWorkspaceSettingsSchema>
@@ -22,4 +23,5 @@ export type UpdateWorkspaceSettingsDTO = z.infer<typeof UpdateWorkspaceSettingsS
 export type ClientViewSettings = {
   clientDefaultViewMode: ViewMode
   clientHideSubtasks: boolean
+  clientViewSettingsLocked: boolean
 }
