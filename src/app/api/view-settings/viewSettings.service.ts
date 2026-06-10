@@ -109,7 +109,7 @@ export class ViewSettingsService extends BaseService {
     }
     return {
       viewMode: workspaceSetting.clientDefaultViewMode,
-      showSubtasks: workspaceSetting.clientShowSubtasks,
+      showSubtasks: !workspaceSetting.clientHideSubtasks,
     }
   }
 }
