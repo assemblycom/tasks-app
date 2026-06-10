@@ -14,7 +14,9 @@ import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
 import { Token, TokenSchema } from '@/types/common'
 import { ConfigureTasksAppBridge } from '@/app/configure-tasks-app/ui/ConfigureTasksAppBridge'
 import { AutoArchiveSection } from '@/app/configure-tasks-app/ui/AutoArchiveSection'
+import { ClientViewSettingsSection } from '@/app/configure-tasks-app/ui/ClientViewSettingsSection'
 import { StatusCustomizationSection } from '@/app/configure-tasks-app/ui/StatusCustomizationSection'
+import { ClientViewSettings } from '@/types/dto/workspaceSettings.dto'
 import { Stack } from '@mui/material'
 
 async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
@@ -51,7 +53,7 @@ async function getTokenPayload(token: string): Promise<Token> {
   return TokenSchema.parse(await copilotClient.getTokenPayload())
 }
 
-async function getWorkspaceSetting(token: string): Promise<{ autoArchiveAfterDays: number }> {
+async function getWorkspaceSetting(token: string): Promise<{ autoArchiveAfterDays: number } & ClientViewSettings> {
   const res = await fetch(`${apiUrl}/api/workspace-settings?token=${token}`, { cache: 'no-store' })
   return await res.json()
 }
@@ -85,6 +87,15 @@ export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPage
       <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
         <Stack direction="column" rowGap="32px" sx={{ paddingTop: '24px', paddingBottom: '12px', paddingX: '12px' }}>
           <AutoArchiveSection initialAutoArchiveAfterDays={workspaceSetting.autoArchiveAfterDays} token={token} />
+          <ClientViewSettingsSection
+            initialSettings={{
+              clientDefaultViewMode: workspaceSetting.clientDefaultViewMode ?? null,
+              clientShowSubtasks: workspaceSetting.clientShowSubtasks ?? null,
+              clientLockViewMode: workspaceSetting.clientLockViewMode ?? false,
+              clientLockShowSubtasks: workspaceSetting.clientLockShowSubtasks ?? false,
+            }}
+            token={token}
+          />
           <StatusCustomizationSection initialWorkflowStates={workflowStates} token={token} />
           <TemplateBoard
             handleCreateTemplate={async (payload: CreateTemplateRequest) => {

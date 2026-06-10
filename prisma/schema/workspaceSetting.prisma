@@ -1,10 +1,16 @@
 model WorkspaceSetting {
-  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workspaceId          String    @unique @db.VarChar(32)
-  autoArchiveAfterDays Int       @default(0)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt @db.Timestamptz()
-  deletedAt            DateTime? @db.Timestamptz()
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId            String    @unique @db.VarChar(32)
+  autoArchiveAfterDays   Int       @default(0)
+  // Client-facing view defaults set by IUs. null = no workspace opinion (client controls).
+  // A lock takes effect only when its paired value is set; locked = enforced, unlocked = default for new clients.
+  clientDefaultViewMode  ViewMode?
+  clientShowSubtasks     Boolean?
+  clientLockViewMode     Boolean   @default(false)
+  clientLockShowSubtasks Boolean   @default(false)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt @db.Timestamptz()
+  deletedAt              DateTime? @db.Timestamptz()
 
   @@map("WorkspaceSettings")
 }
