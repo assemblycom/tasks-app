@@ -45,7 +45,11 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
   }
 
   const handleViewModeChange = (value: ViewMode | null) => {
-    persist({ ...settings, clientDefaultViewMode: value, clientLockViewMode: value ? settings.clientLockViewMode : false })
+    persist({
+      ...settings,
+      clientDefaultViewMode: value,
+      clientLockViewMode: value !== null ? settings.clientLockViewMode : false,
+    })
   }
 
   const handleShowSubtasksChange = (value: boolean | null) => {

@@ -23,7 +23,9 @@ export const UpdateWorkspaceSettingsSchema = z
 
 export type UpdateWorkspaceSettingsDTO = z.infer<typeof UpdateWorkspaceSettingsSchema>
 
-export type ClientViewSettings = Pick<
-  UpdateWorkspaceSettingsDTO,
-  'clientDefaultViewMode' | 'clientShowSubtasks' | 'clientLockViewMode' | 'clientLockShowSubtasks'
->
+export type ClientViewSettings = {
+  clientDefaultViewMode: ViewMode | null
+  clientShowSubtasks: boolean | null
+  clientLockViewMode: boolean
+  clientLockShowSubtasks: boolean
+}
