@@ -61,7 +61,7 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
         >
           <Typography variant="bodyMd">Hide subtasks</Typography>
           <StyledSwitch
-            checked={settings.clientHideSubtasks}
+            checked={settings.clientHideSubtasks ?? false}
             onChange={(e) => persist({ ...settings, clientHideSubtasks: e.target.checked })}
           />
         </Stack>
@@ -70,10 +70,10 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
   )
 }
 
-const ViewModeDropdown = ({ value, onChange }: { value: ViewMode; onChange: (value: ViewMode) => void }) => {
+const ViewModeDropdown = ({ value, onChange }: { value: ViewMode | null; onChange: (value: ViewMode) => void }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const isOpen = Boolean(anchorEl)
-  const selected = VIEW_MODE_OPTIONS.find((option) => option.value === value) ?? VIEW_MODE_OPTIONS[0]
+  const selected = VIEW_MODE_OPTIONS.find((option) => option.value === value)
 
   return (
     <>
@@ -100,7 +100,9 @@ const ViewModeDropdown = ({ value, onChange }: { value: ViewMode; onChange: (val
           '&:focus-visible': { borderColor: (theme) => theme.color.gray[700] },
         }}
       >
-        <Typography sx={{ fontSize: '14px', color: (theme) => theme.color.text.text }}>{selected.label}</Typography>
+        <Typography sx={{ fontSize: '14px', color: (theme) => (selected ? theme.color.text.text : theme.color.gray[500]) }}>
+          {selected ? selected.label : 'Select view'}
+        </Typography>
         <Box
           sx={{
             display: 'flex',
