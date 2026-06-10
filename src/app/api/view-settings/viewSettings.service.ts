@@ -41,7 +41,7 @@ export class ViewSettingsService extends BaseService {
     }
 
     const enforced = await this.getEnforcedClientView()
-    if (enforced.viewMode) {
+    if (enforced.viewMode !== null) {
       viewSettings.viewMode = enforced.viewMode
     }
     if (enforced.showSubtasks !== null) {
@@ -70,7 +70,7 @@ export class ViewSettingsService extends BaseService {
     const enforced = await this.getEnforcedClientView()
     const newViewSettingData = {
       ...data,
-      ...(enforced.viewMode ? { viewMode: enforced.viewMode } : {}),
+      ...(enforced.viewMode !== null ? { viewMode: enforced.viewMode } : {}),
       ...(enforced.showSubtasks !== null ? { showSubtasks: enforced.showSubtasks } : {}),
       ...parsedUserIds,
       workspaceId: this.user.workspaceId,
