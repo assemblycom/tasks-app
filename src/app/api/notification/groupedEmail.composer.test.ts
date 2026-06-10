@@ -1,23 +1,23 @@
 import { GroupedEmailEventType } from '@prisma/client'
 import { composeGroupedEmail, GroupedEmailEventInput, MAX_TASK_NAMES_PER_SECTION } from './groupedEmail.composer'
 
-let seq = 0
-
-const event = (overrides: Partial<GroupedEmailEventInput> = {}): GroupedEmailEventInput => {
-  seq += 1
-  return {
-    eventType: GroupedEmailEventType.ASSIGNED,
-    taskId: `task_${seq}`,
-    taskTitleSnapshot: `Task ${seq}`,
-    createdAt: new Date(`2026-06-09T10:00:${String(seq).padStart(2, '0')}.000Z`),
-    ...overrides,
-  }
-}
-
-const sectionFor = (events: GroupedEmailEventInput[], type: GroupedEmailEventType) =>
-  composeGroupedEmail(events).sections.find((section) => section.eventType === type)
-
 describe('composeGroupedEmail', () => {
+  let seq = 0
+
+  const event = (overrides: Partial<GroupedEmailEventInput> = {}): GroupedEmailEventInput => {
+    seq += 1
+    return {
+      eventType: GroupedEmailEventType.ASSIGNED,
+      taskId: `task_${seq}`,
+      taskTitleSnapshot: `Task ${seq}`,
+      createdAt: new Date(`2026-06-09T10:00:${String(seq).padStart(2, '0')}.000Z`),
+      ...overrides,
+    }
+  }
+
+  const sectionFor = (events: GroupedEmailEventInput[], type: GroupedEmailEventType) =>
+    composeGroupedEmail(events).sections.find((section) => section.eventType === type)
+
   beforeEach(() => {
     seq = 0
   })
