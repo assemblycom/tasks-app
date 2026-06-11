@@ -744,7 +744,11 @@ export class TasksService extends TasksSharedService {
     const parentTasks = parentIds.map((parentId) => {
       const task = parentTasksById.get(parentId)
       if (!task) {
-        throw new APIError(httpStatus.EXPECTATION_FAILED, `Missing parent task ${parentId} in traversal path of ${id}`)
+        // A task in the path can be absent because it was soft-deleted (the raw `path`
+        // query above bypasses the soft-delete extension, but findMany filters it out) or
+        // is otherwise inaccessible. Surface this as NOT_FOUND so
+        // loadTaskPath degrades to an empty path instead of crashing the notification page.
+        throw new APIError(httpStatus.NOT_FOUND, `Missing parent task ${parentId} in traversal path of ${id}`)
       }
       return task
     })
