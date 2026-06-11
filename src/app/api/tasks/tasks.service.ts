@@ -709,7 +709,7 @@ export class TasksService extends TasksSharedService {
   async getTraversalPath(id: string): Promise<AncestorTaskResponse[]> {
     const task = (
       await this.db.$queryRaw<{ path: string | null; parentId: string | null }[]>`
-      SELECT "path" from "Tasks"
+      SELECT "path", "parentId" from "Tasks"
       WHERE id = ${id}::uuid
       LIMIT 1
     `
