@@ -57,9 +57,12 @@ export class NotificationService extends BaseService {
       const inProduct = opts.disableInProduct
         ? undefined
         : getInProductNotificationDetails(workspace, actionUser, task, { companyName, commentId: opts?.commentId })[action]
-      const baseEmail = getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
-      // When an override is supplied, merge it over the default copy so omitted fields keep the system default.
-      const email = opts.disableEmail ? undefined : opts.emailOverride ? { ...baseEmail, ...opts.emailOverride } : baseEmail
+      let email: EmailNotificationDetails | undefined
+      if (!opts.disableEmail) {
+        const baseEmail = getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
+        // When an override is supplied, merge it over the default copy so omitted fields keep the system default.
+        email = opts.emailOverride ? { ...baseEmail, ...opts.emailOverride } : baseEmail
+      }
 
       // Non-null only when this CU email should be diverted into the grouped buffer.
       const groupedType = email && recipientId ? this.groupedEventTypeFor(action) : null
