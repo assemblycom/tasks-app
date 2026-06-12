@@ -1,4 +1,4 @@
-import { Uuid } from '@/types/common'
+import { EmailNotificationDetails, Uuid } from '@/types/common'
 import { TaskWithWorkflowState } from '@/types/db'
 import { TaskResponseSchema, Associations, AssociationsSchema, ViewerType } from '@/types/dto/tasks.dto'
 import { getTaskAssociations } from '@/utils/assignee'
@@ -111,7 +111,11 @@ export class TaskNotificationsService extends BaseService {
     return false
   }
 
-  async sendTaskCreateNotifications(task: TaskWithWorkflowState, isReassigned = false) {
+  async sendTaskCreateNotifications(
+    task: TaskWithWorkflowState,
+    isReassigned = false,
+    emailOverride?: EmailNotificationDetails,
+  ) {
     // If task is unassigned, there's nobody to send notifications to
     if (!task.assigneeId) return
 
@@ -135,7 +139,7 @@ export class TaskNotificationsService extends BaseService {
     // If new task is assigned to someone (IU / Client / Company), send proper notification + email to them
     const sendTaskNotifications =
       task.assigneeType === AssigneeType.company ? this.sendCompanyTaskNotifications : this.sendUserTaskNotification
-    await sendTaskNotifications(task, isReassigned)
+    await sendTaskNotifications(task, isReassigned, emailOverride)
   }
 
   async sendTaskUpdateNotifications(prevTask: TaskWithWorkflowState, updatedTask: TaskWithWorkflowState) {
@@ -438,7 +442,7 @@ export class TaskNotificationsService extends BaseService {
     )
   }
 
-  private sendUserTaskNotification = async (task: Task, isReassigned = false) => {
+  private sendUserTaskNotification = async (task: Task, isReassigned = false, emailOverride?: EmailNotificationDetails) => {
     if (!task.assigneeType) return
 
     const notificationType = (() => {
@@ -468,7 +472,7 @@ export class TaskNotificationsService extends BaseService {
       // In future when reassignment is supported, change this logic to support reassigned to client as well
       notificationType,
       task,
-      { disableEmail: task.assigneeType === AssigneeType.internalUser },
+      { disableEmail: task.assigneeType === AssigneeType.internalUser, emailOverride },
     )
     // Create a new entry in ClientNotifications table so we can mark as read on
     // behalf of client later
@@ -477,7 +481,11 @@ export class TaskNotificationsService extends BaseService {
     }
   }
 
-  private sendCompanyTaskNotifications = async (task: Task, isReassigned = false) => {
+  private sendCompanyTaskNotifications = async (
+    task: Task,
+    isReassigned = false,
+    emailOverride?: EmailNotificationDetails,
+  ) => {
     const { recipientIds } = await this.notificationService.getNotificationParties(
       task,
       NotificationTaskActions.AssignedToCompany,
@@ -486,7 +494,7 @@ export class TaskNotificationsService extends BaseService {
       isReassigned ? NotificationTaskActions.ReassignedToCompany : NotificationTaskActions.AssignedToCompany,
       task,
       recipientIds,
-      { email: true },
+      { email: true, emailOverride },
     )
   }
 

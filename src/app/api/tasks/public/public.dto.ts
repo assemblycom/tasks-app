@@ -1,4 +1,4 @@
-import { RFC3339DateSchema } from '@/types/common'
+import { EmailNotificationDetailsSchema, RFC3339DateSchema } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { AssigneeType } from '@prisma/client'
 import { z } from 'zod'
@@ -87,6 +87,9 @@ export const publicTaskCreateDtoSchemaFactory = (token: string) => {
       internalUserId: z.string().uuid().optional(),
       clientId: z.string().uuid().optional(),
       companyId: z.string().uuid().optional(),
+      // Optional override for the task-assignment email notification. Any field provided replaces the
+      // corresponding default copy; omitted fields fall back to the system default.
+      email: EmailNotificationDetailsSchema.optional(),
     })
     .and(viewersAssociationExclusivitySchema)
     .superRefine(async (data, ctx) => {
