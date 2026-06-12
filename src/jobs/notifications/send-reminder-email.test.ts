@@ -16,11 +16,14 @@ const workspace: WorkspaceResponse = {
 
 const task = { id: 'task_1', title: 'Submit timesheet', createdById: 'iu_1' }
 
-const buildCopilotMock = (createNotification: jest.Mock) => ({ createNotification }) as unknown as CopilotAPI
+const buildCopilotMock = (createNotificationOptionalResponse: jest.Mock) =>
+  ({ createNotificationOptionalResponse }) as unknown as CopilotAPI
 
 describe('sendReminderEmail', () => {
   it('returns the Copilot notification id', async () => {
-    const createNotification = jest.fn().mockResolvedValue({ id: 'notif_1', createdAt: '2026-05-25T00:00:00Z' })
+    const createNotificationOptionalResponse = jest
+      .fn()
+      .mockResolvedValue({ id: 'notif_1', createdAt: '2026-05-25T00:00:00Z' })
 
     const id = await sendReminderEmail({
       task,
@@ -29,14 +32,32 @@ describe('sendReminderEmail', () => {
       reminderType: TaskReminderType.NO_DUE_DATE_3D,
       isCompanyRecipient: false,
       workspace,
-      copilot: buildCopilotMock(createNotification),
+      copilot: buildCopilotMock(createNotificationOptionalResponse),
     })
 
     expect(id).toBe('notif_1')
   })
 
+  it('treats an empty successful Copilot response as sent', async () => {
+    const createNotificationOptionalResponse = jest.fn().mockResolvedValue(null)
+
+    const id = await sendReminderEmail({
+      task,
+      recipientClientId: 'client_1',
+      recipientCompanyId: 'company_1',
+      reminderType: TaskReminderType.NO_DUE_DATE_3D,
+      isCompanyRecipient: false,
+      workspace,
+      copilot: buildCopilotMock(createNotificationOptionalResponse),
+    })
+
+    expect(id).toBeUndefined()
+  })
+
   it('builds an email-only payload (no inProduct, IU sender, client recipient)', async () => {
-    const createNotification = jest.fn().mockResolvedValue({ id: 'notif_1', createdAt: '2026-05-25T00:00:00Z' })
+    const createNotificationOptionalResponse = jest
+      .fn()
+      .mockResolvedValue({ id: 'notif_1', createdAt: '2026-05-25T00:00:00Z' })
 
     await sendReminderEmail({
       task,
@@ -45,11 +66,11 @@ describe('sendReminderEmail', () => {
       reminderType: TaskReminderType.NO_DUE_DATE_3D,
       isCompanyRecipient: false,
       workspace,
-      copilot: buildCopilotMock(createNotification),
+      copilot: buildCopilotMock(createNotificationOptionalResponse),
     })
 
-    expect(createNotification).toHaveBeenCalledTimes(1)
-    const payload = createNotification.mock.calls[0][0]
+    expect(createNotificationOptionalResponse).toHaveBeenCalledTimes(1)
+    const payload = createNotificationOptionalResponse.mock.calls[0][0]
     expect(payload).toMatchObject({
       senderId: 'iu_1',
       senderType: 'internalUser',
@@ -66,7 +87,9 @@ describe('sendReminderEmail', () => {
   })
 
   it('uses the company-recipient header when isCompanyRecipient=true', async () => {
-    const createNotification = jest.fn().mockResolvedValue({ id: 'notif_2', createdAt: '2026-05-25T00:00:00Z' })
+    const createNotificationOptionalResponse = jest
+      .fn()
+      .mockResolvedValue({ id: 'notif_2', createdAt: '2026-05-25T00:00:00Z' })
 
     await sendReminderEmail({
       task,
@@ -75,16 +98,18 @@ describe('sendReminderEmail', () => {
       reminderType: TaskReminderType.DUE_DATE_TODAY,
       isCompanyRecipient: true,
       workspace,
-      copilot: buildCopilotMock(createNotification),
+      copilot: buildCopilotMock(createNotificationOptionalResponse),
     })
 
-    const payload = createNotification.mock.calls[0][0]
+    const payload = createNotificationOptionalResponse.mock.calls[0][0]
     expect(payload.deliveryTargets.email.header).toBe('A task was assigned to your company')
     expect(payload.deliveryTargets.email.subject).toBe('[Due Soon] Task due today')
   })
 
   it('omits recipientCompanyId when null', async () => {
-    const createNotification = jest.fn().mockResolvedValue({ id: 'notif_3', createdAt: '2026-05-25T00:00:00Z' })
+    const createNotificationOptionalResponse = jest
+      .fn()
+      .mockResolvedValue({ id: 'notif_3', createdAt: '2026-05-25T00:00:00Z' })
 
     await sendReminderEmail({
       task,
@@ -93,15 +118,15 @@ describe('sendReminderEmail', () => {
       reminderType: TaskReminderType.NO_DUE_DATE_3D,
       isCompanyRecipient: false,
       workspace,
-      copilot: buildCopilotMock(createNotification),
+      copilot: buildCopilotMock(createNotificationOptionalResponse),
     })
 
-    const payload = createNotification.mock.calls[0][0]
+    const payload = createNotificationOptionalResponse.mock.calls[0][0]
     expect(payload.recipientCompanyId).toBeUndefined()
   })
 
   it('propagates errors from Copilot (no ledger compensation here)', async () => {
-    const createNotification = jest.fn().mockRejectedValue(new Error('copilot 5xx'))
+    const createNotificationOptionalResponse = jest.fn().mockRejectedValue(new Error('copilot 5xx'))
 
     await expect(
       sendReminderEmail({
@@ -111,7 +136,7 @@ describe('sendReminderEmail', () => {
         reminderType: TaskReminderType.NO_DUE_DATE_3D,
         isCompanyRecipient: false,
         workspace,
-        copilot: buildCopilotMock(createNotification),
+        copilot: buildCopilotMock(createNotificationOptionalResponse),
       }),
     ).rejects.toThrow('copilot 5xx')
   })

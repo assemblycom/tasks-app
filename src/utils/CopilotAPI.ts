@@ -214,6 +214,14 @@ export class CopilotAPI {
     return NotificationCreatedResponseSchema.parse(notification)
   }
 
+  async _createNotificationOptionalResponse(
+    requestBody: NotificationRequestBody,
+  ): Promise<NotificationCreatedResponse | null> {
+    console.info('CopilotAPI#_createNotificationOptionalResponse', this.token)
+    const notification = await this.copilot.createNotification({ requestBody })
+    return notification == null ? null : NotificationCreatedResponseSchema.parse(notification)
+  }
+
   async _markNotificationAsRead(id: string): Promise<void> {
     console.info('CopilotAPI#_markNotificationAsRead', this.token)
     await this.copilot.markNotificationRead({ id })
@@ -370,6 +378,7 @@ export class CopilotAPI {
   getInternalUsers = this.wrapWithRetry(this._getInternalUsers)
   getInternalUser = (id: string): Promise<InternalUsers> => cachedFetchInternalUser(this.token, this.customApiKey, id)
   createNotification = this.wrapWithRetry(this._createNotification)
+  createNotificationOptionalResponse = this.wrapWithRetry(this._createNotificationOptionalResponse)
   getClientNotifications = this.wrapWithRetry(this._getClientNotifications)
   markNotificationAsRead = this.wrapWithRetry(this._markNotificationAsRead)
   bulkMarkNotificationsAsRead = this.wrapWithRetry(this._bulkMarkNotificationsAsRead)
