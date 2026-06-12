@@ -1,3 +1,4 @@
+import { EmailNotificationDetails } from '@/types/common'
 import { TaskWithWorkflowState } from '@/types/db'
 import User from '@api/core/models/User.model'
 import { TaskNotificationsService } from '@api/tasks/task-notifications.service'
@@ -6,6 +7,7 @@ import { logger, task } from '@trigger.dev/sdk/v3'
 type CreateTaskNotificationPayload = {
   user: User
   task: TaskWithWorkflowState
+  emailOverride?: EmailNotificationDetails
 }
 
 export const sendTaskCreateNotifications = task({
@@ -18,9 +20,9 @@ export const sendTaskCreateNotifications = task({
   run: async (payload: CreateTaskNotificationPayload, { ctx }) => {
     logger.log('Sending task creation notifications for:', { payload, ctx })
 
-    const { task, user } = payload
+    const { task, user, emailOverride } = payload
     const taskNotificationsSevice = new TaskNotificationsService(user)
-    await taskNotificationsSevice.sendTaskCreateNotifications(task)
+    await taskNotificationsSevice.sendTaskCreateNotifications(task, false, emailOverride)
 
     return {
       message: `Sent create notifications for taskId ${task.id} successfully`,
