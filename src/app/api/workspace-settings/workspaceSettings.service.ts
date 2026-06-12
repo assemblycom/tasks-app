@@ -23,10 +23,11 @@ export class WorkspaceSettingsService extends BaseService {
     policyGate.authorize(UserAction.Update, Resource.WorkspaceSetting)
 
     const workspaceId = this.user.workspaceId
-    return await this.db.workspaceSetting.upsert({
+    // The settings row is created lazily on read (getWorkspaceSettings), so by the
+    // time a setting is changed it always exists — update only, never insert.
+    return await this.db.workspaceSetting.update({
       where: { workspaceId },
-      create: { workspaceId, ...data },
-      update: data,
+      data,
     })
   }
 }

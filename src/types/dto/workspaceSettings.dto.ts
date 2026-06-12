@@ -1,3 +1,4 @@
+import { ViewMode } from '@prisma/client'
 import { z } from 'zod'
 
 export const AUTO_ARCHIVE_AFTER_DAYS_OPTIONS = [0, 7, 14, 30, 60, 90] as const
@@ -10,7 +11,15 @@ export const UpdateWorkspaceSettingsSchema = z.object({
     .int()
     .refine((val): val is AutoArchiveAfterDays => (AUTO_ARCHIVE_AFTER_DAYS_OPTIONS as readonly number[]).includes(val), {
       message: `autoArchiveAfterDays must be one of ${AUTO_ARCHIVE_AFTER_DAYS_OPTIONS.join(', ')}`,
-    }),
+    })
+    .optional(),
+  clientDefaultViewMode: z.nativeEnum(ViewMode).nullish(),
+  clientHideSubtasks: z.boolean().nullish(),
 })
 
 export type UpdateWorkspaceSettingsDTO = z.infer<typeof UpdateWorkspaceSettingsSchema>
+
+export type ClientViewSettings = {
+  clientDefaultViewMode: ViewMode | null
+  clientHideSubtasks: boolean | null
+}
