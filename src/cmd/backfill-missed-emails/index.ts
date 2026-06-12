@@ -31,6 +31,11 @@ const dispatchNotification = async (copilot: CopilotAPI, taskId: string, payload
   // <<- Emails are triggered here. Proceed with caution ->>
 
   const notification = await copilot.createNotification(payload)
+  if (!notification) {
+    console.info('No notification resource returned for email-only delivery:', { taskId, payload })
+    return
+  }
+
   await db.clientNotification.create({
     data: {
       clientId: payload.recipientClientId!,

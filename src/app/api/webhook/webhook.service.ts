@@ -113,17 +113,25 @@ class WebhookService extends BaseService {
         // If any of the given action is not present in details obj, that type of notification is not sent
         deliveryTargets: { inProduct },
       }
-      createNotificationPromises.push(copilotBottleneck.schedule(() => this.copilot.createNotification(notificationDetails)))
+      createNotificationPromises.push(
+        copilotBottleneck
+          .schedule(() => this.copilot.createNotification(notificationDetails))
+          .then((notification) => ({ task, notification })),
+      )
     }
-    const notifications = await Promise.all(createNotificationPromises)
+    const notificationResults = await Promise.all(createNotificationPromises)
 
     // Now add appropriate records to our ClientNotifications table
     const insertPromises = []
     const notificationService = new NotificationService(this.user)
-    for (let i = 0; i < notifications.length; i++) {
+    for (const { task, notification } of notificationResults) {
+      if (!notification) {
+        console.error('WebhookService#handleClientCreated :: Copilot did not return a notification resource for task', task.id)
+        continue
+      }
+
       insertPromises.push(
-        // This is assuming a 1:1 map for tasks and notifications
-        dbBottleneck.schedule(() => notificationService.addToClientNotifications(tasks[i], notifications[i])),
+        dbBottleneck.schedule(() => notificationService.addToClientNotifications(task, notification)),
       )
     }
     await Promise.all(insertPromises)
