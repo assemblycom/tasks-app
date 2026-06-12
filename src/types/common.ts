@@ -185,6 +185,19 @@ export const NotificationSenderSchema = z.enum(['internalUser', 'client'])
 export type NotificationSender = z.infer<typeof NotificationSenderSchema>
 
 /**
+ * Email notification details accepted by the Notifications API (`deliveryTargets.email`).
+ * Also used as the public create-task `email` override — the consumer can supply any subset
+ * of these fields and the rest fall back to the system default copy.
+ */
+export const EmailNotificationDetailsSchema = z.object({
+  subject: z.string().optional(),
+  header: z.string().optional(),
+  title: z.string().optional(),
+  body: z.string().optional(),
+})
+export type EmailNotificationDetails = z.infer<typeof EmailNotificationDetailsSchema>
+
+/**
  * Notification RequestBody schema - accepted by SDK#createNotification
  */
 export const NotificationRequestBodySchema = z
@@ -204,14 +217,7 @@ export const NotificationRequestBodySchema = z
             body: z.string().optional(),
           })
           .optional(),
-        email: z
-          .object({
-            subject: z.string().optional(),
-            header: z.string().optional(),
-            title: z.string().optional(),
-            body: z.string().optional(),
-          })
-          .optional(),
+        email: EmailNotificationDetailsSchema.optional(),
       })
       .optional(),
   })
