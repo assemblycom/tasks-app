@@ -14,6 +14,7 @@ export const sendTaskCreateNotifications = task({
   queue: {
     concurrencyLimit: 5,
   },
+  retry: { maxAttempts: 3, factor: 2, minTimeoutInMs: 1_000, maxTimeoutInMs: 15_000, randomize: true },
 
   run: async (payload: CreateTaskNotificationPayload, { ctx }) => {
     logger.log('Sending task creation notifications for:', { payload, ctx })
