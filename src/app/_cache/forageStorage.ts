@@ -8,30 +8,48 @@ localforage.config({
   storeName: 'assignees',
 })
 
-export async function migrateAssignees(lookupKey: string) {
-  const lKey = `assignees.${lookupKey}`
-  const existing = localStorage.getItem(lKey)
+async function hasAssigneeStorageAccess() {
+  if (typeof window === 'undefined') return false
 
-  if (existing) {
-    try {
+  if (typeof document.hasStorageAccess !== 'function') {
+    return true
+  }
+
+  try {
+    const hasAccess = await document.hasStorageAccess()
+    if (!hasAccess) {
+      console.info('Browser has no storage access')
+    }
+    // requestStorageAccess() requires a user gesture in embedded contexts, so cache
+    // helpers should fall back to network data instead of prompting during mount.
+    return hasAccess
+  } catch {
+    return false
+  }
+}
+
+export async function migrateAssignees(lookupKey: string) {
+  if (!(await hasAssigneeStorageAccess())) return
+
+  const lKey = `assignees.${lookupKey}`
+
+  try {
+    const existing = localStorage.getItem(lKey)
+
+    if (existing) {
       const parsed = JSON.parse(existing)
       await localforage.setItem(lKey, parsed)
       localStorage.removeItem(lKey)
-    } catch (err) {
-      console.error('Migration failed', err)
     }
+  } catch (err) {
+    console.error('Migration failed', err)
   }
 } //a utility function to migrate existing assignee data from localStorage to localForage
 
 export async function getAssignees(lookupKey: string): Promise<IAssigneeCombined[]> {
-  if (typeof window === 'undefined') return []
+  if (!(await hasAssigneeStorageAccess())) return []
 
   try {
-    if (!(await document.hasStorageAccess())) {
-      console.info('Browswer has no storage access')
-      await document.requestStorageAccess()
-    }
-
     return (await localforage.getItem<IAssigneeCombined[]>(`assignees.${lookupKey}`)) ?? []
   } catch (error: unknown) {
     console.error(
@@ -42,14 +60,9 @@ export async function getAssignees(lookupKey: string): Promise<IAssigneeCombined
 }
 
 export async function setAssignees(lookupKey: string, value: any) {
-  if (typeof window === 'undefined') return
+  if (!(await hasAssigneeStorageAccess())) return
 
   try {
-    if (!(await document.hasStorageAccess())) {
-      console.info('Browswer has no storage access')
-      await document.requestStorageAccess()
-    }
-
     return await localforage.setItem(`assignees.${lookupKey}`, value)
   } catch (error: unknown) {
     console.error(
