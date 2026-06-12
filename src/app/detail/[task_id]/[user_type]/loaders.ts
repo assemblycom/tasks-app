@@ -15,7 +15,7 @@ export const loadTask = async (user: User, taskId: string): Promise<TaskResponse
     const task = await new TasksService(user).getOneTask(taskId)
     return toJsonSafe(task) as unknown as TaskResponse
   } catch (err) {
-    const nonRenderableStatuses = [httpStatus.NOT_FOUND, httpStatus.UNAUTHORIZED]
+    const nonRenderableStatuses: number[] = [httpStatus.NOT_FOUND, httpStatus.UNAUTHORIZED]
     if (err instanceof APIError && nonRenderableStatuses.includes(err.status)) return null
     throw err
   }
