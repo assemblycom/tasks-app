@@ -11,15 +11,15 @@ stages the file in storage, and rewrites the marker into real attachment markup 
 
 ## At a glance
 
-| | |
-| --- | --- |
-| **Endpoint** | `POST /api/tasks/public` |
-| **Trigger** | `<public-attachment>` markers in the `description` field |
-| **Max attachments** | **2 per task** (`MAX_PUBLIC_ATTACHMENT_MARKERS`) |
-| **Max size per file** | **100 MB** (`MAX_UPLOAD_LIMIT`) |
-| **Download timeout** | 8 s per file (`DOWNLOAD_TIMEOUT_MS`) |
-| **Allowed protocols** | `http:` / `https:` |
-| **Update endpoint** | ❌ `PUT /api/tasks/public/[id]` does **not** support attachments |
+|                       |                                                                  |
+| --------------------- | ---------------------------------------------------------------- |
+| **Endpoint**          | `POST /api/tasks/public`                                         |
+| **Trigger**           | `<public-attachment>` markers in the `description` field         |
+| **Max attachments**   | **2 per task** (`MAX_PUBLIC_ATTACHMENT_MARKERS`)                 |
+| **Max size per file** | **100 MB** (`MAX_UPLOAD_LIMIT`)                                  |
+| **Download timeout**  | 8 s per file (`DOWNLOAD_TIMEOUT_MS`)                             |
+| **Allowed protocols** | `http:` / `https:`                                               |
+| **Update endpoint**   | ❌ `PUT /api/tasks/public/[id]` does **not** support attachments |
 
 ---
 
@@ -31,13 +31,14 @@ Embed one self-closing marker per attachment inside the description body:
 <public-attachment
   data-src="https://example.com/files/report.pdf"
   data-filename="report.pdf"
-  data-filetype="application/pdf" />
+  data-filetype="application/pdf"
+/>
 ```
 
-| Attribute | Required | Purpose |
-| --- | --- | --- |
-| `data-src` | ✅ | External `http(s)` URL to download. Missing → `422`. |
-| `data-filename` | optional | Overrides the filename inferred from the response. |
+| Attribute       | Required | Purpose                                               |
+| --------------- | -------- | ----------------------------------------------------- |
+| `data-src`      | ✅       | External `http(s)` URL to download. Missing → `422`.  |
+| `data-filename` | optional | Overrides the filename inferred from the response.    |
 | `data-filetype` | optional | Overrides the MIME type inferred from `Content-Type`. |
 
 After expansion the marker is replaced with:
@@ -140,16 +141,16 @@ real `Attachment` row. The sweep finds files by grabbing the last `src="..."` in
 
 ## Error responses
 
-| Condition | Status | Source |
-| --- | --- | --- |
-| More than 2 markers | `422` | `expandPublicAttachmentMarkers` |
-| Marker missing `data-src` | `422` | `expandPublicAttachmentMarkers` |
-| Invalid / non-http(s) URL | `400` | `uploadFromUrl` |
-| Download non-2xx / network error / timeout | `400` | `fetchWithTimeout` |
-| File exceeds 100 MB (advertised or actual) | `413` | `fetchWithTimeout` |
-| Storage upload failure | `400` | `stageFile` |
-| ScrapMedia tracking failure (after rollback) | `500` | `stageFile` |
-| Whole route exceeds 10 s | capped | `withExecTimeCap` |
+| Condition                                    | Status | Source                          |
+| -------------------------------------------- | ------ | ------------------------------- |
+| More than 2 markers                          | `422`  | `expandPublicAttachmentMarkers` |
+| Marker missing `data-src`                    | `422`  | `expandPublicAttachmentMarkers` |
+| Invalid / non-http(s) URL                    | `400`  | `uploadFromUrl`                 |
+| Download non-2xx / network error / timeout   | `400`  | `fetchWithTimeout`              |
+| File exceeds 100 MB (advertised or actual)   | `413`  | `fetchWithTimeout`              |
+| Storage upload failure                       | `400`  | `stageFile`                     |
+| ScrapMedia tracking failure (after rollback) | `500`  | `stageFile`                     |
+| Whole route exceeds 10 s                     | capped | `withExecTimeCap`               |
 
 ---
 
@@ -163,7 +164,7 @@ export const updateTaskPublic = async (req: NextRequest, { params }: IdParams) =
   const { id } = await params
   ValidateUuid(id, PublicResource.Tasks)
   const user = await authenticate(req)
-  const data = PublicTaskUpdateDtoSchema.parse(await req.json())   // no attachment expansion
+  const data = PublicTaskUpdateDtoSchema.parse(await req.json()) // no attachment expansion
 
   const tasksService = new PublicTasksService(user)
   const updatePayload = await PublicTaskSerializer.deserializeUpdatePayload(data, user.workspaceId)
@@ -177,7 +178,7 @@ export const updateTaskPublic = async (req: NextRequest, { params }: IdParams) =
 
 - Attachments can only be added **at creation time** via `POST /api/tasks/public`.
 - Sending `<public-attachment>` markers in an **update** body does **not** expand them — the raw marker
-  text is persisted as-is into the description (it is *not* downloaded, staged, or rendered).
+  text is persisted as-is into the description (it is _not_ downloaded, staged, or rendered).
 - To attach files to an existing public task, recreate it, or use the in-app/authenticated flow.
 
 > If attachment support on update is ever needed, mirror the create path: call
@@ -187,16 +188,16 @@ export const updateTaskPublic = async (req: NextRequest, { params }: IdParams) =
 
 ## Source map
 
-| Concern | File | Symbol / line |
-| --- | --- | --- |
-| Route registration | `route.ts` | `POST` (`withExecTimeCap(..., 10_000)`) |
-| Create handler | `public.controller.ts` | `createTaskPublic()` — expands at `:73` |
-| Update handler (no attachments) | `public.controller.ts` | `updateTaskPublic()` `:85` |
-| Marker expansion + limit | `public-attachment.service.ts` | `expandPublicAttachmentMarkers()` `:57`, limit `:17` |
-| Download from URL | `public-attachment.service.ts` | `uploadFromUrl()` `:98` |
-| Stage to storage + ScrapMedia | `public-attachment.service.ts` | `stageFile()` `:141` |
-| Bounded fetch (timeout + size) | `public-attachment.service.ts` | `fetchWithTimeout()` `:189` |
-| Markup builder | `public-attachment.service.ts` | `buildMarkup()` `:33` |
-| Global size limit | `src/constants/attachments.ts` | `MAX_UPLOAD_LIMIT` (100 MB) |
-| Create DTO | `public.dto.ts` | `publicTaskCreateDtoSchemaFactory()` |
-| Update DTO | `public.dto.ts` | `PublicTaskUpdateDtoSchema` |
+| Concern                         | File                           | Symbol / line                                        |
+| ------------------------------- | ------------------------------ | ---------------------------------------------------- |
+| Route registration              | `route.ts`                     | `POST` (`withExecTimeCap(..., 10_000)`)              |
+| Create handler                  | `public.controller.ts`         | `createTaskPublic()` — expands at `:73`              |
+| Update handler (no attachments) | `public.controller.ts`         | `updateTaskPublic()` `:85`                           |
+| Marker expansion + limit        | `public-attachment.service.ts` | `expandPublicAttachmentMarkers()` `:57`, limit `:17` |
+| Download from URL               | `public-attachment.service.ts` | `uploadFromUrl()` `:98`                              |
+| Stage to storage + ScrapMedia   | `public-attachment.service.ts` | `stageFile()` `:141`                                 |
+| Bounded fetch (timeout + size)  | `public-attachment.service.ts` | `fetchWithTimeout()` `:189`                          |
+| Markup builder                  | `public-attachment.service.ts` | `buildMarkup()` `:33`                                |
+| Global size limit               | `src/constants/attachments.ts` | `MAX_UPLOAD_LIMIT` (100 MB)                          |
+| Create DTO                      | `public.dto.ts`                | `publicTaskCreateDtoSchemaFactory()`                 |
+| Update DTO                      | `public.dto.ts`                | `PublicTaskUpdateDtoSchema`                          |
