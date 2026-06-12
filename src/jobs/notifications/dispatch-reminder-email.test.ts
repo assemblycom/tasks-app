@@ -83,6 +83,16 @@ describe('dispatchReminderEmail', () => {
       expect(result).toEqual({ ledgerId: 'ledger_1', notificationId: 'notif_1', sent: true })
     })
 
+    it('treats an email-only null notification response as a successful send', async () => {
+      mockSendReminderEmail.mockResolvedValueOnce(null)
+
+      const result = await dispatchReminderEmailRun(buildPayload())
+
+      expect(result).toEqual({ ledgerId: 'ledger_1', notificationId: null, sent: true })
+      expect(mockExecuteRaw).not.toHaveBeenCalled()
+      expect(mockCaptureException).not.toHaveBeenCalled()
+    })
+
     it('rethrows so Trigger.dev can apply its retry policy', async () => {
       mockSendReminderEmail.mockRejectedValueOnce(new Error('copilot 5xx'))
 

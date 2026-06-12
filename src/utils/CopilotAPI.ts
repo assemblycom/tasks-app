@@ -27,6 +27,8 @@ import {
   MeResponse,
   MeResponseSchema,
   NotificationCreatedResponse,
+  NotificationCreatedResponseOrNull,
+  NotificationCreatedResponseOrNullSchema,
   NotificationCreatedResponseSchema,
   NotificationRequestBody,
   NotificationResponseSchema,
@@ -208,9 +210,12 @@ export class CopilotAPI {
     return InternalUsersSchema.parse(await this.copilot.retrieveInternalUser({ id }))
   }
 
-  async _createNotification(requestBody: NotificationRequestBody): Promise<NotificationCreatedResponse> {
+  async _createNotification(requestBody: NotificationRequestBody): Promise<NotificationCreatedResponseOrNull> {
     console.info('CopilotAPI#_createNotification', this.token)
     const notification = await this.copilot.createNotification({ requestBody })
+    if (!requestBody.deliveryTargets?.inProduct) {
+      return NotificationCreatedResponseOrNullSchema.parse(notification)
+    }
     return NotificationCreatedResponseSchema.parse(notification)
   }
 

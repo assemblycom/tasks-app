@@ -2,6 +2,7 @@ import {
   CompanyResponse,
   CopilotUser,
   NotificationCreatedResponse,
+  NotificationCreatedResponseOrNull,
   NotificationCreatedResponseSchema,
   NotificationRequestBody,
   Uuid,
@@ -66,7 +67,7 @@ export class NotificationService extends BaseService {
       )
       console.info('NotificationService#create | Creating single notification:', notificationDetails)
 
-      let notification: NotificationCreatedResponse
+      let notification: NotificationCreatedResponseOrNull
       try {
         notification = await this.copilot.createNotification(notificationDetails)
       } catch (e: unknown) {
@@ -74,6 +75,7 @@ export class NotificationService extends BaseService {
       }
 
       console.info('NotificationService#create | Created single notification:', notification)
+      if (!notification) return notification
 
       // 3. Save notification to ClientNotification or InternalUserNotification table. Check for notification.recipientClientId too
       if (task.assigneeType === AssigneeType.client && !!notification.recipientClientId && !opts.disableInProduct) {
@@ -169,7 +171,7 @@ export class NotificationService extends BaseService {
           )
 
           console.info('NotificationService#bulkCreate | Creating single notification:', notificationDetails)
-          let notification: NotificationCreatedResponse
+          let notification: NotificationCreatedResponseOrNull
           try {
             notification = await this.copilot.createNotification(notificationDetails)
           } catch (e: unknown) {

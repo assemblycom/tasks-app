@@ -35,6 +35,22 @@ describe('sendReminderEmail', () => {
     expect(id).toBe('notif_1')
   })
 
+  it('returns null when Copilot accepts an email-only send without creating an in-product notification', async () => {
+    const createNotification = jest.fn().mockResolvedValue(null)
+
+    const id = await sendReminderEmail({
+      task,
+      recipientClientId: 'client_1',
+      recipientCompanyId: 'company_1',
+      reminderType: TaskReminderType.NO_DUE_DATE_3D,
+      isCompanyRecipient: false,
+      workspace,
+      copilot: buildCopilotMock(createNotification),
+    })
+
+    expect(id).toBeNull()
+  })
+
   it('builds an email-only payload (no inProduct, IU sender, client recipient)', async () => {
     const createNotification = jest.fn().mockResolvedValue({ id: 'notif_1', createdAt: '2026-05-25T00:00:00Z' })
 

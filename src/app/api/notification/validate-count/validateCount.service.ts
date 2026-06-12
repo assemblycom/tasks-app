@@ -171,8 +171,13 @@ export class ValidateCountService extends NotificationService {
     // Now track those to ClientNotifications table
     const newClientNotificationData = []
     for (const i in newNotifications) {
+      const notification = newNotifications[i]
+      if (!notification) {
+        console.error(`ValidateCount :: Copilot returned no in-product notification for task ${tasksWithoutNotifications[i].id}`)
+        continue
+      }
       newClientNotificationData.push({
-        notificationId: newNotifications[i].id,
+        notificationId: notification.id,
         taskId: tasksWithoutNotifications[i].id,
         clientId,
         companyId: tasksWithoutNotifications[i].companyId,
