@@ -102,7 +102,7 @@ export const ActivityWrapper = ({
     const optimisticData = getOptimisticData(postCommentPayload, activities.data, tempLog)
 
     try {
-      mutate(
+      await mutate(
         cacheKey,
         async () => {
           shouldRefetchRef.current = false
@@ -123,6 +123,8 @@ export const ActivityWrapper = ({
     } catch (error) {
       console.error('Failed to post comment:', error)
       setOptimisticUpdates((prev) => prev.filter((update) => update.tempId !== tempId))
+      // Re-throw so CommentInput / ReplyInput can restore the user's typed content.
+      throw error
     }
   }
 

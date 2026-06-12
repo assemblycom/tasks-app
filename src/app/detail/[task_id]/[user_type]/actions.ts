@@ -112,6 +112,10 @@ export const postComment = async (token: string, payload: CreateComment) => {
     method: 'POST',
     body: JSON.stringify(payload),
   })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Failed to post comment (${res.status}): ${text}`)
+  }
   const data = await res.json()
   return data.comment
 }
@@ -121,6 +125,10 @@ export const updateComment = async (token: string, id: string, payload: UpdateCo
     method: 'PATCH',
     body: JSON.stringify(payload),
   })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Failed to update comment (${res.status}): ${text}`)
+  }
   const data = await res.json()
   return data.comment
 }

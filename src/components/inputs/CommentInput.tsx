@@ -21,7 +21,7 @@ import { Tapwrite } from 'tapwrite'
 
 interface Prop {
   token: string
-  createComment: (postCommentPayload: CreateComment) => void
+  createComment: (postCommentPayload: CreateComment) => Promise<void>
   task_id: string
 }
 
@@ -40,7 +40,7 @@ export const CommentInput = ({ createComment, task_id, token }: Prop) => {
     return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || windowWidth < 600
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     let content = detail
     const END_P = '<p></p>'
     const endChunk = content.slice(-7)
@@ -54,8 +54,13 @@ export const CommentInput = ({ createComment, task_id, token }: Prop) => {
         taskId: task_id,
         mentions: getMentionsList(detail),
       }
-      createComment(commentPayload)
-      setDetail('') // Clear the input after creating comment
+      const previousDetail = detail
+      setDetail('') // Optimistically clear; restored below if the post fails.
+      try {
+        await createComment(commentPayload)
+      } catch {
+        setDetail((current) => (isTapwriteContentEmpty(current) ? previousDetail : current))
+      }
     }
   }
   // useEffect to handle keydown event for Enter key
