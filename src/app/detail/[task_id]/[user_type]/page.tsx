@@ -33,14 +33,18 @@ import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { AttachmentProvider } from '@/hoc/PostAttachmentProvider'
 import { RealTime } from '@/hoc/RealTime'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
+import User from '@/app/api/core/models/User.model'
 import { Token } from '@/types/common'
 import { UserType } from '@/types/interfaces'
+import APIError from '@/app/api/core/exceptions/api'
 import { getAssigneeCacheLookupKey, UserIdsWithAssociationSharedType } from '@/utils/assignee'
 import EscapeHandler from '@/utils/escapeHandler'
 import { getPreviewMode } from '@/utils/previewMode'
 import { checkIfTaskViewer } from '@/utils/taskViewer'
+import { normalizeTokenParam } from '@/utils/tokenQuery'
 import { truncateText } from '@/utils/truncateText'
 import { Box, Stack } from '@mui/material'
+import httpStatus from 'http-status'
 import { Suspense } from 'react'
 import { z } from 'zod'
 
@@ -50,14 +54,24 @@ export default async function TaskDetailPage(props: {
 }) {
   const searchParams = await props.searchParams
   const params = await props.params
-  const { token } = searchParams
+  const token = normalizeTokenParam(searchParams.token)
   const { task_id, user_type } = params
 
-  if (z.string().safeParse(token).error) {
+  if (z.string().safeParse(token).error || !token) {
     return <SilentError message="Please provide a Valid Token" />
   }
 
-  const user = await authenticateWithToken(token)
+  let user: User
+  try {
+    user = await authenticateWithToken(token)
+  } catch (error) {
+    if (error instanceof APIError && error.status === httpStatus.UNAUTHORIZED) {
+      return <SilentError message="Please provide a Valid Token" />
+    }
+
+    throw error
+  }
+
   const tokenPayload: Token = {
     internalUserId: user.internalUserId,
     clientId: user.clientId,
