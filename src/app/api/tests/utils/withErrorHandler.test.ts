@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withErrorHandler } from '@api/core/utils/withErrorHandler'
 import { CopilotApiError } from '@/types/CopilotApiError'
 import { z } from 'zod'
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library'
 
 jest.mock('@/utils/CopilotAPI', () => ({
   CopilotAPI: jest.fn().mockImplementation((token: string) => mockCopilotAPI(token)),
@@ -17,6 +18,10 @@ describe('withErrorHandler util', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     req = buildNextRequest(`/?token=iu-token`)
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
   })
 
   it('catches and builds proper response for APIError', async () => {
@@ -38,9 +43,37 @@ describe('withErrorHandler util', () => {
 
     const nextResponse = await withErrorHandler(handler)(req, null)
     const response = await nextResponse.json()
-    expect(response.error[0].expected).toBe('string')
-    expect(response.error[0].received).toBe('number')
+    expect(response.error).toBe('Expected string, received number')
     expect(nextResponse.status).toBe(httpStatus.UNPROCESSABLE_ENTITY)
+  })
+
+  it('catches Prisma not found errors without logging them as server errors', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
+    const handler = async (_req: NextRequest, _params: any) => {
+      throw new PrismaClientKnownRequestError('Record not found', {
+        code: 'P2025',
+        clientVersion: '5.22.0',
+      })
+    }
+
+    const nextResponse = await withErrorHandler(handler)(req, null)
+    const response = await nextResponse.json()
+    expect(response.error).toBe('The requested resource was not found')
+    expect(nextResponse.status).toBe(httpStatus.NOT_FOUND)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+  })
+
+  it('continues logging unexpected errors', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
+    const handler = async (_req: NextRequest, _params: any) => {
+      throw new Error('Unexpected failure')
+    }
+
+    const nextResponse = await withErrorHandler(handler)(req, null)
+    const response = await nextResponse.json()
+    expect(response.error).toBe('Something went wrong')
+    expect(nextResponse.status).toBe(httpStatus.BAD_REQUEST)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.objectContaining({ message: 'Unexpected failure' }))
   })
 
   it('catches and builds proper response for CopilotApiError', async () => {
