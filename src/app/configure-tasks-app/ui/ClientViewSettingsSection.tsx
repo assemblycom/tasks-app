@@ -5,6 +5,8 @@ import { Box, Menu, MenuItem, Stack, Typography } from '@mui/material'
 import { Icon } from 'copilot-design-system'
 import { ViewMode } from '@prisma/client'
 import { StyledSwitch } from '@/components/inputs/StyledSwitch'
+import { StyledModal } from '@/app/detail/ui/styledComponent'
+import { ConfirmUI } from '@/components/layouts/ConfirmUI'
 import { updateWorkspaceSettings } from '@/app/configure-tasks-app/actions'
 import { ClientViewSettings } from '@/types/dto/workspaceSettings.dto'
 
@@ -20,6 +22,8 @@ const VIEW_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
 
 export const ClientViewSettingsSection = ({ initialSettings, token }: ClientViewSettingsSectionProps) => {
   const [settings, setSettings] = useState<ClientViewSettings>(initialSettings)
+  // Holds the change awaiting confirmation; the controls keep showing `settings` until confirmed.
+  const [pendingSettings, setPendingSettings] = useState<ClientViewSettings | null>(null)
 
   const persist = async (next: ClientViewSettings) => {
     const previous = settings
@@ -30,6 +34,13 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
       console.error('Failed to save client view settings', err)
       setSettings(previous)
     }
+  }
+
+  const handleConfirm = async () => {
+    if (!pendingSettings) return
+    const next = pendingSettings
+    setPendingSettings(null)
+    await persist(next)
   }
 
   return (
@@ -50,7 +61,9 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
           <Typography variant="bodyMd">Default view</Typography>
           <ViewModeDropdown
             value={settings.clientDefaultViewMode}
-            onChange={(value) => persist({ ...settings, clientDefaultViewMode: value })}
+            onChange={(value) =>
+              value !== settings.clientDefaultViewMode && setPendingSettings({ ...settings, clientDefaultViewMode: value })
+            }
           />
         </Stack>
         <Stack
@@ -62,10 +75,30 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
           <Typography variant="bodyMd">Hide subtasks</Typography>
           <StyledSwitch
             checked={settings.clientHideSubtasks ?? false}
-            onChange={(e) => persist({ ...settings, clientHideSubtasks: e.target.checked })}
+            onChange={(e) => setPendingSettings({ ...settings, clientHideSubtasks: e.target.checked })}
           />
         </Stack>
       </Box>
+
+      <StyledModal
+        open={!!pendingSettings}
+        onClose={() => setPendingSettings(null)}
+        aria-labelledby="confirm-client-view-settings-modal"
+        aria-describedby="confirm-client-view-settings"
+      >
+        <ConfirmUI
+          handleCancel={() => setPendingSettings(null)}
+          handleConfirm={handleConfirm}
+          buttonText="Apply to all clients"
+          title="Update view for all clients?"
+          description={
+            <>
+              This changes the view for <strong>every client</strong> in this workspace right now, replacing any view a
+              client has set for themselves. New and existing clients will all see this view.
+            </>
+          }
+        />
+      </StyledModal>
     </Box>
   )
 }
