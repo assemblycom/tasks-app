@@ -13,7 +13,9 @@ import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
 import { getEmailDetails, getInProductNotificationDetails } from '@api/notification/notification.helpers'
-import { AssigneeType, ClientNotification, Task } from '@prisma/client'
+import { AssigneeType, ClientNotification, GroupedEmailEventType, Task } from '@prisma/client'
+import { randomUUID } from 'crypto'
+import { enqueueGroupedEmailFlush } from '@/jobs/notifications/flush-grouped-email'
 import Bottleneck from 'bottleneck'
 import httpStatus from 'http-status'
 import { z } from 'zod'
@@ -53,9 +55,23 @@ export class NotificationService extends BaseService {
       const inProduct = opts.disableInProduct
         ? undefined
         : getInProductNotificationDetails(workspace, actionUser, task, { companyName, commentId: opts?.commentId })[action]
-      const email = opts.disableEmail
+      let email = opts.disableEmail
         ? undefined
         : getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
+
+      const groupedType = this.groupedEventTypeFor(action)
+      if (email && groupedType && recipientId) {
+        const association = AssociationsSchema.parse(task.associations)?.[0]
+        await this.bufferGroupedEmailEvent({
+          task,
+          recipientClientId: recipientId,
+          recipientCompanyId: task.companyId ?? association?.companyId ?? null,
+          eventType: groupedType,
+          commentId: opts.commentId,
+        })
+        email = undefined
+      }
+      if (!inProduct && !email) return
 
       const notificationDetails = this.buildNotificationDetails(
         task,
@@ -159,12 +175,24 @@ export class NotificationService extends BaseService {
             continue
           }
 
+          const groupedType = this.groupedEventTypeFor(action)
+          if (email && groupedType) {
+            await this.bufferGroupedEmailEvent({
+              task,
+              recipientClientId: recipientId,
+              recipientCompanyId: task.companyId ?? null,
+              eventType: groupedType,
+              commentId: opts?.commentId,
+            })
+            if (!inProduct) continue
+          }
+
           // 2. Dispatch notification to Copilot
           const notificationDetails = this.buildNotificationDetails(
             task,
             senderId,
             recipientId,
-            { inProduct, email },
+            { inProduct, email: groupedType ? undefined : email },
             opts?.senderCompanyId,
           )
 
@@ -533,6 +561,66 @@ export class NotificationService extends BaseService {
     return await this.db.clientNotification.findMany({
       where: { taskId: { in: taskIds }, clientId: this.user.clientId, companyId: this.user.companyId },
     })
+  }
+
+  private groupedEventTypeFor(action: NotificationTaskActions): GroupedEmailEventType | null {
+    switch (action) {
+      case NotificationTaskActions.Assigned:
+      case NotificationTaskActions.AssignedToCompany:
+        return GroupedEmailEventType.ASSIGNED
+      case NotificationTaskActions.Shared:
+      case NotificationTaskActions.SharedToCompany:
+        return GroupedEmailEventType.SHARED
+      case NotificationTaskActions.Commented:
+        return GroupedEmailEventType.COMMENT
+      default:
+        return null
+    }
+  }
+
+  private async bufferGroupedEmailEvent(args: {
+    task: Task
+    recipientClientId: string
+    recipientCompanyId: string | null
+    eventType: GroupedEmailEventType
+    commentId?: string
+  }): Promise<void> {
+    const { task, recipientClientId, recipientCompanyId, eventType, commentId } = args
+
+    const activeWindow = await this.db.$queryRaw<{ windowKey: string }[]>`
+      SELECT "windowKey" FROM "GroupedEmailEvents"
+      WHERE "workspaceId" = ${task.workspaceId}
+        AND "recipientClientId" = ${recipientClientId}::uuid
+        AND "recipientCompanyId" IS NOT DISTINCT FROM ${recipientCompanyId}::uuid
+        AND "sentAt" IS NULL
+        AND "createdAt" > now() - interval '5 minutes'
+      ORDER BY "createdAt" DESC
+      LIMIT 1`
+
+    const isNewWindow = activeWindow.length === 0
+    const windowKey = isNewWindow
+      ? `${recipientClientId}:${recipientCompanyId ?? 'none'}:${randomUUID()}`
+      : activeWindow[0].windowKey
+
+    await this.db.groupedEmailEvent.createMany({
+      data: [
+        {
+          workspaceId: task.workspaceId,
+          recipientClientId,
+          recipientCompanyId,
+          eventType,
+          taskId: task.id,
+          taskTitleSnapshot: task.title,
+          commentId: commentId ?? null,
+          windowKey,
+        },
+      ],
+      skipDuplicates: true,
+    })
+
+    if (isNewWindow) {
+      await enqueueGroupedEmailFlush({ workspaceId: task.workspaceId, windowKey })
+    }
   }
 
   private async handleIfSenderCompanyIdError(e: unknown, notificationDetails: NotificationRequestBody) {
