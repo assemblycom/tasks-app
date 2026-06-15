@@ -186,6 +186,33 @@ describe('NotificationService grouped-email interception', () => {
       expect(mockCreateNotification).not.toHaveBeenCalled()
     })
 
+    it('buffers one row per company client and keeps the fan-out', async () => {
+      await buildService().createBulkNotification(
+        NotificationTaskActions.SharedToCompany,
+        makeTask(),
+        ['cu_a', 'cu_b', 'cu_c'],
+        {
+          email: true,
+        },
+      )
+
+      expect(mockGroupedCreateMany).toHaveBeenCalledTimes(3)
+      const recipients = mockGroupedCreateMany.mock.calls.map((c) => c[0].data[0].recipientClientId)
+      expect(recipients).toEqual(['cu_a', 'cu_b', 'cu_c'])
+    })
+
+    it('falls back to the association company when the shared task has no companyId', async () => {
+      const assocCompany = '88888888-8888-8888-8888-888888888888'
+      const task = makeTask({
+        companyId: null,
+        associations: [{ companyId: assocCompany }] as unknown as Task['associations'],
+      })
+
+      await buildService().createBulkNotification(NotificationTaskActions.SharedToCompany, task, ['cu_a'], { email: true })
+
+      expect(mockGroupedCreateMany.mock.calls[0][0].data[0].recipientCompanyId).toBe(assocCompany)
+    })
+
     it('does not buffer for a bulk action that carries no email', async () => {
       await buildService().createBulkNotification(NotificationTaskActions.Commented, makeTask(), ['cu_a'], {
         email: false,

@@ -161,6 +161,8 @@ export class NotificationService extends BaseService {
       const clientNotifications = []
       const iuNotifications = []
 
+      const association = AssociationsSchema.parse(task.associations)?.[0]
+
       // NOTE: The reason we are skipping using NotificationService#create and implementing notification dispatch + save manually is because
       // we can just do one `createMany` DB call instead of one per notification, saving a ton of DB calls
       for (let recipientId of recipientIds) {
@@ -180,7 +182,7 @@ export class NotificationService extends BaseService {
             await this.bufferGroupedEmailEvent({
               task,
               recipientClientId: recipientId,
-              recipientCompanyId: task.companyId ?? null,
+              recipientCompanyId: task.companyId ?? association?.companyId ?? null,
               eventType: groupedType,
               commentId: opts?.commentId,
             })
