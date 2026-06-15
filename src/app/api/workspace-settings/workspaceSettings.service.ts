@@ -27,20 +27,23 @@ export class WorkspaceSettingsService extends BaseService {
 
     return this.db.$transaction(async (tx) => {
       this.setTransaction(tx as PrismaClient)
+      try {
+        const previous = await this.db.workspaceSetting.findUnique({ where: { workspaceId } })
 
-      const previous = await this.db.workspaceSetting.findUnique({ where: { workspaceId } })
+        // The settings row is created lazily on read (getWorkspaceSettings), so by the
+        // time a setting is changed it always exists — update only, never insert.
+        const updated = await this.db.workspaceSetting.update({
+          where: { workspaceId },
+          data,
+        })
 
-      // The settings row is created lazily on read (getWorkspaceSettings), so by the
-      // time a setting is changed it always exists — update only, never insert.
-      const updated = await this.db.workspaceSetting.update({
-        where: { workspaceId },
-        data,
-      })
+        await this.overrideExistingClientViewSettings({ previous, data })
 
-      await this.overrideExistingClientViewSettings({ previous, data })
-
-      this.unsetTransaction()
-      return updated
+        return updated
+      } finally {
+        // Always restore the shared db handle, even if the cascade throws.
+        this.unsetTransaction()
+      }
     })
   }
 
