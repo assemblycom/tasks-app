@@ -72,16 +72,17 @@ export class NotificationService extends BaseService {
         })
       }
 
-      const deliveryEmail = groupedType ? undefined : email
-      if (!inProduct && !deliveryEmail) return
-
+      // Build with the email so the recipient is routed as a client, then drop the email target
+      // once it has been diverted to the buffer (the in-product notification still fires now).
       const notificationDetails = this.buildNotificationDetails(
         task,
         senderId,
         recipientId,
-        { inProduct, email: deliveryEmail },
+        { inProduct, email },
         senderCompanyId,
       )
+      if (groupedType) notificationDetails.deliveryTargets = { inProduct }
+      if (!inProduct && !notificationDetails.deliveryTargets?.email) return
       console.info('NotificationService#create | Creating single notification:', notificationDetails)
 
       let notification: NotificationCreatedResponse
@@ -192,14 +193,16 @@ export class NotificationService extends BaseService {
             if (!inProduct) continue
           }
 
-          // 2. Dispatch notification to Copilot
+          // 2. Dispatch notification to Copilot. Build with the email so the recipient is routed as a
+          // client, then drop the email target once it has been diverted (in-product still fires).
           const notificationDetails = this.buildNotificationDetails(
             task,
             senderId,
             recipientId,
-            { inProduct, email: groupedType ? undefined : email },
+            { inProduct, email },
             opts?.senderCompanyId,
           )
+          if (groupedType) notificationDetails.deliveryTargets = { inProduct }
 
           console.info('NotificationService#bulkCreate | Creating single notification:', notificationDetails)
           let notification: NotificationCreatedResponse

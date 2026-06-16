@@ -125,6 +125,11 @@ describe('NotificationService grouped-email interception', () => {
       expect(mockCreateNotification).toHaveBeenCalledTimes(1)
       expect(deliveryTargetsOf(0).inProduct).toBeDefined()
       expect(deliveryTargetsOf(0).email).toBeUndefined()
+
+      // and it must still be routed to the client, not misclassified as an IU
+      const sent = mockCreateNotification.mock.calls[0][0]
+      expect(sent.recipientClientId).toBe(task.assigneeId)
+      expect(sent.recipientInternalUserId).toBeUndefined()
     })
 
     it('reuses an existing unclaimed window and does not enqueue a second timer', async () => {
