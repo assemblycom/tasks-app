@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type MouseEvent } from 'react'
+import { useState, type MouseEvent, type ReactNode } from 'react'
 import { Box, Menu, MenuItem, Stack, Typography } from '@mui/material'
 import { Icon } from 'copilot-design-system'
 import { ViewMode } from '@prisma/client'
@@ -19,6 +19,34 @@ const VIEW_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
   { label: 'List', value: ViewMode.list },
   { label: 'Board', value: ViewMode.board },
 ]
+
+const VIEW_MODE_LABEL: Record<ViewMode, string> = {
+  [ViewMode.list]: 'list',
+  [ViewMode.board]: 'board',
+}
+
+const getConfirmCopy = ({
+  current,
+  next,
+}: {
+  current: ClientViewSettings
+  next: ClientViewSettings
+}): { title: string; description: ReactNode } => {
+  if (next.clientDefaultViewMode && next.clientDefaultViewMode !== current.clientDefaultViewMode) {
+    const view = VIEW_MODE_LABEL[next.clientDefaultViewMode]
+    return {
+      title: `Switch to ${view} view as default display?`,
+      description: `Applying this change will override the current display settings for everyone and set it to ${view} view while viewing tasks.`,
+    }
+  }
+
+  const willHide = !!next.clientHideSubtasks
+  return {
+    title: willHide ? 'Hide subtasks for everyone?' : 'Show subtasks for everyone?',
+    description: `Applying this change will override the current subtasks view settings for everyone and ${willHide ? 'hide' : 'show'} subtasks
+        while viewing tasks.`,
+  }
+}
 
 export const ClientViewSettingsSection = ({ initialSettings, token }: ClientViewSettingsSectionProps) => {
   const [settings, setSettings] = useState<ClientViewSettings>(initialSettings)
@@ -58,7 +86,7 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
         }}
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: '16px', py: '14px' }}>
-          <Typography variant="bodyMd">Default view</Typography>
+          <Typography variant="bodyMd">Default display settings</Typography>
           <ViewModeDropdown
             value={settings.clientDefaultViewMode}
             onChange={(value) =>
@@ -89,14 +117,8 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
         <ConfirmUI
           handleCancel={() => setPendingSettings(null)}
           handleConfirm={handleConfirm}
-          buttonText="Apply to all clients"
-          title="Update view for all clients?"
-          description={
-            <>
-              This changes the view for <strong>every client</strong> in this workspace right now, replacing any view a
-              client has set for themselves. New and existing clients will all see this view.
-            </>
-          }
+          buttonText="Confirm & Apply"
+          {...getConfirmCopy({ current: settings, next: pendingSettings ?? settings })}
         />
       </StyledModal>
     </Box>
