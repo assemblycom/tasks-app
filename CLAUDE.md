@@ -108,6 +108,9 @@ Guidelines:
 - Prefer readability over aggressive abstraction.
 - Duplicate once if necessary; consider abstraction on the third occurrence.
 - Do not introduce abstractions that make code harder to understand.
+- no `let`. Always prefer `const` instead of let. Unless it is already there. But moving forward we should not be using `let`.
+- Absolutely prefer not adding any comments if possible.
+- Prefer object params over positional params for functions.
 
 ### Function Design
 
