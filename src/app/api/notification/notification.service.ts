@@ -13,7 +13,7 @@ import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
 import { getEmailDetails, getInProductNotificationDetails } from '@api/notification/notification.helpers'
-import { AssigneeType, ClientNotification, GroupedEmailEventType, Task } from '@prisma/client'
+import { AssigneeType, ClientNotification, GroupedEmailEventType, Prisma, Task } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { enqueueGroupedEmailFlush } from '@/jobs/notifications/flush-grouped-email'
 import Bottleneck from 'bottleneck'
@@ -69,6 +69,7 @@ export class NotificationService extends BaseService {
           recipientCompanyId: task.companyId ?? association?.companyId ?? null,
           eventType: groupedType,
           commentId: opts.commentId,
+          individualEmail: this.buildNotificationDetails(task, senderId, recipientId, { email }, senderCompanyId),
         })
       }
 
@@ -189,6 +190,7 @@ export class NotificationService extends BaseService {
               recipientCompanyId: task.companyId ?? association?.companyId ?? null,
               eventType: groupedType,
               commentId: opts?.commentId,
+              individualEmail: this.buildNotificationDetails(task, senderId, recipientId, { email }, opts?.senderCompanyId),
             })
             if (!inProduct) continue
           }
@@ -592,8 +594,9 @@ export class NotificationService extends BaseService {
     recipientCompanyId: string | null
     eventType: GroupedEmailEventType
     commentId?: string
+    individualEmail: NotificationRequestBody
   }): Promise<void> {
-    const { task, recipientClientId, recipientCompanyId, eventType, commentId } = args
+    const { task, recipientClientId, recipientCompanyId, eventType, commentId, individualEmail } = args
 
     const activeWindow = await this.db.$queryRaw<{ windowKey: string }[]>`
       SELECT "windowKey" FROM "GroupedEmailEvents"
@@ -621,6 +624,7 @@ export class NotificationService extends BaseService {
           taskTitleSnapshot: task.title,
           commentId: commentId ?? null,
           windowKey,
+          individualEmail: individualEmail as unknown as Prisma.InputJsonValue,
         },
       ],
       skipDuplicates: true,

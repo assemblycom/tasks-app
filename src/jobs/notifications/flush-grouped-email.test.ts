@@ -1,6 +1,7 @@
 import { GroupedEmailEventType } from '@prisma/client'
 
 const mockSendGroupedEmail = jest.fn()
+const mockCreateNotification = jest.fn()
 const mockQueryRaw = jest.fn()
 const mockExecuteRaw = jest.fn()
 const mockFindManyTask = jest.fn()
@@ -31,7 +32,9 @@ jest.mock('@/lib/db', () => ({
 }))
 
 jest.mock('@/utils/CopilotAPI', () => ({
-  CopilotAPI: jest.fn().mockImplementation(() => ({ getInternalUsers: mockGetInternalUsers })),
+  CopilotAPI: jest
+    .fn()
+    .mockImplementation(() => ({ getInternalUsers: mockGetInternalUsers, createNotification: mockCreateNotification })),
 }))
 
 jest.mock('./send-grouped-email', () => ({
@@ -48,7 +51,7 @@ import {
 let seq = 0
 const row = (overrides: Record<string, unknown> = {}) => {
   seq += 1
-  return {
+  const base = {
     eventType: GroupedEmailEventType.ASSIGNED,
     taskId: `task_${seq}`,
     taskTitleSnapshot: `Task ${seq}`,
@@ -56,6 +59,18 @@ const row = (overrides: Record<string, unknown> = {}) => {
     recipientClientId: 'client_1',
     recipientCompanyId: 'company_1',
     ...overrides,
+  }
+  // the snapshotted individual email captured at interception (replayed for single-event windows)
+  return {
+    ...base,
+    individualEmail:
+      'individualEmail' in overrides
+        ? overrides.individualEmail
+        : {
+            senderId: 'actor_1',
+            recipientClientId: base.recipientClientId,
+            deliveryTargets: { email: { subject: base.taskTitleSnapshot } },
+          },
   }
 }
 
@@ -66,6 +81,7 @@ beforeEach(() => {
   seq = 0
   mockGetInternalUsers.mockResolvedValue({ data: [{ id: 'iu_1' }] })
   mockSendGroupedEmail.mockResolvedValue('notif_1')
+  mockCreateNotification.mockResolvedValue({ id: 'notif_1' })
   mockExecuteRaw.mockResolvedValue(1)
   // default: every buffered task is live
   mockFindManyTask.mockImplementation(({ where }: { where: { id: { in: string[] } } }) =>
@@ -74,7 +90,7 @@ beforeEach(() => {
 })
 
 describe('flushGroupedEmailRun', () => {
-  it('sends one grouped email for the window recipient and marks them sent', async () => {
+  it('sends a grouped summary when the window has multiple live events', async () => {
     mockQueryRaw.mockResolvedValue([row(), row()])
 
     const result = await flushGroupedEmailRun(payload)
@@ -83,8 +99,32 @@ describe('flushGroupedEmailRun', () => {
     const args = mockSendGroupedEmail.mock.calls[0][0]
     expect(args).toMatchObject({ senderId: 'iu_1', recipientClientId: 'client_1', recipientCompanyId: 'company_1' })
     expect(args.content.totalEventCount).toBe(2)
+    expect(mockCreateNotification).not.toHaveBeenCalled()
     expect(mockExecuteRaw).toHaveBeenCalledTimes(1) // markRecipientSent
     expect(result).toMatchObject({ recipients: 1, sent: 1 })
+  })
+
+  it('replays the original individual email when the window has a single live event', async () => {
+    mockQueryRaw.mockResolvedValue([row()])
+
+    const result = await flushGroupedEmailRun(payload)
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(mockCreateNotification).toHaveBeenCalledWith(expect.objectContaining({ recipientClientId: 'client_1' }))
+    expect(mockSendGroupedEmail).not.toHaveBeenCalled()
+    expect(mockGetInternalUsers).not.toHaveBeenCalled() // no workspace IU needed for the individual path
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({ recipients: 1, sent: 1 })
+  })
+
+  it('falls back to the grouped summary when a single event has no snapshot (pre-migration row)', async () => {
+    mockQueryRaw.mockResolvedValue([row({ individualEmail: null })])
+
+    await flushGroupedEmailRun(payload)
+
+    expect(mockCreateNotification).not.toHaveBeenCalled()
+    expect(mockSendGroupedEmail).toHaveBeenCalledTimes(1)
+    expect(mockSendGroupedEmail.mock.calls[0][0].content.totalEventCount).toBe(1)
   })
 
   it('no-ops when there are no unsent rows (idempotent re-run)', async () => {
@@ -94,11 +134,12 @@ describe('flushGroupedEmailRun', () => {
 
     expect(mockGetInternalUsers).not.toHaveBeenCalled()
     expect(mockSendGroupedEmail).not.toHaveBeenCalled()
+    expect(mockCreateNotification).not.toHaveBeenCalled()
     expect(mockExecuteRaw).not.toHaveBeenCalled()
     expect(result).toMatchObject({ sent: 0, skipped: true })
   })
 
-  it('excludes deleted/archived tasks from the email', async () => {
+  it('falls back to the individual email when deleted tasks reduce the window to one live event', async () => {
     const live = row({ taskId: 'live', taskTitleSnapshot: 'Live task' })
     const dead = row({ taskId: 'dead', taskTitleSnapshot: 'Deleted task' })
     mockQueryRaw.mockResolvedValue([live, dead])
@@ -106,9 +147,11 @@ describe('flushGroupedEmailRun', () => {
 
     await flushGroupedEmailRun(payload)
 
-    const content = mockSendGroupedEmail.mock.calls[0][0].content
-    expect(content.totalEventCount).toBe(1)
-    expect(content.sections[0].taskNames).toEqual(['Live task'])
+    expect(mockSendGroupedEmail).not.toHaveBeenCalled()
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(mockCreateNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ deliveryTargets: { email: { subject: 'Live task' } } }),
+    )
   })
 
   it('marks the recipient sent without emailing when all their tasks were deleted', async () => {
@@ -118,30 +161,45 @@ describe('flushGroupedEmailRun', () => {
     const result = await flushGroupedEmailRun(payload)
 
     expect(mockSendGroupedEmail).not.toHaveBeenCalled()
+    expect(mockCreateNotification).not.toHaveBeenCalled()
     expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
     expect(result).toMatchObject({ sent: 0 })
   })
 
-  it('sends one email per recipient when a window spans multiple clients', async () => {
+  it('sends one individual email per recipient when single-event windows span multiple clients', async () => {
     mockQueryRaw.mockResolvedValue([row({ recipientClientId: 'client_a' }), row({ recipientClientId: 'client_b' })])
 
     const result = await flushGroupedEmailRun(payload)
 
-    expect(mockSendGroupedEmail).toHaveBeenCalledTimes(2)
+    expect(mockCreateNotification).toHaveBeenCalledTimes(2)
+    expect(mockSendGroupedEmail).not.toHaveBeenCalled()
     expect(mockExecuteRaw).toHaveBeenCalledTimes(2)
     expect(result).toMatchObject({ recipients: 2, sent: 2 })
   })
 
+  it('retries the individual email without senderCompanyId when the workspace rejects it', async () => {
+    mockQueryRaw.mockResolvedValue([row()])
+    mockCreateNotification
+      .mockRejectedValueOnce({ message: 'bad', body: { message: 'sender company ID is invalid based on sender' } })
+      .mockResolvedValueOnce({ id: 'notif_1' })
+
+    await flushGroupedEmailRun(payload)
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(2)
+    expect(mockCreateNotification.mock.calls[1][0]).toMatchObject({ senderCompanyId: undefined })
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
+  })
+
   it('does not mark a recipient sent when their send fails (so a retry re-sends)', async () => {
     mockQueryRaw.mockResolvedValue([row()])
-    mockSendGroupedEmail.mockRejectedValue(new Error('copilot 5xx'))
+    mockCreateNotification.mockRejectedValue(new Error('copilot 5xx'))
 
     await expect(flushGroupedEmailRun(payload)).rejects.toThrow('copilot 5xx')
     expect(mockExecuteRaw).not.toHaveBeenCalled()
   })
 
-  it('throws when the workspace has no internal user to send as', async () => {
-    mockQueryRaw.mockResolvedValue([row()])
+  it('throws when a grouped window has no internal user to send as', async () => {
+    mockQueryRaw.mockResolvedValue([row(), row()])
     mockGetInternalUsers.mockResolvedValue({ data: [] })
 
     await expect(flushGroupedEmailRun(payload)).rejects.toThrow('no internal user')
