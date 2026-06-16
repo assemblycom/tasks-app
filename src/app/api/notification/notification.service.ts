@@ -13,7 +13,9 @@ import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
 import { getEmailDetails, getInProductNotificationDetails } from '@api/notification/notification.helpers'
-import { AssigneeType, ClientNotification, Task } from '@prisma/client'
+import { AssigneeType, ClientNotification, GroupedEmailEventType, Task } from '@prisma/client'
+import { randomUUID } from 'crypto'
+import { enqueueGroupedEmailFlush } from '@/jobs/notifications/flush-grouped-email'
 import Bottleneck from 'bottleneck'
 import httpStatus from 'http-status'
 import { z } from 'zod'
@@ -57,6 +59,21 @@ export class NotificationService extends BaseService {
         ? undefined
         : getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
 
+      // Non-null only when this CU email should be diverted into the grouped buffer.
+      const groupedType = email && recipientId ? this.groupedEventTypeFor(action) : null
+      if (groupedType) {
+        const association = AssociationsSchema.parse(task.associations)?.[0]
+        await this.bufferGroupedEmailEvent({
+          task,
+          recipientClientId: recipientId,
+          recipientCompanyId: task.companyId ?? association?.companyId ?? null,
+          eventType: groupedType,
+          commentId: opts.commentId,
+        })
+      }
+
+      // Build with the email so the recipient is routed as a client, then drop the email target
+      // once it has been diverted to the buffer (the in-product notification still fires now).
       const notificationDetails = this.buildNotificationDetails(
         task,
         senderId,
@@ -64,6 +81,8 @@ export class NotificationService extends BaseService {
         { inProduct, email },
         senderCompanyId,
       )
+      if (groupedType) notificationDetails.deliveryTargets = { inProduct }
+      if (!inProduct && !notificationDetails.deliveryTargets?.email) return
       console.info('NotificationService#create | Creating single notification:', notificationDetails)
 
       let notification: NotificationCreatedResponse
@@ -145,6 +164,10 @@ export class NotificationService extends BaseService {
       const clientNotifications = []
       const iuNotifications = []
 
+      const association = AssociationsSchema.parse(task.associations)?.[0]
+      // Non-null only when these CU emails should be diverted into the grouped buffer.
+      const groupedType = email ? this.groupedEventTypeFor(action) : null
+
       // NOTE: The reason we are skipping using NotificationService#create and implementing notification dispatch + save manually is because
       // we can just do one `createMany` DB call instead of one per notification, saving a ton of DB calls
       for (let recipientId of recipientIds) {
@@ -159,7 +182,19 @@ export class NotificationService extends BaseService {
             continue
           }
 
-          // 2. Dispatch notification to Copilot
+          if (groupedType) {
+            await this.bufferGroupedEmailEvent({
+              task,
+              recipientClientId: recipientId,
+              recipientCompanyId: task.companyId ?? association?.companyId ?? null,
+              eventType: groupedType,
+              commentId: opts?.commentId,
+            })
+            if (!inProduct) continue
+          }
+
+          // 2. Dispatch notification to Copilot. Build with the email so the recipient is routed as a
+          // client, then drop the email target once it has been diverted (in-product still fires).
           const notificationDetails = this.buildNotificationDetails(
             task,
             senderId,
@@ -167,6 +202,7 @@ export class NotificationService extends BaseService {
             { inProduct, email },
             opts?.senderCompanyId,
           )
+          if (groupedType) notificationDetails.deliveryTargets = { inProduct }
 
           console.info('NotificationService#bulkCreate | Creating single notification:', notificationDetails)
           let notification: NotificationCreatedResponse
@@ -533,6 +569,66 @@ export class NotificationService extends BaseService {
     return await this.db.clientNotification.findMany({
       where: { taskId: { in: taskIds }, clientId: this.user.clientId, companyId: this.user.companyId },
     })
+  }
+
+  private groupedEventTypeFor(action: NotificationTaskActions): GroupedEmailEventType | null {
+    switch (action) {
+      case NotificationTaskActions.Assigned:
+      case NotificationTaskActions.AssignedToCompany:
+        return GroupedEmailEventType.ASSIGNED
+      case NotificationTaskActions.Shared:
+      case NotificationTaskActions.SharedToCompany:
+        return GroupedEmailEventType.SHARED
+      case NotificationTaskActions.Commented:
+        return GroupedEmailEventType.COMMENT
+      default:
+        return null
+    }
+  }
+
+  private async bufferGroupedEmailEvent(args: {
+    task: Task
+    recipientClientId: string
+    recipientCompanyId: string | null
+    eventType: GroupedEmailEventType
+    commentId?: string
+  }): Promise<void> {
+    const { task, recipientClientId, recipientCompanyId, eventType, commentId } = args
+
+    const activeWindow = await this.db.$queryRaw<{ windowKey: string }[]>`
+      SELECT "windowKey" FROM "GroupedEmailEvents"
+      WHERE "workspaceId" = ${task.workspaceId}
+        AND "recipientClientId" = ${recipientClientId}::uuid
+        AND "recipientCompanyId" IS NOT DISTINCT FROM ${recipientCompanyId}::uuid
+        AND "sentAt" IS NULL
+        AND "createdAt" > now() - interval '5 minutes'
+      ORDER BY "createdAt" DESC
+      LIMIT 1`
+
+    const isNewWindow = activeWindow.length === 0
+    const windowKey = isNewWindow
+      ? `${recipientClientId}:${recipientCompanyId ?? 'none'}:${randomUUID()}`
+      : activeWindow[0].windowKey
+
+    await this.db.groupedEmailEvent.createMany({
+      data: [
+        {
+          workspaceId: task.workspaceId,
+          recipientClientId,
+          recipientCompanyId,
+          eventType,
+          taskId: task.id,
+          taskTitleSnapshot: task.title,
+          commentId: commentId ?? null,
+          windowKey,
+        },
+      ],
+      skipDuplicates: true,
+    })
+
+    if (isNewWindow) {
+      await enqueueGroupedEmailFlush({ workspaceId: task.workspaceId, windowKey })
+    }
   }
 
   private async handleIfSenderCompanyIdError(e: unknown, notificationDetails: NotificationRequestBody) {
