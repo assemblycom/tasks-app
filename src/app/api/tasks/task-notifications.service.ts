@@ -111,11 +111,15 @@ export class TaskNotificationsService extends BaseService {
     return false
   }
 
-  async sendTaskCreateNotifications(
-    task: TaskWithWorkflowState,
+  async sendTaskCreateNotifications({
+    task,
     isReassigned = false,
-    emailOverride?: EmailNotificationDetails,
-  ) {
+    emailOverride,
+  }: {
+    task: TaskWithWorkflowState
+    isReassigned?: boolean
+    emailOverride?: EmailNotificationDetails
+  }) {
     // If task is unassigned, there's nobody to send notifications to
     if (!task.assigneeId) return
 
@@ -139,7 +143,7 @@ export class TaskNotificationsService extends BaseService {
     // If new task is assigned to someone (IU / Client / Company), send proper notification + email to them
     const sendTaskNotifications =
       task.assigneeType === AssigneeType.company ? this.sendCompanyTaskNotifications : this.sendUserTaskNotification
-    await sendTaskNotifications(task, isReassigned, emailOverride)
+    await sendTaskNotifications({ task, isReassigned, emailOverride })
   }
 
   async sendTaskUpdateNotifications(prevTask: TaskWithWorkflowState, updatedTask: TaskWithWorkflowState) {
@@ -238,7 +242,7 @@ export class TaskNotificationsService extends BaseService {
     ) {
       // If IU decides to move a task back to an incomplete state, trigger client / company notifications
       // UNLESS they are moving back an IU task assigned to themselves
-      await this.sendTaskCreateNotifications(updatedTask)
+      await this.sendTaskCreateNotifications({ task: updatedTask })
     }
   }
 
@@ -260,7 +264,7 @@ export class TaskNotificationsService extends BaseService {
       prevTask.workflowState.type === StateType.completed
     ) {
       // We need to trigger the notification count for client again!
-      await this.sendTaskCreateNotifications({ ...updatedTask, workflowState: updatedWorkflowState })
+      await this.sendTaskCreateNotifications({ task: { ...updatedTask, workflowState: updatedWorkflowState } })
     }
 
     // Case 3 & 4 | If task has been moved to completed from a non-complete state, remove all notification counts
@@ -349,7 +353,7 @@ export class TaskNotificationsService extends BaseService {
     // -- If task goes from unassigned to assigned task is createed
     // -- If task goes from one assignee to next task is reassigned
     const isReassigned = !!prevTask.assigneeId
-    await this.sendTaskCreateNotifications(updatedTask, isReassigned)
+    await this.sendTaskCreateNotifications({ task: updatedTask, isReassigned })
   }
 
   private handleTaskCompleted = async (updatedTask: Task) => {
@@ -442,7 +446,15 @@ export class TaskNotificationsService extends BaseService {
     )
   }
 
-  private sendUserTaskNotification = async (task: Task, isReassigned = false, emailOverride?: EmailNotificationDetails) => {
+  private sendUserTaskNotification = async ({
+    task,
+    isReassigned = false,
+    emailOverride,
+  }: {
+    task: Task
+    isReassigned?: boolean
+    emailOverride?: EmailNotificationDetails
+  }) => {
     if (!task.assigneeType) return
 
     const notificationType = (() => {
@@ -481,11 +493,15 @@ export class TaskNotificationsService extends BaseService {
     }
   }
 
-  private sendCompanyTaskNotifications = async (
-    task: Task,
+  private sendCompanyTaskNotifications = async ({
+    task,
     isReassigned = false,
-    emailOverride?: EmailNotificationDetails,
-  ) => {
+    emailOverride,
+  }: {
+    task: Task
+    isReassigned?: boolean
+    emailOverride?: EmailNotificationDetails
+  }) => {
     const { recipientIds } = await this.notificationService.getNotificationParties(
       task,
       NotificationTaskActions.AssignedToCompany,
@@ -513,7 +529,7 @@ export class TaskNotificationsService extends BaseService {
       await markAsRead(prevTask)
     } else {
       // Case II: Task is unarchived from archived state
-      await this.sendTaskCreateNotifications(updatedTask)
+      await this.sendTaskCreateNotifications({ task: updatedTask })
     }
   }
 }

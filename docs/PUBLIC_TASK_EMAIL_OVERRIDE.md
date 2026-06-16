@@ -32,7 +32,7 @@ header, body, and CTA button label.
   "email": {
     "subject": "Action Required: Collection Mystery Shop",
     "header": "A new evaluation is ready",
-    "body": "<p>Please review the attached evaluation.</p>",
+    "body": "Please review the attached evaluation.",
     "title": "Review Evaluations",
   },
 }

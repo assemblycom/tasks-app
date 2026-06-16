@@ -184,11 +184,6 @@ export type InternalUsersResponse = z.infer<typeof InternalUsersResponseSchema>
 export const NotificationSenderSchema = z.enum(['internalUser', 'client'])
 export type NotificationSender = z.infer<typeof NotificationSenderSchema>
 
-/**
- * Email notification details accepted by the Notifications API (`deliveryTargets.email`).
- * Also used as the public create-task `email` override — the consumer can supply any subset
- * of these fields and the rest fall back to the system default copy.
- */
 export const EmailNotificationDetailsSchema = z.object({
   subject: z.string().optional(),
   header: z.string().optional(),

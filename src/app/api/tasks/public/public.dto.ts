@@ -87,8 +87,6 @@ export const publicTaskCreateDtoSchemaFactory = (token: string) => {
       internalUserId: z.string().uuid().optional(),
       clientId: z.string().uuid().optional(),
       companyId: z.string().uuid().optional(),
-      // Optional override for the task-assignment email notification. Any field provided replaces the
-      // corresponding default copy; omitted fields fall back to the system default.
       email: EmailNotificationDetailsSchema.optional(),
     })
     .and(viewersAssociationExclusivitySchema)

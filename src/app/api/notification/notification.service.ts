@@ -49,6 +49,7 @@ export class NotificationService extends BaseService {
 
       // 2. Dispatch notification to Copilot
       const workspace = await this.copilot.getWorkspace()
+
       const { senderId, senderCompanyId, recipientId, actionUser, companyName } = await this.getNotificationParties(
         task,
         action,
@@ -57,12 +58,12 @@ export class NotificationService extends BaseService {
       const inProduct = opts.disableInProduct
         ? undefined
         : getInProductNotificationDetails(workspace, actionUser, task, { companyName, commentId: opts?.commentId })[action]
-      let email: EmailNotificationDetails | undefined
-      if (!opts.disableEmail) {
-        const baseEmail = getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
-        // When an override is supplied, merge it over the default copy so omitted fields keep the system default.
-        email = opts.emailOverride ? { ...baseEmail, ...opts.emailOverride } : baseEmail
-      }
+      const baseEmailPayload = opts.disableEmail
+        ? undefined
+        : getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
+      const customEmailPayload = opts.emailOverride
+      const emailPayload =
+        baseEmailPayload && customEmailPayload ? { ...baseEmailPayload, ...customEmailPayload } : baseEmailPayload
 
       // Non-null only when this CU email should be diverted into the grouped buffer.
       const groupedType = email && recipientId ? this.groupedEventTypeFor(action) : null
@@ -84,7 +85,7 @@ export class NotificationService extends BaseService {
         task,
         senderId,
         recipientId,
-        { inProduct, email },
+        { inProduct, email: emailPayload },
         senderCompanyId,
       )
       if (groupedType) notificationDetails.deliveryTargets = { inProduct }
@@ -161,7 +162,6 @@ export class NotificationService extends BaseService {
       const baseEmail = opts?.email
         ? getEmailDetails(workspace, actionUserName, task, { commentId: opts?.commentId })[action]
         : undefined
-      // When an override is supplied, merge it over the default copy so omitted fields keep the system default.
       const email = baseEmail && opts?.emailOverride ? { ...baseEmail, ...opts.emailOverride } : baseEmail
 
       // Get a list of all notifications dispatched for these taskId, clientId, companyId combinations

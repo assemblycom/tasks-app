@@ -22,7 +22,7 @@ export const sendTaskCreateNotifications = task({
 
     const { task, user, emailOverride } = payload
     const taskNotificationsSevice = new TaskNotificationsService(user)
-    await taskNotificationsSevice.sendTaskCreateNotifications(task, false, emailOverride)
+    await taskNotificationsSevice.sendTaskCreateNotifications({ task, emailOverride })
 
     return {
       message: `Sent create notifications for taskId ${task.id} successfully`,
