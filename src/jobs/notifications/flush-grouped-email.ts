@@ -19,7 +19,7 @@ export type FlushGroupedEmailPayload = {
   windowKey: string
 }
 
-type WindowEvent = GroupedEmailEventInput & { individualEmail: NotificationRequestBody }
+type WindowEvent = GroupedEmailEventInput & { individualEmail: NotificationRequestBody | null }
 
 type BufferedRow = WindowEvent & {
   recipientClientId: string | null
@@ -121,11 +121,13 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
   const groups = groupByRecipient(rows)
   for (const group of groups) {
     const liveEvents = group.events.filter((e) => liveTaskIds.has(e.taskId))
-    if (liveEvents.length === 1) {
-      // A single event reads awkwardly as a "summary" — replay the original individual email verbatim.
-      await sendIndividualEmail(copilot, liveEvents[0].individualEmail)
+    // A single event reads awkwardly as a "summary" — replay the original individual email verbatim.
+    // Pre-migration rows have no snapshot; fall back to the grouped summary rather than crash.
+    const singleEmail = liveEvents.length === 1 ? liveEvents[0].individualEmail : null
+    if (singleEmail) {
+      await sendIndividualEmail(copilot, singleEmail)
       sent += 1
-    } else if (liveEvents.length > 1) {
+    } else if (liveEvents.length >= 1) {
       senderId ??= await resolveSenderId(copilot)
       await sendGroupedEmail({
         content: composeGroupedEmail(liveEvents),

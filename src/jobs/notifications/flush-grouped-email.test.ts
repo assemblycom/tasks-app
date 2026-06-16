@@ -63,11 +63,14 @@ const row = (overrides: Record<string, unknown> = {}) => {
   // the snapshotted individual email captured at interception (replayed for single-event windows)
   return {
     ...base,
-    individualEmail: {
-      senderId: 'actor_1',
-      recipientClientId: base.recipientClientId,
-      deliveryTargets: { email: { subject: base.taskTitleSnapshot } },
-    },
+    individualEmail:
+      'individualEmail' in overrides
+        ? overrides.individualEmail
+        : {
+            senderId: 'actor_1',
+            recipientClientId: base.recipientClientId,
+            deliveryTargets: { email: { subject: base.taskTitleSnapshot } },
+          },
   }
 }
 
@@ -112,6 +115,16 @@ describe('flushGroupedEmailRun', () => {
     expect(mockGetInternalUsers).not.toHaveBeenCalled() // no workspace IU needed for the individual path
     expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
     expect(result).toMatchObject({ recipients: 1, sent: 1 })
+  })
+
+  it('falls back to the grouped summary when a single event has no snapshot (pre-migration row)', async () => {
+    mockQueryRaw.mockResolvedValue([row({ individualEmail: null })])
+
+    await flushGroupedEmailRun(payload)
+
+    expect(mockCreateNotification).not.toHaveBeenCalled()
+    expect(mockSendGroupedEmail).toHaveBeenCalledTimes(1)
+    expect(mockSendGroupedEmail.mock.calls[0][0].content.totalEventCount).toBe(1)
   })
 
   it('no-ops when there are no unsent rows (idempotent re-run)', async () => {
