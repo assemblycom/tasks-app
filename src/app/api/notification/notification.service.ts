@@ -55,12 +55,13 @@ export class NotificationService extends BaseService {
       const inProduct = opts.disableInProduct
         ? undefined
         : getInProductNotificationDetails(workspace, actionUser, task, { companyName, commentId: opts?.commentId })[action]
-      let email = opts.disableEmail
+      const email = opts.disableEmail
         ? undefined
         : getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
 
-      const groupedType = this.groupedEventTypeFor(action)
-      if (email && groupedType && recipientId) {
+      // Non-null only when this CU email should be diverted into the grouped buffer.
+      const groupedType = email && recipientId ? this.groupedEventTypeFor(action) : null
+      if (groupedType) {
         const association = AssociationsSchema.parse(task.associations)?.[0]
         await this.bufferGroupedEmailEvent({
           task,
@@ -69,15 +70,16 @@ export class NotificationService extends BaseService {
           eventType: groupedType,
           commentId: opts.commentId,
         })
-        email = undefined
       }
-      if (!inProduct && !email) return
+
+      const deliveryEmail = groupedType ? undefined : email
+      if (!inProduct && !deliveryEmail) return
 
       const notificationDetails = this.buildNotificationDetails(
         task,
         senderId,
         recipientId,
-        { inProduct, email },
+        { inProduct, email: deliveryEmail },
         senderCompanyId,
       )
       console.info('NotificationService#create | Creating single notification:', notificationDetails)
@@ -162,6 +164,8 @@ export class NotificationService extends BaseService {
       const iuNotifications = []
 
       const association = AssociationsSchema.parse(task.associations)?.[0]
+      // Non-null only when these CU emails should be diverted into the grouped buffer.
+      const groupedType = email ? this.groupedEventTypeFor(action) : null
 
       // NOTE: The reason we are skipping using NotificationService#create and implementing notification dispatch + save manually is because
       // we can just do one `createMany` DB call instead of one per notification, saving a ton of DB calls
@@ -177,8 +181,7 @@ export class NotificationService extends BaseService {
             continue
           }
 
-          const groupedType = this.groupedEventTypeFor(action)
-          if (email && groupedType) {
+          if (groupedType) {
             await this.bufferGroupedEmailEvent({
               task,
               recipientClientId: recipientId,
