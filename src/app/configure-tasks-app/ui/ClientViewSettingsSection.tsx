@@ -43,8 +43,7 @@ const getConfirmCopy = ({
   const willHide = !!next.clientHideSubtasks
   return {
     title: `${willHide ? 'Hide' : 'View'} subtasks?`,
-    description: `Applying this change will override the current subtasks view settings for everyone and ${willHide ? 'hide' : 'show'} subtasks
-        while viewing tasks.`,
+    description: `Applying this change will override the current subtasks view settings for everyone and ${willHide ? 'hide' : 'show'} subtasks while viewing tasks.`,
   }
 }
 
