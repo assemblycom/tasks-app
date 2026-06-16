@@ -25,6 +25,9 @@ model GroupedEmailEvent {
   windowKey String
   createdAt DateTime @default(now())
 
+  /// Email-only notification payload, replayed verbatim when the window has a single live event.
+  individualEmail Json? @db.JsonB
+
   batchId String?   @db.Uuid
   sentAt  DateTime?
 

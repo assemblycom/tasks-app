@@ -121,6 +121,11 @@ describe('NotificationService grouped-email interception', () => {
       expect(mockQueryRaw.mock.calls[0]).toContain(task.companyId)
       expect(mockEnqueueFlush).toHaveBeenCalledWith({ workspaceId: 'ws_1', windowKey: row.windowKey })
 
+      // the row snapshots the exact individual email to replay for a single-event window
+      expect(row.individualEmail.recipientClientId).toBe(task.assigneeId)
+      expect(row.individualEmail.deliveryTargets.email).toBeDefined()
+      expect(row.individualEmail.deliveryTargets.inProduct).toBeUndefined()
+
       // in-product still fires, email is stripped
       expect(mockCreateNotification).toHaveBeenCalledTimes(1)
       expect(deliveryTargetsOf(0).inProduct).toBeDefined()
