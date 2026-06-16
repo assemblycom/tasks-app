@@ -35,14 +35,14 @@ const getConfirmCopy = ({
   if (next.clientDefaultViewMode && next.clientDefaultViewMode !== current.clientDefaultViewMode) {
     const view = VIEW_MODE_LABEL[next.clientDefaultViewMode]
     return {
-      title: `Switch to ${view} view as default display?`,
+      title: `Switch to ${view} view as default view?`,
       description: `Applying this change will override the current display settings for everyone and set it to ${view} view while viewing tasks.`,
     }
   }
 
   const willHide = !!next.clientHideSubtasks
   return {
-    title: willHide ? 'Hide subtasks for everyone?' : 'Show subtasks for everyone?',
+    title: `${willHide ? 'Hide' : 'View'} subtasks?`,
     description: `Applying this change will override the current subtasks view settings for everyone and ${willHide ? 'hide' : 'show'} subtasks
         while viewing tasks.`,
   }
@@ -74,7 +74,7 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
   return (
     <Box sx={{ width: '100%', maxWidth: '640px', margin: '0 auto', px: { xs: 2, sm: 0 } }}>
       <Typography variant="lg" sx={{ display: 'block', mb: '12px' }}>
-        Client view settings
+        Default display settings
       </Typography>
 
       <Box
@@ -86,7 +86,7 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
         }}
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: '16px', py: '14px' }}>
-          <Typography variant="bodyMd">Default display settings</Typography>
+          <Typography variant="bodyMd">View</Typography>
           <ViewModeDropdown
             value={settings.clientDefaultViewMode}
             onChange={(value) =>
