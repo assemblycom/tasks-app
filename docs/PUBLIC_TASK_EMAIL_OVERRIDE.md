@@ -61,14 +61,19 @@ The override rides the create request down to the async notification job:
 POST /api/tasks/public  (controller: email pulled off the parsed DTO)
   → PublicTasksService.createTask(payload, { emailOverride })
       → sendTaskCreateNotifications.trigger({ user, task, emailOverride })   [trigger.dev]
-          → TaskNotificationsService.sendTaskCreateNotifications(task, false, emailOverride)
+          → TaskNotificationsService.sendTaskCreateNotifications({ task, emailOverride })
               → NotificationService.create / createBulkNotification
                   → email = { ...getEmailDetails(...)[action], ...emailOverride }
 ```
 
 The merge (`{ ...default, ...override }`) is why omitted fields fall back to the default copy.
 
+The merged `email` is what gets buffered as `GroupedEmailEvent.individualEmail` during the
+5-minute grouping window, so the override is preserved through the grouped-email pipeline.
+
 ## Known limitation
 
-The override is **not** respected if multiple notifications trigger for the same recipient and
-Copilot sends a single grouped email instead of the per-task email.
+Task-assignment emails are buffered for ~5 minutes and grouped per recipient (see the grouped
+email flow). The override is replayed **verbatim** only when the recipient has a **single**
+buffered event in that window. If multiple events group into one summary email, that summary
+uses the default grouped copy and the override is **not** applied.
