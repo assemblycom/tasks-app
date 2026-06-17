@@ -58,12 +58,10 @@ export class NotificationService extends BaseService {
       const inProduct = opts.disableInProduct
         ? undefined
         : getInProductNotificationDetails(workspace, actionUser, task, { companyName, commentId: opts?.commentId })[action]
-      const baseEmailPayload = opts.disableEmail
+      const baseEmail = opts.disableEmail
         ? undefined
         : getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
-      const customEmailPayload = opts.emailOverride
-      const emailPayload =
-        baseEmailPayload && customEmailPayload ? { ...baseEmailPayload, ...customEmailPayload } : baseEmailPayload
+      const email = baseEmail && opts.emailOverride ? { ...baseEmail, ...opts.emailOverride } : baseEmail
 
       // Non-null only when this CU email should be diverted into the grouped buffer.
       const groupedType = email && recipientId ? this.groupedEventTypeFor(action) : null
@@ -85,7 +83,7 @@ export class NotificationService extends BaseService {
         task,
         senderId,
         recipientId,
-        { inProduct, email: emailPayload },
+        { inProduct, email },
         senderCompanyId,
       )
       if (groupedType) notificationDetails.deliveryTargets = { inProduct }
