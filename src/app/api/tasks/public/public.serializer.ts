@@ -13,7 +13,7 @@ import { rfc3339ToDateString, toRFC3339 } from '@/utils/dateHelper'
 import { resolveAutofillTags, resolveDynamicFields } from '@/utils/dynamicFields'
 import { sanitizeHtml } from '@/utils/santizeContents'
 import { copyTemplateMediaToTask } from '@/utils/signedTemplateUrlReplacer'
-import { replaceImageSrc } from '@/utils/signedUrlReplacer'
+import { replaceImageSrc, replaceMediaSrcs } from '@/utils/signedUrlReplacer'
 import { getSignedUrl } from '@/utils/signUrl'
 import { PublicTaskCreateDto, PublicTaskDto, PublicTaskDtoSchema, PublicTaskUpdateDto } from '@api/tasks/public/public.dto'
 import { Attachment, Task, WorkflowState } from '@prisma/client'
@@ -42,7 +42,9 @@ export class PublicTaskSerializer {
       id: task.id,
       object: 'task',
       name: task.title,
-      description: sanitizeHtml(task.body || ''),
+      // Re-sign inline images/attachments so the body resolves to the current storage domain
+      // rather than whatever (possibly stale) host was baked in when the task was created.
+      description: sanitizeHtml(task.body ? await replaceMediaSrcs(task.body) : ''),
       parentTaskId: task.parentId,
       dueDate: toRFC3339(task.dueDate),
       label: task.label,

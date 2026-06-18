@@ -13,8 +13,7 @@ import { DISPATCHABLE_EVENT } from '@/types/webhook'
 import { UserIdsType } from '@/utils/assignee'
 import { isPastDateString } from '@/utils/dateHelper'
 import { getIdsFromLtreePath } from '@/utils/ltree'
-import { replaceImageSrc } from '@/utils/signedUrlReplacer'
-import { getSignedUrl } from '@/utils/signUrl'
+import { replaceMediaSrcs } from '@/utils/signedUrlReplacer'
 import APIError from '@api/core/exceptions/api'
 import { PoliciesService } from '@api/core/services/policies.service'
 import { Resource } from '@api/core/types/api'
@@ -292,7 +291,7 @@ export class TasksService extends TasksSharedService {
 
     const accessWhere = await this.getAccessFilterForTasks()
 
-    const newBody = task.body ? await replaceImageSrc(task.body, getSignedUrl) : task.body
+    const newBody = task.body ? await replaceMediaSrcs(task.body) : task.body
     const bodyChanged = newBody !== task.body
 
     const [accessibleSubtaskCount, assignee] = await Promise.all([

@@ -1,7 +1,14 @@
-import { supabaseAnonKey, supabaseProjectUrl } from '@/config'
+import { supabaseAnonKey, supabaseProjectUrl, supabaseStorageDomain } from '@/config'
 import { createClient, type SupabaseClient as SupabaseJSClient } from '@supabase/supabase-js'
 
+// Realtime + anon REST stay on the Supabase project URL.
 export const supabase = createClient(supabaseProjectUrl, supabaseAnonKey)
+
+// Storage (downloads, signed URLs, uploads, moves) goes through the Assembly custom domain when
+// configured. Signed-URL tokens sign the path + expiry, not the host, and the custom domain fronts
+// the same Supabase backend, so URLs/uploads stay valid. This is a separate client from `supabase`
+// so realtime is unaffected. See OUT-3864.
+const storageUrl = supabaseStorageDomain || supabaseProjectUrl
 
 class SupabaseClient {
   private static client: SupabaseJSClient
@@ -12,7 +19,7 @@ class SupabaseClient {
   static getInstance(): SupabaseJSClient {
     if (!this.client) {
       if (!this.isInitialized) {
-        this.client = createClient(supabaseProjectUrl, supabaseAnonKey)
+        this.client = createClient(storageUrl, supabaseAnonKey)
         this.isInitialized = true
       }
     }

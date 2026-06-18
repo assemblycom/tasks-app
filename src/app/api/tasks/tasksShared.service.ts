@@ -12,7 +12,7 @@ import {
 import { getFileNameFromPath } from '@/utils/attachmentUtils'
 import { resolveDynamicFields, resolveAutofillTags } from '@/utils/dynamicFields'
 import { buildLtree, buildLtreeNodeString } from '@/utils/ltree'
-import { getFilePathFromUrl } from '@/utils/signedUrlReplacer'
+import { extractMediaSrcMatches } from '@/utils/signedUrlReplacer'
 import { getSignedUrl } from '@/utils/signUrl'
 import { SupabaseActions } from '@/utils/SupabaseActions'
 import APIError from '@api/core/exceptions/api'
@@ -496,33 +496,12 @@ export abstract class TasksSharedService extends BaseService {
   }
 
   protected async updateTaskIdOfAttachmentsAfterCreation(htmlString: string, task_id: string) {
-    const imgTagRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g //expression used to match all img srcs in provided HTML string.
-    const attachmentTagRegex = /<\s*[a-zA-Z]+\s+[^>]*data-type="attachment"[^>]*src="([^"]+)"[^>]*>/g //expression used to match all attachment srcs in provided HTML string.
-    let match
     const replacements: { originalSrc: string; newUrl: string }[] = []
 
     const newFilePaths: { originalSrc: string; newFilePath: string }[] = []
     const copyAttachmentPromises: Promise<void>[] = []
     const createAttachmentPayloads = []
-    const matches: { originalSrc: string; filePath: string; fileName: string }[] = []
-
-    while ((match = imgTagRegex.exec(htmlString)) !== null) {
-      const originalSrc = match[1]
-      const filePath = getFilePathFromUrl(originalSrc)
-      const fileName = filePath?.split('/').pop()
-      if (filePath && fileName) {
-        matches.push({ originalSrc, filePath, fileName })
-      }
-    }
-
-    while ((match = attachmentTagRegex.exec(htmlString)) !== null) {
-      const originalSrc = match[1]
-      const filePath = getFilePathFromUrl(originalSrc)
-      const fileName = filePath?.split('/').pop()
-      if (filePath && fileName) {
-        matches.push({ originalSrc, filePath, fileName })
-      }
-    }
+    const matches = extractMediaSrcMatches(htmlString)
 
     for (const { originalSrc, filePath, fileName } of matches) {
       const newFilePath = `${this.user.workspaceId}/${task_id}/${fileName}`
