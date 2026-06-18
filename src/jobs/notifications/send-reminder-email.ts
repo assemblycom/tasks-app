@@ -8,7 +8,7 @@ import { Task, TaskReminderType } from '@prisma/client'
 export type SendReminderEmailArgs = {
   task: Pick<Task, 'id' | 'title' | 'createdById'>
   recipientClientId: string
-  recipientCompanyId: string | null
+  recipientCompanyId: string
   reminderType: TaskReminderType
   isCompanyRecipient: boolean
   workspace: WorkspaceResponse
@@ -32,7 +32,7 @@ export const sendReminderEmail = async ({
     senderId: task.createdById,
     senderType: 'internalUser',
     recipientClientId,
-    recipientCompanyId: recipientCompanyId ?? undefined,
+    recipientCompanyId,
     deliveryTargets: {
       email: {
         subject: details.subject,
