@@ -9,6 +9,7 @@ import { AssigneeType, TaskReminderType } from '@prisma/client'
 import { logger, schedules } from '@trigger.dev/sdk/v3'
 import Bottleneck from 'bottleneck'
 
+import { dispatchGroupedReminderEmail, DispatchGroupedReminderEmailPayload } from './dispatch-grouped-reminder-email'
 import { dispatchReminderEmail, DispatchReminderEmailPayload } from './dispatch-reminder-email'
 import { EligibilityRow, getEligibleReminders } from './eligibility'
 
@@ -157,11 +158,11 @@ const processWorkspace = async (
     plan.map((e) => [insertedKey(e.task.taskId, e.recipient.clientId, e.task.reminderType), e]),
   )
 
-  const triggers: { payload: DispatchReminderEmailPayload }[] = []
+  const allTriggers: { payload: DispatchReminderEmailPayload }[] = []
   for (const row of inserted) {
     const entry = planByKey.get(insertedKey(row.taskId, row.recipientId, row.reminderType))
     if (!entry) continue
-    triggers.push({
+    allTriggers.push({
       payload: {
         ledgerId: row.id,
         workspaceId,
@@ -175,24 +176,48 @@ const processWorkspace = async (
     })
   }
 
-  // Returns the number actually enqueued. On failure, drops the chunk's ledger rows
-  // so the next cron run can retry — without this, the unique constraint blocks any
-  // future insert but no dispatcher exists to consume them.
-  const dispatchChunk = async (chunk: { payload: DispatchReminderEmailPayload }[]): Promise<number> => {
+  // Split by recipient: N=1 → individual email (existing path); N>1 → one grouped email.
+  const singleTriggers: { payload: DispatchReminderEmailPayload }[] = []
+  const groupedTriggers: { payload: DispatchGroupedReminderEmailPayload }[] = []
+  const byRecipient = new Map<string, { payload: DispatchReminderEmailPayload }[]>()
+  for (const t of allTriggers) {
+    const key = `${t.payload.recipientClientId}|${t.payload.recipientCompanyId ?? ''}`
+    const bucket = byRecipient.get(key)
+    if (bucket) bucket.push(t)
+    else byRecipient.set(key, [t])
+  }
+  for (const [, recipientTriggers] of byRecipient) {
+    if (recipientTriggers.length === 1) {
+      singleTriggers.push(recipientTriggers[0])
+    } else {
+      const first = recipientTriggers[0]
+      groupedTriggers.push({
+        payload: {
+          ledgerIds: recipientTriggers.map((t) => t.payload.ledgerId),
+          workspaceId,
+          tasks: recipientTriggers.map((t) => ({ taskTitle: t.payload.task.title, reminderType: t.payload.reminderType })),
+          recipientClientId: first.payload.recipientClientId,
+          recipientCompanyId: first.payload.recipientCompanyId,
+          workspace,
+        },
+      })
+    }
+  }
+
+  const dispatchSingleChunk = async (chunk: { payload: DispatchReminderEmailPayload }[]): Promise<number> => {
     try {
       await dispatchReminderEmail.batchTrigger(chunk)
       return chunk.length
     } catch (err) {
       const ledgerIds = chunk.map((t) => t.payload.ledgerId)
-      logger.error('send-task-reminders: batchTrigger failed, compensating ledger', {
+      logger.error('send-task-reminders: batchTrigger (single) failed, compensating ledger', {
         workspaceId,
         chunkSize: chunk.length,
         error: serializeError(err),
       })
       try {
         // Hard delete via raw SQL: the global softDelete extension would rewrite deleteMany()
-        // into a deletedAt update, but TaskReminderSents has no such column. Raw SQL bypasses
-        // it so the orphaned ledger rows truly clear and the next cron run can re-enqueue them.
+        // into a deletedAt update, but TaskReminderSents has no such column.
         await db.$executeRaw`DELETE FROM "TaskReminderSents" WHERE id::text = ANY(${ledgerIds})`
       } catch (deleteErr) {
         logger.error('send-task-reminders: ledger compensation delete failed, ledger rows orphaned', {
@@ -205,10 +230,40 @@ const processWorkspace = async (
     }
   }
 
-  let enqueued = 0
-  for (let i = 0; i < triggers.length; i += BATCH_TRIGGER_CHUNK_SIZE) {
-    enqueued += await dispatchChunk(triggers.slice(i, i + BATCH_TRIGGER_CHUNK_SIZE))
+  const dispatchGroupedChunk = async (chunk: { payload: DispatchGroupedReminderEmailPayload }[]): Promise<number> => {
+    try {
+      await dispatchGroupedReminderEmail.batchTrigger(chunk)
+      return chunk.length
+    } catch (err) {
+      const ledgerIds = chunk.flatMap((t) => t.payload.ledgerIds)
+      logger.error('send-task-reminders: batchTrigger (grouped) failed, compensating ledger', {
+        workspaceId,
+        chunkSize: chunk.length,
+        error: serializeError(err),
+      })
+      try {
+        await db.$executeRaw`DELETE FROM "TaskReminderSents" WHERE id::text = ANY(${ledgerIds})`
+      } catch (deleteErr) {
+        logger.error('send-task-reminders: ledger compensation delete failed, ledger rows orphaned', {
+          workspaceId,
+          ledgerIds,
+          error: serializeError(deleteErr),
+        })
+      }
+      return 0
+    }
   }
+
+  const chunkArray = <T>(arr: T[]) =>
+    Array.from({ length: Math.ceil(arr.length / BATCH_TRIGGER_CHUNK_SIZE) }, (_, i) =>
+      arr.slice(i * BATCH_TRIGGER_CHUNK_SIZE, (i + 1) * BATCH_TRIGGER_CHUNK_SIZE),
+    )
+
+  const enqueuedCounts = await Promise.all([
+    ...chunkArray(singleTriggers).map(dispatchSingleChunk),
+    ...chunkArray(groupedTriggers).map(dispatchGroupedChunk),
+  ])
+  const enqueued = enqueuedCounts.reduce((sum, n) => sum + n, 0)
 
   return { enqueued, skipped: plan.length - inserted.length }
 }
