@@ -250,15 +250,16 @@ export abstract class TasksSharedService extends BaseService {
                 },
                 {
                   // AND do not disjoint if parent is accessible to the client through association.
-                  // Uses `equals` (full-array exact match) to preserve the prior `hasSome` semantics
-                  // — tasks associated with a different client at the same company do not match.
+                  // An association only grants access when the task is shared (isShared), mirroring
+                  // getClientOrCompanyAssigneeFilter's CU-portal branch. Without the isShared guard,
+                  // a parent that is merely associated (but not shared) is wrongly treated as
+                  // accessible, dropping its assigned subtask from the disjoint (standalone) view.
+                  // Uses `equals` (full-array exact match) so associations to a different client at
+                  // the same company do not match.
                   NOT: {
+                    isShared: true,
                     OR: [
-                      {
-                        associations: {
-                          equals: [{ clientId: this.user.clientId, companyId: this.user.companyId }],
-                        },
-                      },
+                      { associations: { equals: [{ clientId: this.user.clientId, companyId: this.user.companyId }] } },
                       { associations: { equals: [{ companyId: this.user.companyId }] } },
                     ],
                   },
