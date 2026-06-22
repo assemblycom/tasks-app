@@ -82,7 +82,7 @@ export class CopilotAPI {
   async _getTokenPayload(): Promise<Token | null> {
     const getTokenPayload = this.copilot.getTokenPayload
     if (!getTokenPayload) {
-      console.error(`CopilotAPI#getTokenPayload | Could not parse token payload for token ${this.token}`)
+      console.warn('CopilotAPI#getTokenPayload | Could not parse token payload')
       return null
     }
 
