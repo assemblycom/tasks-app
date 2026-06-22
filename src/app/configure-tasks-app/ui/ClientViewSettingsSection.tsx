@@ -1,14 +1,17 @@
 'use client'
 
-import { useState, type MouseEvent, type ReactNode } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { Box, Menu, MenuItem, Stack, Typography } from '@mui/material'
 import { Icon } from 'copilot-design-system'
 import { ViewMode } from '@prisma/client'
+import { useSelector } from 'react-redux'
 import { StyledSwitch } from '@/components/inputs/StyledSwitch'
 import { StyledModal } from '@/app/detail/ui/styledComponent'
 import { ConfirmUI } from '@/components/layouts/ConfirmUI'
 import { updateWorkspaceSettings } from '@/app/configure-tasks-app/actions'
 import { ClientViewSettings } from '@/types/dto/workspaceSettings.dto'
+import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
+import { getWorkspaceLabels } from '@/utils/getWorkspaceLabels'
 
 interface ClientViewSettingsSectionProps {
   initialSettings: ClientViewSettings
@@ -20,34 +23,10 @@ const VIEW_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
   { label: 'Board', value: ViewMode.board },
 ]
 
-const VIEW_MODE_LABEL: Record<ViewMode, string> = {
-  [ViewMode.list]: 'list',
-  [ViewMode.board]: 'board',
-}
-
-const getConfirmCopy = ({
-  current,
-  next,
-}: {
-  current: ClientViewSettings
-  next: ClientViewSettings
-}): { title: string; description: ReactNode } => {
-  if (next.clientDefaultViewMode && next.clientDefaultViewMode !== current.clientDefaultViewMode) {
-    const view = VIEW_MODE_LABEL[next.clientDefaultViewMode]
-    return {
-      title: `Switch to ${view} view as default view?`,
-      description: `Applying this change will override the current display settings for everyone and set it to ${view} view while viewing tasks.`,
-    }
-  }
-
-  const willHide = !!next.clientHideSubtasks
-  return {
-    title: `${willHide ? 'Hide' : 'View'} subtasks?`,
-    description: `Applying this change will override the current subtasks view settings for everyone and ${willHide ? 'hide' : 'show'} subtasks while viewing tasks.`,
-  }
-}
-
 export const ClientViewSettingsSection = ({ initialSettings, token }: ClientViewSettingsSectionProps) => {
+  const { workspace } = useSelector(selectAuthDetails)
+  const { individualTermPlural } = getWorkspaceLabels(workspace)
+
   const [settings, setSettings] = useState<ClientViewSettings>(initialSettings)
   // Holds the change awaiting confirmation; the controls keep showing `settings` until confirmed.
   const [pendingSettings, setPendingSettings] = useState<ClientViewSettings | null>(null)
@@ -117,7 +96,8 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
           handleCancel={() => setPendingSettings(null)}
           handleConfirm={handleConfirm}
           buttonText="Confirm & Apply"
-          {...getConfirmCopy({ current: settings, next: pendingSettings ?? settings })}
+          title={`Override current display settings for ${individualTermPlural}?`}
+          description={`Applying this change will override the current display settings for ${individualTermPlural} while they view tasks.`}
         />
       </StyledModal>
     </Box>
