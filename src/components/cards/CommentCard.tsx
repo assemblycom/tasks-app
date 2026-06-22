@@ -57,7 +57,7 @@ export const CommentCard = ({
 }: {
   token: string
   comment: LogResponse
-  createComment: (postCommentPayload: CreateComment) => void
+  createComment: (postCommentPayload: CreateComment) => Promise<void>
   deleteComment: (id: string, replyId?: string, softDelete?: boolean) => void
   task_id: string
   optimisticUpdates: OptimisticUpdate[]
