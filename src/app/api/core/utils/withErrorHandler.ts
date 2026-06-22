@@ -7,6 +7,15 @@ import { ZodError, ZodFormattedError } from 'zod'
 
 export type RequestHandler = (req: NextRequest, params: any) => Promise<NextResponse>
 
+const shouldLogAsError = (error: unknown) => {
+  if (error instanceof ZodError) return false
+  if (error instanceof APIError) return error.status >= httpStatus.INTERNAL_SERVER_ERROR
+  if (error instanceof CopilotApiError) return (error.status || httpStatus.BAD_REQUEST) >= httpStatus.INTERNAL_SERVER_ERROR
+  if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') return false
+
+  return true
+}
+
 /**
  * Reusable utility that wraps a given request handler with a global error handler to standardize response structure
  * in case of failures. Catches exceptions thrown from the handler, and returns a formatted error response.
@@ -37,7 +46,9 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
       if (error instanceof ZodError) {
         formattedError = error.format() as ZodFormattedError<string>
       }
-      console.error(formattedError)
+      if (shouldLogAsError(error)) {
+        console.error(formattedError)
+      }
 
       // Default staus and message for JSON error response
       let status: number = (error as StatusableError).status || httpStatus.BAD_REQUEST

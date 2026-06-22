@@ -13,10 +13,16 @@ jest.mock('@/utils/CopilotAPI', () => ({
 
 describe('withErrorHandler util', () => {
   let req: NextRequest
+  let consoleErrorSpy: jest.SpyInstance
 
   beforeEach(() => {
     jest.clearAllMocks()
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
     req = buildNextRequest(`/?token=iu-token`)
+  })
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore()
   })
 
   it('catches and builds proper response for APIError', async () => {
@@ -28,6 +34,7 @@ describe('withErrorHandler util', () => {
     const response = await nextResponse.json()
     expect(response.error).toBe('Please provide a valid token')
     expect(nextResponse.status).toBe(httpStatus.UNAUTHORIZED)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
 
   it('catches and builds proper response for ZodError', async () => {
@@ -41,6 +48,7 @@ describe('withErrorHandler util', () => {
     expect(response.error[0].expected).toBe('string')
     expect(response.error[0].received).toBe('number')
     expect(nextResponse.status).toBe(httpStatus.UNPROCESSABLE_ENTITY)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
 
   it('catches and builds proper response for CopilotApiError', async () => {
@@ -52,6 +60,19 @@ describe('withErrorHandler util', () => {
     const response = await nextResponse.json()
     expect(response.error).toBe('Please provide a valid token')
     expect(nextResponse.status).toBe(httpStatus.UNAUTHORIZED)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+  })
+
+  it('logs server-side API errors', async () => {
+    const handler = async (_req: NextRequest, _params: any) => {
+      throw new APIError(httpStatus.INTERNAL_SERVER_ERROR, 'Database unavailable')
+    }
+
+    const nextResponse = await withErrorHandler(handler)(req, null)
+    const response = await nextResponse.json()
+    expect(response.error).toBe('Database unavailable')
+    expect(nextResponse.status).toBe(httpStatus.INTERNAL_SERVER_ERROR)
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1)
   })
 
   it('returns proper response if no errors are encountered', async () => {
