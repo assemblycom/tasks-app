@@ -94,7 +94,7 @@ export const StatusCustomizationSection = ({ initialWorkflowStates, token }: Sta
   return (
     <Box sx={{ width: '100%', maxWidth: '640px', margin: '0 auto', px: { xs: 2, sm: 0 } }}>
       <Typography variant="lg" sx={{ display: 'block', mb: '12px' }}>
-        Status Customization
+        Status customization
       </Typography>
 
       <Box

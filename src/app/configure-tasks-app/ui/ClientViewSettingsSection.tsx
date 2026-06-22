@@ -4,11 +4,14 @@ import { useState, type MouseEvent } from 'react'
 import { Box, Menu, MenuItem, Stack, Typography } from '@mui/material'
 import { Icon } from 'copilot-design-system'
 import { ViewMode } from '@prisma/client'
+import { useSelector } from 'react-redux'
 import { StyledSwitch } from '@/components/inputs/StyledSwitch'
 import { StyledModal } from '@/app/detail/ui/styledComponent'
 import { ConfirmUI } from '@/components/layouts/ConfirmUI'
 import { updateWorkspaceSettings } from '@/app/configure-tasks-app/actions'
 import { ClientViewSettings } from '@/types/dto/workspaceSettings.dto'
+import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
+import { getWorkspaceLabels } from '@/utils/getWorkspaceLabels'
 
 interface ClientViewSettingsSectionProps {
   initialSettings: ClientViewSettings
@@ -21,6 +24,9 @@ const VIEW_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
 ]
 
 export const ClientViewSettingsSection = ({ initialSettings, token }: ClientViewSettingsSectionProps) => {
+  const { workspace } = useSelector(selectAuthDetails)
+  const { individualTermPlural } = getWorkspaceLabels(workspace)
+
   const [settings, setSettings] = useState<ClientViewSettings>(initialSettings)
   // Holds the change awaiting confirmation; the controls keep showing `settings` until confirmed.
   const [pendingSettings, setPendingSettings] = useState<ClientViewSettings | null>(null)
@@ -46,7 +52,7 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
   return (
     <Box sx={{ width: '100%', maxWidth: '640px', margin: '0 auto', px: { xs: 2, sm: 0 } }}>
       <Typography variant="lg" sx={{ display: 'block', mb: '12px' }}>
-        Client view settings
+        Default display settings
       </Typography>
 
       <Box
@@ -58,7 +64,7 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
         }}
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: '16px', py: '14px' }}>
-          <Typography variant="bodyMd">Default view</Typography>
+          <Typography variant="bodyMd">View</Typography>
           <ViewModeDropdown
             value={settings.clientDefaultViewMode}
             onChange={(value) =>
@@ -89,14 +95,9 @@ export const ClientViewSettingsSection = ({ initialSettings, token }: ClientView
         <ConfirmUI
           handleCancel={() => setPendingSettings(null)}
           handleConfirm={handleConfirm}
-          buttonText="Apply to all clients"
-          title="Update view for all clients?"
-          description={
-            <>
-              This changes the view for <strong>every client</strong> in this workspace right now, replacing any view a
-              client has set for themselves. New and existing clients will all see this view.
-            </>
-          }
+          buttonText="Confirm & Apply"
+          title={`Override current display settings for ${individualTermPlural}?`}
+          description={`Applying this change will override the current display settings for ${individualTermPlural} while they view tasks.`}
         />
       </StyledModal>
     </Box>
