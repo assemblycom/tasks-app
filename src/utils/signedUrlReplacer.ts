@@ -39,7 +39,15 @@ export async function replaceMediaSrcs(htmlString: string): Promise<string> {
   const matches = extractMediaSrcMatches(htmlString)
   if (!matches.length) return htmlString
 
-  const signed = await createSignedUrls(matches.map((m) => m.filePath))
+  // A storage-signing outage must not take down task reads. createSignedUrls throws on a
+  // top-level error, so degrade to the stored body (original URLs) instead of 500-ing the
+  // whole task/serializer. Per-item failures already fall through the `signedUrl` filter below.
+  const signed = await createSignedUrls(matches.map((m) => m.filePath)).catch((error) => {
+    console.error('replaceMediaSrcs: failed to sign media, returning original body', error)
+    return null
+  })
+  if (!signed) return htmlString
+
   const urlByPath = new Map(signed.filter((item) => item.signedUrl).map((item) => [item.path, item.signedUrl as string]))
 
   let result = htmlString

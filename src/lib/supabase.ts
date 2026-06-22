@@ -10,6 +10,9 @@ export const supabase = createClient(supabaseProjectUrl, supabaseAnonKey)
 // so realtime is unaffected. See OUT-3864.
 const storageUrl = supabaseStorageDomain || supabaseProjectUrl
 
+// STORAGE-ONLY client. Its URL is `storageUrl` (custom domain || project URL), which may not serve
+// WebSockets or anon-REST. Do NOT use this for realtime channels or auth — use the `supabase` export
+// above (pinned to the project URL) for those.
 class SupabaseClient {
   private static client: SupabaseJSClient
   private static isInitialized = false
