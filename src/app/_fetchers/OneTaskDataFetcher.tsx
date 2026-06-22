@@ -26,6 +26,11 @@ export const OneTaskDataFetcher = ({ token, task_id, initialTask }: OneTaskDataF
   const { data } = useSWR(queryString ? `/api/tasks/${task_id}?${queryString}` : null, fetcher, {
     refreshInterval: 0,
     revalidateOnFocus: false,
+    // The mount fetch is redundant — SSR seeds the same getOneTask result into Redux — and races with
+    // in-progress edits, reverting them when it resolves late. Only revalidate when explicitly asked
+    // (realtime nudges this key via globalMutate to refresh access-filtered subtask counts).
+    revalidateOnMount: false,
+    revalidateIfStale: false,
     ...(initialTask
       ? {
           fallbackData: { task: initialTask },
