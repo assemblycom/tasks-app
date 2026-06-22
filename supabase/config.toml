@@ -8,14 +8,14 @@ project_id = "tasks-app"
 enabled = false
 
 [db]
-port = 64322
-shadow_port = 64320
+port = 54322
+shadow_port = 54320
 major_version = 15
 
 # Enable / disable PgBouncer conn pooler
 [db.pooler]
 enabled = false
-port = 64329
+port = 54329
 pool_mode = "transaction"
 default_pool_size = 20
 max_client_conn = 100
@@ -29,7 +29,7 @@ enabled = true
 
 [studio]
 enabled = true
-port = 64323
+port = 54323
 api_url = "http://127.0.0.1"
 
 # Email testing server
@@ -71,5 +71,5 @@ enabled = false
 # Supabase analytics. Keep this on for local analytics
 [analytics]
 enabled = true
-port = 64327
+port = 54327
 backend = "postgres"
