@@ -86,7 +86,11 @@ export class CopilotAPI {
       return null
     }
 
-    return TokenSchema.parse(await getTokenPayload())
+    try {
+      return TokenSchema.parse(await getTokenPayload())
+    } catch {
+      return null
+    }
   }
 
   async _me(): Promise<MeResponse | null> {
@@ -292,6 +296,11 @@ export class CopilotAPI {
     } = { limit: 100 },
   ) {
     console.info('CopilotAPI#_getClientNotifications', this.token)
+    if (!APP_ID) {
+      console.warn('CopilotAPI#getClientNotifications | Skipping notification lookup because app id is not configured')
+      return []
+    }
+
     const response = await this.manualFetch(
       'notifications',
       {
@@ -304,7 +313,7 @@ export class CopilotAPI {
     const notifications = z.array(NotificationCreatedResponseSchema).parse(response.data)
     // Return only all notifications triggered by tasks-app
     return notifications
-      .filter((notification) => notification.appId === z.string({ message: 'Missing AppID in environment' }).parse(APP_ID))
+      .filter((notification) => notification.appId === APP_ID)
       .filter((notification) => {
         const isSameRecipientCompanyId =
           notification.recipientCompanyId && notification.recipientCompanyId === recipientCompanyId

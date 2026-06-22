@@ -34,7 +34,7 @@ export const supabaseProjectUrl = process.env.NEXT_PUBLIC_SUPABASE_PROJECT_URL |
 export const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 export const supabaseBucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || ''
 export const cronSecret = process.env.CRON_SECRET || ''
-export const APP_ID = process.env.COPILOT_APP_API_KEY
+export const APP_ID = process.env.COPILOT_APP_ID || process.env.COPILOT_APP_API_KEY
 
 export const ScrapImageExpiryPeriod = +(process.env.SCRAP_IMAGE_EXPIRY_PERIOD || '604800000')
 

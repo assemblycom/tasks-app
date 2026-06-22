@@ -3,15 +3,16 @@ import { NotificationInProductCtaParamsSchema } from '@/types/common'
 import { UserType } from '@/types/interfaces'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { redirectIfTaskCta } from '@/utils/redirect'
+import { getSafeTokenPayload } from '@/utils/tokenPayload'
 import z from 'zod'
 
 async function getNotificationDetail(token: string) {
+  const tokenPayload = await getSafeTokenPayload(token)
+  const notificationId = z.string().safeParse(tokenPayload?.notificationId)
+  if (!tokenPayload || !notificationId.success) return null
+
   const copilot = new CopilotAPI(token)
-  const tokenPayload = await copilot.getTokenPayload()
-
-  if (!tokenPayload) throw new Error('Failed to get token payload')
-
-  return await copilot.getIUNotification(z.string().parse(tokenPayload.notificationId), tokenPayload.workspaceId) // notification "id" is expected in tokenPayload
+  return await copilot.getIUNotification(notificationId.data, tokenPayload.workspaceId)
 }
 
 export default async function NotificationCenter(props: { searchParams: Promise<{ token: string }> }) {

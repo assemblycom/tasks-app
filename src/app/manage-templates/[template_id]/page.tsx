@@ -1,4 +1,4 @@
-import { getAllWorkflowStates, getTokenPayload } from '@/app/(home)/page'
+import { getAllWorkflowStates } from '@/app/(home)/page'
 import { ResponsiveStack } from '@/app/detail/ui/ResponsiveStack'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
@@ -20,6 +20,8 @@ import { DeletedRedirectPage } from '@/components/layouts/DeletedRedirectPage'
 import { OneTemplateDataFetcher } from '@/app/_fetchers/OneTemplateDataFetcher'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { getPreviewMode } from '@/utils/previewMode'
+import { SilentError } from '@/components/templates/SilentError'
+import { getSafeTokenPayload } from '@/utils/tokenPayload'
 
 async function getTemplate(id: string, token: string): Promise<ITemplate> {
   const res = await fetch(`${apiUrl}/api/tasks/templates/${id}?token=${token}`, {
@@ -39,11 +41,12 @@ export default async function TaskDetailPage(props: {
   const { token } = searchParams
   const { template_id } = params
 
-  const [workflowStates, template, tokenPayload] = await Promise.all([
-    getAllWorkflowStates(token),
-    getTemplate(template_id, token),
-    getTokenPayload(token),
-  ])
+  const tokenPayload = await getSafeTokenPayload(token)
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+
+  const [workflowStates, template] = await Promise.all([getAllWorkflowStates(token), getTemplate(template_id, token)])
 
   if (!template) {
     return <DeletedRedirectPage token={token} />

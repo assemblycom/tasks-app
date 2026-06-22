@@ -10,14 +10,14 @@ import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { RealTime } from '@/hoc/RealTime'
-import { UrlActionParamsType, Token, TokenSchema } from '@/types/common'
+import { UrlActionParamsType, Token } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { UserType } from '@/types/interfaces'
-import { CopilotAPI } from '@/utils/CopilotAPI'
 import { redirectIfTaskCta, redirectToClientPortal } from '@/utils/redirect'
+import { getSafeTokenPayload } from '@/utils/tokenPayload'
 import { UserRole } from '@api/core/types/user'
 import { Suspense } from 'react'
 import { z } from 'zod'
@@ -54,10 +54,12 @@ export async function getAllTasks(
 }
 
 export async function getTokenPayload(token: string): Promise<Token> {
-  const copilotClient = new CopilotAPI(token)
-  const payload = TokenSchema.parse(await copilotClient.getTokenPayload())
+  const tokenPayload = await getSafeTokenPayload(token)
+  if (!tokenPayload) {
+    throw new Error('Please provide a Valid Token')
+  }
 
-  return payload as Token
+  return tokenPayload
 }
 
 export async function getViewSettings(token: string): Promise<CreateViewSettingsDTO> {
@@ -80,7 +82,11 @@ export default async function Main(props: {
     return <SilentError message="Please provide a Valid Token" />
   }
 
-  const tokenPayload = await getTokenPayload(token)
+  const tokenPayload = await getSafeTokenPayload(token)
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+
   const userRole = tokenPayload.internalUserId ? UserType.INTERNAL_USER : tokenPayload.clientId ? UserType.CLIENT_USER : null
   if (!userRole) {
     return <SilentError message="Please provide a Valid Token" />
