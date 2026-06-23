@@ -184,6 +184,14 @@ export type InternalUsersResponse = z.infer<typeof InternalUsersResponseSchema>
 export const NotificationSenderSchema = z.enum(['internalUser', 'client'])
 export type NotificationSender = z.infer<typeof NotificationSenderSchema>
 
+export const EmailNotificationDetailsSchema = z.object({
+  subject: z.string().optional(),
+  header: z.string().optional(),
+  title: z.string().optional(),
+  body: z.string().optional(),
+})
+export type EmailNotificationDetails = z.infer<typeof EmailNotificationDetailsSchema>
+
 /**
  * Notification RequestBody schema - accepted by SDK#createNotification
  */
@@ -204,14 +212,7 @@ export const NotificationRequestBodySchema = z
             body: z.string().optional(),
           })
           .optional(),
-        email: z
-          .object({
-            subject: z.string().optional(),
-            header: z.string().optional(),
-            title: z.string().optional(),
-            body: z.string().optional(),
-          })
-          .optional(),
+        email: EmailNotificationDetailsSchema.optional(),
       })
       .optional(),
   })

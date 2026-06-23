@@ -25,6 +25,7 @@ import { TemplatesService } from '@api/tasks/templates/templates.service'
 import { PublicTaskSerializer, TaskWithWorkflowStateAndAttachments } from '@api/tasks/public/public.serializer'
 import { getBasicPaginationAttributes } from '@/utils/pagination'
 import { AttachmentsService } from '@/app/api/attachments/attachments.service'
+import { EmailNotificationDetails } from '@/types/common'
 
 export class PublicTasksService extends TasksSharedService {
   async getAllTasks(queryFilters: {
@@ -121,7 +122,10 @@ export class PublicTasksService extends TasksSharedService {
     return task
   }
 
-  async createTask(data: CreateTaskRequest, opts?: { disableSubtaskTemplates?: boolean; manualTimestamp?: Date }) {
+  async createTask(
+    data: CreateTaskRequest,
+    opts?: { disableSubtaskTemplates?: boolean; manualTimestamp?: Date; emailOverride?: EmailNotificationDetails },
+  ) {
     const policyGate = new PoliciesService(this.user)
     policyGate.authorize(UserAction.Create, Resource.Tasks)
     console.info('PublicTasksService#createTask | Creating task from public api with data:', data)
@@ -249,7 +253,7 @@ export class PublicTasksService extends TasksSharedService {
 
     // Send task created notifications to users + dispatch webhook
     await Promise.all([
-      sendTaskCreateNotifications.trigger({ user: this.user, task: newTask }),
+      sendTaskCreateNotifications.trigger({ user: this.user, task: newTask, emailOverride: opts?.emailOverride }),
       this.copilot.dispatchWebhook(DISPATCHABLE_EVENT.TaskCreated, {
         payload: await PublicTaskSerializer.serialize(newTask),
         workspaceId: this.user.workspaceId,

@@ -1,6 +1,7 @@
 import {
   CompanyResponse,
   CopilotUser,
+  EmailNotificationDetails,
   NotificationCreatedResponse,
   NotificationCreatedResponseSchema,
   NotificationRequestBody,
@@ -31,6 +32,7 @@ export class NotificationService extends BaseService {
       disableInProduct?: boolean
       commentId?: string
       senderCompanyId?: string
+      emailOverride?: EmailNotificationDetails
     } = { disableEmail: false },
   ) {
     try {
@@ -47,6 +49,7 @@ export class NotificationService extends BaseService {
 
       // 2. Dispatch notification to Copilot
       const workspace = await this.copilot.getWorkspace()
+
       const { senderId, senderCompanyId, recipientId, actionUser, companyName } = await this.getNotificationParties(
         task,
         action,
@@ -55,9 +58,10 @@ export class NotificationService extends BaseService {
       const inProduct = opts.disableInProduct
         ? undefined
         : getInProductNotificationDetails(workspace, actionUser, task, { companyName, commentId: opts?.commentId })[action]
-      const email = opts.disableEmail
+      const baseEmail = opts.disableEmail
         ? undefined
         : getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
+      const email = baseEmail && opts.emailOverride ? { ...baseEmail, ...opts.emailOverride } : baseEmail
 
       // Non-null only when this CU email should be diverted into the grouped buffer.
       const groupedType = email && recipientId ? this.groupedEventTypeFor(action) : null
@@ -126,7 +130,13 @@ export class NotificationService extends BaseService {
     action: NotificationTaskActions,
     task: Task,
     recipientIds: string[],
-    opts?: { email?: boolean; disableInProduct?: boolean; commentId?: string; senderCompanyId?: string },
+    opts?: {
+      email?: boolean
+      disableInProduct?: boolean
+      commentId?: string
+      senderCompanyId?: string
+      emailOverride?: EmailNotificationDetails
+    },
   ) {
     try {
       const [workspace, userInfo] = await Promise.all([this.copilot.getWorkspace(), this.copilot.me()])
@@ -147,9 +157,10 @@ export class NotificationService extends BaseService {
             companyName: company?.name,
             commentId: opts?.commentId,
           })[action]
-      const email = opts?.email
+      const baseEmail = opts?.email
         ? getEmailDetails(workspace, actionUserName, task, { commentId: opts?.commentId })[action]
         : undefined
+      const email = baseEmail && opts?.emailOverride ? { ...baseEmail, ...opts.emailOverride } : baseEmail
 
       // Get a list of all notifications dispatched for these taskId, clientId, companyId combinations
       // This will be used to filter out any duplicate notifications during creation
