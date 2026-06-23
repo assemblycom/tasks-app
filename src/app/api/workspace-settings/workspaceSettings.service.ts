@@ -3,7 +3,7 @@ import { BaseService } from '@api/core/services/base.service'
 import { PoliciesService } from '@api/core/services/policies.service'
 import { Resource } from '@api/core/types/api'
 import { UserAction } from '@api/core/types/user'
-import { Prisma, WorkspaceSetting } from '@prisma/client'
+import { Prisma, PrismaClient } from '@prisma/client'
 
 export class WorkspaceSettingsService extends BaseService {
   async getWorkspaceSettings() {
@@ -28,33 +28,42 @@ export class WorkspaceSettingsService extends BaseService {
     })
   }
 
-  async overrideExistingClientViewSettings({
-    previous,
-    data,
-  }: {
-    previous: WorkspaceSetting | null
-    data: UpdateWorkspaceSettingsDTO
-  }) {
+  // Updates the workspace settings and cascades the new client defaults to every existing
+  // client's view settings atomically, so a cascade failure rolls back the settings change too.
+  async overrideExistingClientViewSettings({ data }: { data: UpdateWorkspaceSettingsDTO }) {
     const policyGate = new PoliciesService(this.user)
     policyGate.authorize(UserAction.Update, Resource.WorkspaceSetting)
 
-    const cascade: Prisma.ViewSettingUpdateManyMutationInput = {}
+    const workspaceId = this.user.workspaceId
 
-    if (data.clientDefaultViewMode != null && data.clientDefaultViewMode !== previous?.clientDefaultViewMode) {
-      cascade.viewMode = data.clientDefaultViewMode
-    }
-    // clientHideSubtasks is the inverse of the per-user showSubtasks flag.
-    if (data.clientHideSubtasks != null && data.clientHideSubtasks !== previous?.clientHideSubtasks) {
-      cascade.showSubtasks = !data.clientHideSubtasks
-    }
+    return this.db.$transaction(async (tx) => {
+      this.setTransaction(tx as PrismaClient)
+      try {
+        const previous = await this.db.workspaceSetting.findUnique({ where: { workspaceId } })
+        const updated = await this.updateWorkspaceSettings(data)
 
-    if (Object.keys(cascade).length === 0) {
-      return
-    }
+        const cascade: Prisma.ViewSettingUpdateManyMutationInput = {}
 
-    await this.db.viewSetting.updateMany({
-      where: { workspaceId: this.user.workspaceId, clientId: { not: null } },
-      data: cascade,
+        if (data.clientDefaultViewMode != null && data.clientDefaultViewMode !== previous?.clientDefaultViewMode) {
+          cascade.viewMode = data.clientDefaultViewMode
+        }
+        // clientHideSubtasks is the inverse of the per-user showSubtasks flag.
+        if (data.clientHideSubtasks != null && data.clientHideSubtasks !== previous?.clientHideSubtasks) {
+          cascade.showSubtasks = !data.clientHideSubtasks
+        }
+
+        if (Object.keys(cascade).length > 0) {
+          await this.db.viewSetting.updateMany({
+            where: { workspaceId, clientId: { not: null } },
+            data: cascade,
+          })
+        }
+
+        return updated
+      } finally {
+        // Always restore the shared db handle, even if the cascade throws.
+        this.unsetTransaction()
+      }
     })
   }
 }

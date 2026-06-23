@@ -20,9 +20,7 @@ export const updateWorkspaceSettings = async (req: NextRequest) => {
   const data = UpdateWorkspaceSettingsSchema.parse(await req.json())
 
   const workspaceSettingsService = new WorkspaceSettingsService(user)
-  const previous = await workspaceSettingsService.getWorkspaceSettings()
-  const workspaceSetting = await workspaceSettingsService.updateWorkspaceSettings(data)
-  await workspaceSettingsService.overrideExistingClientViewSettings({ previous, data })
+  const workspaceSetting = await workspaceSettingsService.overrideExistingClientViewSettings({ data })
 
   return NextResponse.json(workspaceSetting)
 }
