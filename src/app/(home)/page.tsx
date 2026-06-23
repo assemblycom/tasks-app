@@ -18,6 +18,7 @@ import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { UserType } from '@/types/interfaces'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { redirectIfTaskCta, redirectToClientPortal } from '@/utils/redirect'
+import { canFetchTaskTemplates } from '@/utils/taskTemplatesAccess'
 import { UserRole } from '@api/core/types/user'
 import { Suspense } from 'react'
 import { z } from 'zod'
@@ -94,6 +95,7 @@ export default async function Main(props: {
     getAllWorkflowStates(token),
     getAllTasks(token, { showArchived: viewSettings.showArchived, showUnarchived: viewSettings.showUnarchived }),
   ])
+  const shouldFetchTaskTemplates = canFetchTaskTemplates(tokenPayload)
 
   console.info(`app/page.tsx | Serving user ${token} with payload`, tokenPayload)
 
@@ -111,9 +113,11 @@ export default async function Main(props: {
         pf={searchParams?.pf}
       >
         {/* Async fetchers */}
-        <Suspense fallback={null}>
-          <TemplatesFetcher token={token} />
-        </Suspense>
+        {shouldFetchTaskTemplates && (
+          <Suspense fallback={null}>
+            <TemplatesFetcher token={token} />
+          </Suspense>
+        )}
         <Suspense fallback={null}>
           <AllTasksFetcher token={token} />
         </Suspense>

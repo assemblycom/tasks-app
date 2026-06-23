@@ -38,6 +38,7 @@ import { UserType } from '@/types/interfaces'
 import { getAssigneeCacheLookupKey, UserIdsWithAssociationSharedType } from '@/utils/assignee'
 import EscapeHandler from '@/utils/escapeHandler'
 import { getPreviewMode } from '@/utils/previewMode'
+import { canFetchTaskTemplates } from '@/utils/taskTemplatesAccess'
 import { checkIfTaskViewer } from '@/utils/taskViewer'
 import { truncateText } from '@/utils/truncateText'
 import { Box, Stack } from '@mui/material'
@@ -86,6 +87,7 @@ export default async function TaskDetailPage(props: {
   }
 
   const isPreviewMode = !!getPreviewMode(tokenPayload)
+  const shouldFetchTaskTemplates = canFetchTaskTemplates(tokenPayload)
 
   const breadcrumbItems: { label: string; mobileLabel: string; href: string }[] = (taskPath || []).map(
     ({ title, label, id }) => ({
@@ -107,9 +109,11 @@ export default async function TaskDetailPage(props: {
       viewSettings={viewSettings}
     >
       {!!token && <OneTaskDataFetcher token={token} task_id={task_id} initialTask={task} />}
-      <Suspense fallback={null}>
-        <TemplatesFetcher token={token} />
-      </Suspense>
+      {shouldFetchTaskTemplates && (
+        <Suspense fallback={null}>
+          <TemplatesFetcher token={token} />
+        </Suspense>
+      )}
       <RealTime tokenPayload={tokenPayload}>
         <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
           <EscapeHandler />
