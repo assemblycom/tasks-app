@@ -248,8 +248,8 @@ describe('flush-grouped-email idempotency (real DB)', () => {
     expect(await unsentCount(window)).toBe(0)
   })
 
-  it('marks the recipient sent without emailing when every task in the window was deleted', async () => {
-    const window = 'win_all_dead'
+  it('marks the recipient sent without emailing when every task in the window was archived', async () => {
+    const window = 'win_all_archived'
     const archivedTask = await seedTask({
       workspaceId: WS,
       assigneeId: CLIENT_A,
@@ -258,6 +258,24 @@ describe('flush-grouped-email idempotency (real DB)', () => {
       isArchived: true,
     })
     await seedEvent({ windowKey: window, taskId: archivedTask, recipientClientId: CLIENT_A })
+
+    const result = await flushGroupedEmailRun({ workspaceId: WS, windowKey: window })
+
+    expect(mockCreateNotification).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ sent: 0 })
+    expect(await unsentCount(window)).toBe(0)
+  })
+
+  it('marks the recipient sent without emailing when every task in the window was soft-deleted', async () => {
+    const window = 'win_all_deleted'
+    const deletedTask = await seedTask({
+      workspaceId: WS,
+      assigneeId: CLIENT_A,
+      assigneeType: 'client',
+      companyId: COMPANY,
+      deletedAt: new Date(),
+    })
+    await seedEvent({ windowKey: window, taskId: deletedTask, recipientClientId: CLIENT_A })
 
     const result = await flushGroupedEmailRun({ workspaceId: WS, windowKey: window })
 
