@@ -11,7 +11,7 @@ export class WorkspaceSettingsService extends BaseService {
     policyGate.authorize(UserAction.Read, Resource.WorkspaceSetting)
 
     const workspaceId = this.user.workspaceId
-    const workspaceSetting = await this.db.workspaceSetting.findFirst({ where: { workspaceId, deletedAt: null } })
+    const workspaceSetting = await this.db.workspaceSetting.findUnique({ where: { workspaceId } })
 
     return workspaceSetting ?? (await this.db.workspaceSetting.create({ data: { workspaceId } }))
   }
