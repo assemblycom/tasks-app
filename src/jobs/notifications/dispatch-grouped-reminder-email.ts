@@ -3,7 +3,6 @@ import 'server-only'
 import { copilotAPIKey } from '@/config'
 import { Sentry } from '@/jobs/sentry'
 import DBClient from '@/lib/db'
-import { WorkspaceResponse } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { serializeError } from '@/utils/serializeError'
 import { TaskReminderType } from '@prisma/client'
@@ -17,24 +16,16 @@ export type DispatchGroupedReminderEmailPayload = {
   tasks: { taskTitle: string; reminderType: TaskReminderType }[]
   recipientClientId: string
   recipientCompanyId: string | null
-  workspace: WorkspaceResponse
+  senderId: string
 }
 
 const TASK_ID = 'dispatch-grouped-reminder-email'
 
-const resolveSenderId = async (copilot: CopilotAPI): Promise<string> => {
-  const { data } = await copilot.getInternalUsers({ limit: 1 })
-  const senderId = data[0]?.id
-  if (!senderId) throw new Error(`${TASK_ID}: workspace has no internal user to use as sender`)
-  return senderId
-}
-
 export const dispatchGroupedReminderEmailRun = async (payload: DispatchGroupedReminderEmailPayload) => {
   const copilot = new CopilotAPI('', `${payload.workspaceId}/${copilotAPIKey}`)
-  const senderId = await resolveSenderId(copilot)
   const notificationId = await sendGroupedReminderEmail({
     entries: payload.tasks,
-    senderId,
+    senderId: payload.senderId,
     recipientClientId: payload.recipientClientId,
     recipientCompanyId: payload.recipientCompanyId,
     copilot,

@@ -198,7 +198,7 @@ const processWorkspace = async (
           tasks: recipientTriggers.map((t) => ({ taskTitle: t.payload.task.title, reminderType: t.payload.reminderType })),
           recipientClientId: first.payload.recipientClientId,
           recipientCompanyId: first.payload.recipientCompanyId,
-          workspace,
+          senderId: first.payload.task.createdById,
         },
       })
     }
@@ -233,7 +233,7 @@ const processWorkspace = async (
   const dispatchGroupedChunk = async (chunk: { payload: DispatchGroupedReminderEmailPayload }[]): Promise<number> => {
     try {
       await dispatchGroupedReminderEmail.batchTrigger(chunk)
-      return chunk.length
+      return chunk.reduce((sum, t) => sum + t.payload.ledgerIds.length, 0)
     } catch (err) {
       const ledgerIds = chunk.flatMap((t) => t.payload.ledgerIds)
       logger.error('send-task-reminders: batchTrigger (grouped) failed, compensating ledger', {
