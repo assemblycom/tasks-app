@@ -315,8 +315,8 @@ describe('sendTaskReminders', () => {
 
     const result = await runJob()
 
-    // One grouped email, not two individual emails
-    expect(result).toEqual({ enqueued: 1, skipped: 0, workspaceCount: 1 })
+    // One grouped email, not two individual emails; enqueued counts task reminders (2), not payloads (1)
+    expect(result).toEqual({ enqueued: 2, skipped: 0, workspaceCount: 1 })
     expect(mockBatchTrigger).not.toHaveBeenCalled()
     expect(mockGroupedBatchTrigger).toHaveBeenCalledTimes(1)
     const batch = mockGroupedBatchTrigger.mock.calls[0][0]
@@ -329,7 +329,7 @@ describe('sendTaskReminders', () => {
         { taskTitle: 'Review contract', reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D },
       ],
       recipientClientId: 'client_1',
-      workspace,
+      senderId: 'iu_1',
     })
   })
 
