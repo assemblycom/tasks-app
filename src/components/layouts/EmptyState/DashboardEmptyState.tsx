@@ -20,11 +20,11 @@ const DashboardEmptyState = ({ userType }: { userType: UserRole }) => {
 
   return (
     <>
-      <AppMargin size={SizeofAppMargin.LARGE} py="20px">
+      <AppMargin size={SizeofAppMargin.LARGE}>
         <Box
           sx={{
             display: 'flex',
-            height: '80vh',
+            minHeight: '100dvh',
             ...SxCenter,
           }}
         >
