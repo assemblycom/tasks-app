@@ -8,7 +8,7 @@ import { supabaseBucket } from '@/config'
 import APIError from '@api/core/exceptions/api'
 import httpStatus from 'http-status'
 import { SupabaseService } from '@api/core/services/supabase.service'
-import { signedUrlTtl } from '@/constants/attachments'
+import { getSignedUrl as signStorageUrl } from '@/utils/signUrl'
 import { PrismaClient } from '@prisma/client'
 
 export class AttachmentsService extends BaseService {
@@ -82,10 +82,8 @@ export class AttachmentsService extends BaseService {
 
   async getSignedUrl(filePath: string) {
     const policyGate = new PoliciesService(this.user)
-    const supabase = new SupabaseService()
     policyGate.authorize(UserAction.Create, Resource.Attachments)
-    const { data } = await supabase.supabase.storage.from(supabaseBucket).createSignedUrl(filePath, signedUrlTtl)
-    return data?.signedUrl
+    return signStorageUrl(filePath)
   }
 
   async deleteAttachmentsOfComment(commentId: string) {

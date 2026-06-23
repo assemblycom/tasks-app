@@ -1,4 +1,4 @@
-import { supabaseAnonKey, supabaseProjectUrl } from '@/config'
+import { supabaseAnonKey, supabaseProjectUrl, supabaseStorageDomain } from '@/config'
 import { createClient, processLock, type SupabaseClient as SupabaseJSClient } from '@supabase/supabase-js'
 
 // We use Supabase purely for realtime with the anon key (auth is handled by Copilot),
@@ -13,6 +13,8 @@ const authOptions = {
 
 export const supabase = createClient(supabaseProjectUrl, supabaseAnonKey, authOptions)
 
+const storageUrl = supabaseStorageDomain || supabaseProjectUrl
+
 class SupabaseClient {
   private static client: SupabaseJSClient
   private static isInitialized = false
@@ -22,7 +24,7 @@ class SupabaseClient {
   static getInstance(): SupabaseJSClient {
     if (!this.client) {
       if (!this.isInitialized) {
-        this.client = createClient(supabaseProjectUrl, supabaseAnonKey, authOptions)
+        this.client = createClient(storageUrl, supabaseAnonKey, authOptions)
         this.isInitialized = true
       }
     }
