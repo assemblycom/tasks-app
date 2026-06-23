@@ -17,7 +17,10 @@ jest.mock('@trigger.dev/sdk/v3', () => ({
 jest.mock('@/config', () => ({ copilotAPIKey: 'test-api-key' }))
 
 jest.mock('@/jobs/sentry', () => ({
-  Sentry: { captureException: (...args: unknown[]) => mockCaptureException(...args) },
+  Sentry: {
+    captureException: (...args: unknown[]) => mockCaptureException(...args),
+    addBreadcrumb: jest.fn(),
+  },
 }))
 
 jest.mock('@/lib/db', () => ({
@@ -101,7 +104,7 @@ describe('flushGroupedEmailRun', () => {
     expect(args.content.totalEventCount).toBe(2)
     expect(mockCreateNotification).not.toHaveBeenCalled()
     expect(mockExecuteRaw).toHaveBeenCalledTimes(1) // markRecipientSent
-    expect(result).toMatchObject({ recipients: 1, sent: 1 })
+    expect(result).toMatchObject({ recipients: 1, sent: 1, sentGrouped: 1, sentIndividual: 0 })
   })
 
   it('replays the original individual email when the window has a single live event', async () => {
@@ -114,17 +117,18 @@ describe('flushGroupedEmailRun', () => {
     expect(mockSendGroupedEmail).not.toHaveBeenCalled()
     expect(mockGetInternalUsers).not.toHaveBeenCalled() // no workspace IU needed for the individual path
     expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
-    expect(result).toMatchObject({ recipients: 1, sent: 1 })
+    expect(result).toMatchObject({ recipients: 1, sent: 1, sentGrouped: 0, sentIndividual: 1 })
   })
 
   it('falls back to the grouped summary when a single event has no snapshot (pre-migration row)', async () => {
     mockQueryRaw.mockResolvedValue([row({ individualEmail: null })])
 
-    await flushGroupedEmailRun(payload)
+    const result = await flushGroupedEmailRun(payload)
 
     expect(mockCreateNotification).not.toHaveBeenCalled()
     expect(mockSendGroupedEmail).toHaveBeenCalledTimes(1)
     expect(mockSendGroupedEmail.mock.calls[0][0].content.totalEventCount).toBe(1)
+    expect(result).toMatchObject({ sentGrouped: 1, sentIndividual: 0 })
   })
 
   it('no-ops when there are no unsent rows (idempotent re-run)', async () => {
@@ -163,7 +167,7 @@ describe('flushGroupedEmailRun', () => {
     expect(mockSendGroupedEmail).not.toHaveBeenCalled()
     expect(mockCreateNotification).not.toHaveBeenCalled()
     expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
-    expect(result).toMatchObject({ sent: 0 })
+    expect(result).toMatchObject({ sent: 0, sentGrouped: 0, sentIndividual: 0 })
   })
 
   it('sends one individual email per recipient when single-event windows span multiple clients', async () => {
@@ -174,7 +178,7 @@ describe('flushGroupedEmailRun', () => {
     expect(mockCreateNotification).toHaveBeenCalledTimes(2)
     expect(mockSendGroupedEmail).not.toHaveBeenCalled()
     expect(mockExecuteRaw).toHaveBeenCalledTimes(2)
-    expect(result).toMatchObject({ recipients: 2, sent: 2 })
+    expect(result).toMatchObject({ recipients: 2, sent: 2, sentGrouped: 0, sentIndividual: 2 })
   })
 
   it('retries the individual email without senderCompanyId when the workspace rejects it', async () => {
