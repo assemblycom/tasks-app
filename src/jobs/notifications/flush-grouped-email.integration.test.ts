@@ -21,7 +21,10 @@ jest.mock('@/utils/CopilotAPI', () => ({
 }))
 
 jest.mock('@/jobs/sentry', () => ({
-  Sentry: { captureException: (...args: unknown[]) => mockCaptureException(...args) },
+  Sentry: {
+    captureException: (...args: unknown[]) => mockCaptureException(...args),
+    addBreadcrumb: jest.fn(),
+  },
 }))
 
 import { disconnectTestDb, getTestDb, seedTask, uuid } from '../../../test/integration/db'

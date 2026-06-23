@@ -17,7 +17,10 @@ jest.mock('@trigger.dev/sdk/v3', () => ({
 jest.mock('@/config', () => ({ copilotAPIKey: 'test-api-key' }))
 
 jest.mock('@/jobs/sentry', () => ({
-  Sentry: { captureException: (...args: unknown[]) => mockCaptureException(...args) },
+  Sentry: {
+    captureException: (...args: unknown[]) => mockCaptureException(...args),
+    addBreadcrumb: jest.fn(),
+  },
 }))
 
 jest.mock('@/lib/db', () => ({

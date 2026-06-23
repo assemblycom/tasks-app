@@ -115,18 +115,37 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
   const copilot = new CopilotAPI('', `${workspaceId}/${copilotAPIKey}`)
 
   const liveTaskIds = await getLiveTaskIds(db, [...new Set(rows.map((r) => r.taskId))])
+  const skippedDeletedTasks = rows.length - rows.filter((r) => liveTaskIds.has(r.taskId)).length
+
+  const groups = groupByRecipient(rows)
+  logger.log('flush-grouped-email: starting', {
+    workspaceId,
+    windowKey,
+    bufferedEvents: rows.length,
+    skippedDeletedTasks,
+    recipients: groups.length,
+  })
 
   let sent = 0
+  let sentGrouped = 0
+  let sentIndividual = 0
   let senderId: string | undefined // resolved lazily — only the grouped branch needs a workspace IU
-  const groups = groupByRecipient(rows)
   for (const group of groups) {
     const liveEvents = group.events.filter((e) => liveTaskIds.has(e.taskId))
     // A single event reads awkwardly as a "summary" — replay the original individual email verbatim.
     // Pre-migration rows have no snapshot; fall back to the grouped summary rather than crash.
     const singleEmail = liveEvents.length === 1 ? liveEvents[0].individualEmail : null
+
+    Sentry.addBreadcrumb({
+      category: 'flush-grouped-email',
+      message: `recipient ${group.recipientClientId}`,
+      data: { workspaceId, windowKey, recipientClientId: group.recipientClientId, liveEvents: liveEvents.length },
+    })
+
     if (singleEmail) {
       await sendIndividualEmail(copilot, singleEmail)
       sent += 1
+      sentIndividual += 1
     } else if (liveEvents.length >= 1) {
       senderId ??= await resolveSenderId(copilot)
       await sendGroupedEmail({
@@ -137,8 +156,17 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
         copilot,
       })
       sent += 1
+      sentGrouped += 1
     }
+
     await markRecipientSent(db, windowKey, group.recipientClientId, batchId)
+    logger.log('flush-grouped-email: recipient sent', {
+      workspaceId,
+      windowKey,
+      recipientClientId: group.recipientClientId,
+      liveEvents: liveEvents.length,
+      outcome: singleEmail ? ('individual' as const) : liveEvents.length >= 1 ? ('grouped' as const) : ('skipped' as const),
+    })
   }
 
   logger.log('flush-grouped-email: run summary', {
@@ -146,10 +174,12 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
     windowKey,
     recipients: groups.length,
     sent,
+    sentGrouped,
+    sentIndividual,
     bufferedEvents: rows.length,
-    skippedDeletedTasks: rows.length - rows.filter((r) => liveTaskIds.has(r.taskId)).length,
+    skippedDeletedTasks,
   })
-  return { windowKey, recipients: groups.length, sent }
+  return { windowKey, recipients: groups.length, sent, sentGrouped, sentIndividual }
 }
 
 export const flushGroupedEmailOnFailure = async ({ payload, error }: { payload: unknown; error: unknown }) => {
