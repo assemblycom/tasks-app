@@ -11,12 +11,9 @@ export class WorkspaceSettingsService extends BaseService {
     policyGate.authorize(UserAction.Read, Resource.WorkspaceSetting)
 
     const workspaceId = this.user.workspaceId
-    let workspaceSetting = await this.db.workspaceSetting.findUnique({ where: { workspaceId } })
-    if (!workspaceSetting) {
-      workspaceSetting = await this.db.workspaceSetting.create({ data: { workspaceId } })
-    }
+    const workspaceSetting = await this.db.workspaceSetting.findFirst({ where: { workspaceId, deletedAt: null } })
 
-    return workspaceSetting
+    return workspaceSetting ?? (await this.db.workspaceSetting.create({ data: { workspaceId } }))
   }
 
   async updateWorkspaceSettings(data: UpdateWorkspaceSettingsDTO) {
@@ -28,7 +25,8 @@ export class WorkspaceSettingsService extends BaseService {
     return this.db.$transaction(async (tx) => {
       this.setTransaction(tx as PrismaClient)
       try {
-        const previous = await this.db.workspaceSetting.findUnique({ where: { workspaceId } })
+        // Never treat a soft-deleted settings row as the current one when diffing for the cascade.
+        const previous = await this.db.workspaceSetting.findFirst({ where: { workspaceId, deletedAt: null } })
 
         // The settings row is created lazily on read (getWorkspaceSettings), so by the
         // time a setting is changed it always exists — update only, never insert.
@@ -47,7 +45,7 @@ export class WorkspaceSettingsService extends BaseService {
     })
   }
 
-  private async overrideExistingClientViewSettings({
+  async overrideExistingClientViewSettings({
     previous,
     data,
   }: {
