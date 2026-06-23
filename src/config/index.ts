@@ -33,6 +33,10 @@ export const advancedFeatureFlag = !!+(process.env.NEXT_PUBLIC_ADVANCED_FEATURES
 export const supabaseProjectUrl = process.env.NEXT_PUBLIC_SUPABASE_PROJECT_URL || ''
 export const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 export const supabaseBucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || ''
+// Assembly custom domain fronting Supabase storage (e.g. https://task-files.assembly.com). Storage
+// is served through it so downloads aren't blocked by clients that allowlist only Assembly domains
+// (OUT-3864). Empty falls back to the project URL, so behaviour is unchanged until it's configured.
+export const supabaseStorageDomain = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_DOMAIN || ''
 export const cronSecret = process.env.CRON_SECRET || ''
 export const APP_ID = process.env.COPILOT_APP_API_KEY
 
