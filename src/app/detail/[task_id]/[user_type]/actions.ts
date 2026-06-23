@@ -3,9 +3,10 @@
 import { advancedFeatureFlag, apiUrl } from '@/config'
 import { ScrapMediaRequest } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
-import { CreateComment, UpdateComment } from '@/types/dto/comment.dto'
+import { CreateComment, UpdateComment, CommentResponse } from '@/types/dto/comment.dto'
 import { UpdateTaskRequest, Associations } from '@/types/dto/tasks.dto'
 import { getForwardedAssemblyHeaders } from '@/utils/serverHeaders'
+import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 
 export const updateTaskDetail = async ({
   token,
@@ -108,20 +109,22 @@ export const deleteAttachment = async (token: string, id: string) => {
 }
 
 export const postComment = async (token: string, payload: CreateComment) => {
-  const res = await fetch(`${apiUrl}/api/comments?token=${token}`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
-  const data = await res.json()
+  // retries=0: this is a non-idempotent create, retrying a dropped-but-succeeded POST would duplicate the comment
+  const data = await fetchWithErrorHandler<{ comment: CommentResponse }>(
+    `${apiUrl}/api/comments?token=${token}`,
+    { method: 'POST', body: JSON.stringify(payload) },
+    0,
+  )
   return data.comment
 }
 
 export const updateComment = async (token: string, id: string, payload: UpdateComment) => {
-  const res = await fetch(`${apiUrl}/api/comments/${id}?token=${token}`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  })
-  const data = await res.json()
+  // retries=0: non-idempotent update, avoid re-applying a write whose response was lost
+  const data = await fetchWithErrorHandler<{ comment: CommentResponse }>(
+    `${apiUrl}/api/comments/${id}?token=${token}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+    0,
+  )
   return data.comment
 }
 
