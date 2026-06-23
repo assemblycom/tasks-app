@@ -85,15 +85,15 @@ export default async function Main(props: {
   // Both clients and IUs can access this page so hardcoding a UserRole will not work
   redirectIfTaskCta(searchParams, userRole)
 
+  if (tokenPayload.companyId) {
+    redirectToClientPortal(token)
+  }
+
   const viewSettings = await getViewSettings(token)
   const [workflowStates, tasks] = await Promise.all([
     getAllWorkflowStates(token),
     getAllTasks(token, { showArchived: viewSettings.showArchived, showUnarchived: viewSettings.showUnarchived }),
   ])
-
-  if (tokenPayload.companyId) {
-    redirectToClientPortal(token)
-  }
 
   console.info(`app/page.tsx | Serving user ${token} with payload`, tokenPayload)
 

@@ -33,8 +33,7 @@ if (dsn) {
       //   }),
     ],
 
-    // ignoreErrors: [/fetch failed/i],
-    ignoreErrors: [/fetch failed/i],
+    ignoreErrors: [/fetch failed/i, /failed to fetch/i],
 
     beforeSend(event) {
       if (!isProd && event.type === undefined) {
