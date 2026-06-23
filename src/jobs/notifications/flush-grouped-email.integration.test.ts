@@ -119,7 +119,7 @@ describe('flush-grouped-email idempotency (real DB)', () => {
     const result = await flushGroupedEmailRun({ workspaceId: WS, windowKey: window })
 
     expect(mockCreateNotification).toHaveBeenCalledTimes(1)
-    expect(result).toMatchObject({ recipients: 1, sent: 1 })
+    expect(result).toMatchObject({ recipients: 1, sent: 1, sentGrouped: 1, sentIndividual: 0 })
     expect(await unsentCount(window)).toBe(0)
   })
 
@@ -216,7 +216,7 @@ describe('flush-grouped-email idempotency (real DB)', () => {
     expect(mockCreateNotification).toHaveBeenCalledTimes(2)
     const recipients = mockCreateNotification.mock.calls.map((c) => c[0].recipientClientId).sort()
     expect(recipients).toEqual([CLIENT_A, CLIENT_B].sort())
-    expect(result).toMatchObject({ recipients: 2, sent: 2 })
+    expect(result).toMatchObject({ recipients: 2, sent: 2, sentGrouped: 2, sentIndividual: 0 })
     expect(await unsentCount(window)).toBe(0)
   })
 
@@ -239,10 +239,11 @@ describe('flush-grouped-email idempotency (real DB)', () => {
       eventType: GroupedEmailEventType.SHARED,
     })
 
-    await flushGroupedEmailRun({ workspaceId: WS, windowKey: window })
+    const result = await flushGroupedEmailRun({ workspaceId: WS, windowKey: window })
 
     // Only the live task appears in the grouped email (1 event); individual snapshot path.
     expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({ sentGrouped: 0, sentIndividual: 1 })
     // All rows are marked sent regardless of whether the task was live.
     expect(await unsentCount(window)).toBe(0)
   })

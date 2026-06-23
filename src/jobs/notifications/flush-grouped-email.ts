@@ -160,7 +160,7 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
     }
 
     await markRecipientSent(db, windowKey, group.recipientClientId, batchId)
-    logger.log('flush-grouped-email: recipient sent', {
+    logger.log('flush-grouped-email: recipient processed', {
       workspaceId,
       windowKey,
       recipientClientId: group.recipientClientId,
