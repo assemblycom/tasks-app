@@ -252,20 +252,14 @@ describe('guard: CU wiring boundaries', () => {
     const svc = buildService() as unknown as {
       groupedEventTypeFor: (a: NotificationTaskActions) => GroupedEmailEventType | null
     }
-    const unmapped = [
-      NotificationTaskActions.ReassignedToIU,
-      NotificationTaskActions.ReassignedToClient,
-      NotificationTaskActions.ReassignedToCompany,
-      NotificationTaskActions.Completed,
-      NotificationTaskActions.CompletedByIU,
-      NotificationTaskActions.CompletedByCompanyMember,
-      NotificationTaskActions.CompletedForCompanyByIU,
-      NotificationTaskActions.CompletedToSharedCU,
-      NotificationTaskActions.CompletedToSharedCompany,
-      NotificationTaskActions.CommentToCU,
-      NotificationTaskActions.CommentToIU,
-      NotificationTaskActions.Mentioned,
+    const mapped = [
+      NotificationTaskActions.Assigned,
+      NotificationTaskActions.AssignedToCompany,
+      NotificationTaskActions.Shared,
+      NotificationTaskActions.SharedToCompany,
+      NotificationTaskActions.Commented,
     ]
+    const unmapped = Object.values(NotificationTaskActions).filter((a) => !mapped.includes(a))
     for (const action of unmapped) {
       expect(svc.groupedEventTypeFor(action)).toBeNull()
     }
