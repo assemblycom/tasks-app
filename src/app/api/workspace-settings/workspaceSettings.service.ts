@@ -3,7 +3,7 @@ import { BaseService } from '@api/core/services/base.service'
 import { PoliciesService } from '@api/core/services/policies.service'
 import { Resource } from '@api/core/types/api'
 import { UserAction } from '@api/core/types/user'
-import { Prisma, PrismaClient, WorkspaceSetting } from '@prisma/client'
+import { Prisma, WorkspaceSetting } from '@prisma/client'
 
 export class WorkspaceSettingsService extends BaseService {
   async getWorkspaceSettings() {
@@ -21,27 +21,10 @@ export class WorkspaceSettingsService extends BaseService {
     policyGate.authorize(UserAction.Update, Resource.WorkspaceSetting)
 
     const workspaceId = this.user.workspaceId
-
-    return this.db.$transaction(async (tx) => {
-      this.setTransaction(tx as PrismaClient)
-      try {
-        // Never treat a soft-deleted settings row as the current one when diffing for the cascade.
-        const previous = await this.db.workspaceSetting.findFirst({ where: { workspaceId, deletedAt: null } })
-
-        // The settings row is created lazily on read (getWorkspaceSettings), so by the
-        // time a setting is changed it always exists — update only, never insert.
-        const updated = await this.db.workspaceSetting.update({
-          where: { workspaceId },
-          data,
-        })
-
-        await this.overrideExistingClientViewSettings({ previous, data })
-
-        return updated
-      } finally {
-        // Always restore the shared db handle, even if the cascade throws.
-        this.unsetTransaction()
-      }
+    return await this.db.workspaceSetting.upsert({
+      where: { workspaceId },
+      create: { workspaceId, ...data },
+      update: data,
     })
   }
 
@@ -52,6 +35,9 @@ export class WorkspaceSettingsService extends BaseService {
     previous: WorkspaceSetting | null
     data: UpdateWorkspaceSettingsDTO
   }) {
+    const policyGate = new PoliciesService(this.user)
+    policyGate.authorize(UserAction.Update, Resource.WorkspaceSetting)
+
     const cascade: Prisma.ViewSettingUpdateManyMutationInput = {}
 
     if (data.clientDefaultViewMode != null && data.clientDefaultViewMode !== previous?.clientDefaultViewMode) {
