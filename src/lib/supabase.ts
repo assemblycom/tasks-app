@@ -1,7 +1,17 @@
 import { supabaseAnonKey, supabaseProjectUrl, supabaseStorageDomain } from '@/config'
-import { createClient, type SupabaseClient as SupabaseJSClient } from '@supabase/supabase-js'
+import { createClient, processLock, type SupabaseClient as SupabaseJSClient } from '@supabase/supabase-js'
 
-export const supabase = createClient(supabaseProjectUrl, supabaseAnonKey)
+// We use Supabase purely for realtime with the anon key (auth is handled by Copilot),
+// so there is no user session to persist or coordinate across tabs.
+const authOptions = {
+  auth: {
+    lock: processLock,
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+}
+
+export const supabase = createClient(supabaseProjectUrl, supabaseAnonKey, authOptions)
 
 const storageUrl = supabaseStorageDomain || supabaseProjectUrl
 
@@ -14,7 +24,7 @@ class SupabaseClient {
   static getInstance(): SupabaseJSClient {
     if (!this.client) {
       if (!this.isInitialized) {
-        this.client = createClient(storageUrl, supabaseAnonKey)
+        this.client = createClient(storageUrl, supabaseAnonKey, authOptions)
         this.isInitialized = true
       }
     }

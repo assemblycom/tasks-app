@@ -4,7 +4,7 @@ import { CrossIconSmall, FilterByAsigneeIcon } from '@/icons'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { FilterType } from '@/types/common'
 import { emptyAssignee, getAssigneeName, UserIdsType } from '@/utils/assignee'
-import { Box, IconButton, Stack, Typography } from '@mui/material'
+import { Box, IconButton, Stack } from '@mui/material'
 import deepEqual from 'deep-equal'
 import { useMemo } from 'react'
 import { useSelector } from 'react-redux'
@@ -79,22 +79,17 @@ export const FilterChip = ({ type, assignee }: FilterChipProps) => {
             <FilterByAsigneeIcon />
             <Stack direction="row" sx={{ justifyContent: 'center', alignItems: 'center' }}>
               <Box sx={{ color: (theme) => theme.color.text.textSecondary }}>{type}:&nbsp;</Box>
-              <Box>
-                <Typography
-                  variant="sm"
-                  lineHeight="32px"
-                  sx={{
-                    color: (theme) => theme.color.gray[600],
-                    fontWeight: '400',
-                    textOverflow: 'ellipsis',
-                    maxWidth: '100px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                  }}
-                  title={name}
-                >
-                  {name}
-                </Typography>
+              <Box
+                title={name}
+                sx={{
+                  color: (theme) => theme.color.gray[600],
+                  textOverflow: 'ellipsis',
+                  maxWidth: '100px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                }}
+              >
+                {name}
               </Box>
             </Stack>
             <IconButton
