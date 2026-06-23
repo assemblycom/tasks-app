@@ -107,9 +107,12 @@ export default async function TaskDetailPage(props: {
       viewSettings={viewSettings}
     >
       {!!token && <OneTaskDataFetcher token={token} task_id={task_id} initialTask={task} />}
-      <Suspense fallback={null}>
-        <TemplatesFetcher token={token} />
-      </Suspense>
+      {/* Templates are IU-only (clients have no TaskTemplates policy); fetching them as a client 401s and crashes the page */}
+      {tokenPayload.internalUserId && (
+        <Suspense fallback={null}>
+          <TemplatesFetcher token={token} />
+        </Suspense>
+      )}
       <RealTime tokenPayload={tokenPayload}>
         <RealTimeTemplates tokenPayload={tokenPayload} token={token}>
           <EscapeHandler />
