@@ -235,3 +235,55 @@ describe('NotificationService grouped-email interception', () => {
     })
   })
 })
+
+describe('guard: CU wiring boundaries', () => {
+  it('maps every CU-targeted action to the correct GroupedEmailEventType', () => {
+    const svc = buildService() as unknown as {
+      groupedEventTypeFor: (a: NotificationTaskActions) => GroupedEmailEventType | null
+    }
+    expect(svc.groupedEventTypeFor(NotificationTaskActions.Assigned)).toBe(GroupedEmailEventType.ASSIGNED)
+    expect(svc.groupedEventTypeFor(NotificationTaskActions.AssignedToCompany)).toBe(GroupedEmailEventType.ASSIGNED)
+    expect(svc.groupedEventTypeFor(NotificationTaskActions.Shared)).toBe(GroupedEmailEventType.SHARED)
+    expect(svc.groupedEventTypeFor(NotificationTaskActions.SharedToCompany)).toBe(GroupedEmailEventType.SHARED)
+    expect(svc.groupedEventTypeFor(NotificationTaskActions.Commented)).toBe(GroupedEmailEventType.COMMENT)
+  })
+
+  it('returns null for every action that must not be buffered', () => {
+    const svc = buildService() as unknown as {
+      groupedEventTypeFor: (a: NotificationTaskActions) => GroupedEmailEventType | null
+    }
+    const unmapped = [
+      NotificationTaskActions.ReassignedToIU,
+      NotificationTaskActions.ReassignedToClient,
+      NotificationTaskActions.ReassignedToCompany,
+      NotificationTaskActions.Completed,
+      NotificationTaskActions.CompletedByIU,
+      NotificationTaskActions.CompletedByCompanyMember,
+      NotificationTaskActions.CompletedForCompanyByIU,
+      NotificationTaskActions.CompletedToSharedCU,
+      NotificationTaskActions.CompletedToSharedCompany,
+      NotificationTaskActions.CommentToCU,
+      NotificationTaskActions.CommentToIU,
+      NotificationTaskActions.Mentioned,
+    ]
+    for (const action of unmapped) {
+      expect(svc.groupedEventTypeFor(action)).toBeNull()
+    }
+  })
+
+  it('never returns COMPLETED — that type is reserved for the deferred IU milestone', () => {
+    const svc = buildService() as unknown as {
+      groupedEventTypeFor: (a: NotificationTaskActions) => GroupedEmailEventType | null
+    }
+    const allActions = Object.values(NotificationTaskActions)
+    for (const action of allActions) {
+      expect(svc.groupedEventTypeFor(action)).not.toBe(GroupedEmailEventType.COMPLETED)
+    }
+  })
+
+  it('never writes recipientIuId in a CU grouped event row', async () => {
+    await buildService().create(NotificationTaskActions.Assigned, makeTask())
+    const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
+    expect(row.recipientIuId).toBeUndefined()
+  })
+})
