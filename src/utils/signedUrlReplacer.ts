@@ -2,16 +2,9 @@ import { createSignedUrls, getSignedUrl } from '@/utils/signUrl'
 import { Comment } from '@prisma/client'
 
 // Matches the src of every <img> and the data-src of every attachment tag (`data-type="attachment"`).
-// Created per-call: /g regexes carry mutable lastIndex state, so a shared instance would race when
-// these helpers run concurrently (e.g. Promise.all over many bodies).
 const imgSrcRegex = () => /<img\s+[^>]*src="([^"]+)"[^>]*>/g
 const attachmentSrcRegex = () => /<\s*[a-zA-Z]+\s+[^>]*data-type="attachment"[^>]*src="([^"]+)"[^>]*>/g
 
-/**
- * Collects every media reference in an HTML string — both inline images and attachment tags — as
- * `{ originalSrc, filePath, fileName }`, deduped by originalSrc. Single source of truth for the
- * "scan body for media" step shared by read-time signing and the post-create attachment sweeps.
- */
 export function extractMediaSrcMatches(htmlString: string): { originalSrc: string; filePath: string; fileName: string }[] {
   const matches: { originalSrc: string; filePath: string; fileName: string }[] = []
   const seen = new Set<string>()
@@ -30,12 +23,7 @@ export function extractMediaSrcMatches(htmlString: string): { originalSrc: strin
   return matches
 }
 
-/**
- * Read-time signing for a task/template body: rewrites every inline image and attachment tag to a
- * freshly signed URL (which resolves to the configured storage domain). Batches all paths into one
- * createSignedUrls call rather than signing one at a time.
- */
-export async function replaceMediaSrcs(htmlString: string): Promise<string> {
+export async function replaceMediaSources(htmlString: string): Promise<string> {
   const matches = extractMediaSrcMatches(htmlString)
   if (!matches.length) return htmlString
 
@@ -43,7 +31,7 @@ export async function replaceMediaSrcs(htmlString: string): Promise<string> {
   // top-level error, so degrade to the stored body (original URLs) instead of 500-ing the
   // whole task/serializer. Per-item failures already fall through the `signedUrl` filter below.
   const signed = await createSignedUrls(matches.map((m) => m.filePath)).catch((error) => {
-    console.error('replaceMediaSrcs: failed to sign media, returning original body', error)
+    console.error('replaceMediaSources: failed to sign media, returning original body', error)
     return null
   })
   if (!signed) return htmlString

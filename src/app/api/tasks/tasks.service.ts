@@ -2,18 +2,12 @@ import { deleteTaskNotifications, sendTaskCreateNotifications, sendTaskUpdateNot
 import { sendClientUpdateTaskNotifications } from '@/jobs/notifications/send-client-task-update-notifications'
 import { ClientResponse, CompanyResponse, InternalUsers } from '@/types/common'
 import { TaskWithWorkflowState } from '@/types/db'
-import {
-  AncestorTaskResponse,
-  CreateTaskRequest,
-  UpdateTaskRequest,
-  Associations,
-  AssociationsSchema,
-} from '@/types/dto/tasks.dto'
+import { AncestorTaskResponse, CreateTaskRequest, UpdateTaskRequest, Associations } from '@/types/dto/tasks.dto'
 import { DISPATCHABLE_EVENT } from '@/types/webhook'
 import { UserIdsType } from '@/utils/assignee'
 import { isPastDateString } from '@/utils/dateHelper'
 import { getIdsFromLtreePath } from '@/utils/ltree'
-import { replaceMediaSrcs } from '@/utils/signedUrlReplacer'
+import { replaceMediaSources } from '@/utils/signedUrlReplacer'
 import APIError from '@api/core/exceptions/api'
 import { PoliciesService } from '@api/core/services/policies.service'
 import { Resource } from '@api/core/types/api'
@@ -291,7 +285,7 @@ export class TasksService extends TasksSharedService {
 
     const accessWhere = await this.getAccessFilterForTasks()
 
-    const newBody = task.body ? await replaceMediaSrcs(task.body) : task.body
+    const newBody = task.body ? await replaceMediaSources(task.body) : task.body
     const bodyChanged = newBody !== task.body
 
     const [accessibleSubtaskCount, assignee] = await Promise.all([
