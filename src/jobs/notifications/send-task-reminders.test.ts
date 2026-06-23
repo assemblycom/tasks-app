@@ -4,6 +4,7 @@ const mockTaskReminderSentCreateManyAndReturn = jest.fn()
 const mockExecuteRaw = jest.fn()
 const mockGetEligibleReminders = jest.fn()
 const mockBatchTrigger = jest.fn()
+const mockGroupedBatchTrigger = jest.fn()
 const mockGetWorkspace = jest.fn()
 const mockGetCompanyClients = jest.fn()
 const mockCopilotApiCtor = jest.fn()
@@ -48,6 +49,10 @@ jest.mock('./eligibility', () => ({
 
 jest.mock('./dispatch-reminder-email', () => ({
   dispatchReminderEmail: { batchTrigger: (...args: unknown[]) => mockBatchTrigger(...args) },
+}))
+
+jest.mock('./dispatch-grouped-reminder-email', () => ({
+  dispatchGroupedReminderEmail: { batchTrigger: (...args: unknown[]) => mockGroupedBatchTrigger(...args) },
 }))
 
 jest.mock('bottleneck', () => ({
@@ -97,8 +102,10 @@ describe('sendTaskReminders', () => {
     mockGetCompanyClients.mockReset()
     mockCopilotApiCtor.mockReset()
     mockCaptureException.mockReset()
+    mockGroupedBatchTrigger.mockReset()
     mockGetWorkspace.mockResolvedValue(workspace)
     mockBatchTrigger.mockResolvedValue({ batchId: 'b1' })
+    mockGroupedBatchTrigger.mockResolvedValue({ batchId: 'b2' })
   })
 
   it('exits cleanly when no rows are eligible', async () => {
@@ -293,6 +300,37 @@ describe('sendTaskReminders', () => {
       'm_1',
       'm_2',
     ])
+  })
+
+  it('sends one grouped email when a recipient has multiple reminders in the same batch', async () => {
+    mockGetEligibleReminders.mockResolvedValueOnce([
+      buildRow({ taskId: 'task_1', title: 'Upload W-9', reminderType: TaskReminderType.DUE_DATE_TODAY }),
+      buildRow({ taskId: 'task_2', title: 'Review contract', reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D }),
+    ])
+    // Same recipient (client_1) for both tasks
+    mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([
+      { id: 'l_1', taskId: 'task_1', recipientId: 'client_1', reminderType: TaskReminderType.DUE_DATE_TODAY },
+      { id: 'l_2', taskId: 'task_2', recipientId: 'client_1', reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D },
+    ])
+
+    const result = await runJob()
+
+    // One grouped email, not two individual emails; enqueued counts task reminders (2), not payloads (1)
+    expect(result).toEqual({ enqueued: 2, skipped: 0, workspaceCount: 1 })
+    expect(mockBatchTrigger).not.toHaveBeenCalled()
+    expect(mockGroupedBatchTrigger).toHaveBeenCalledTimes(1)
+    const batch = mockGroupedBatchTrigger.mock.calls[0][0]
+    expect(batch).toHaveLength(1)
+    expect(batch[0].payload).toMatchObject({
+      ledgerIds: ['l_1', 'l_2'],
+      workspaceId: 'ws_1',
+      tasks: [
+        { taskTitle: 'Upload W-9', reminderType: TaskReminderType.DUE_DATE_TODAY },
+        { taskTitle: 'Review contract', reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D },
+      ],
+      recipientClientId: 'client_1',
+      senderId: 'iu_1',
+    })
   })
 
   it('does not abort the sweep when one workspace throws (per-workspace isolation)', async () => {
