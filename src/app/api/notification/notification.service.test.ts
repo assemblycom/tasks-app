@@ -168,6 +168,20 @@ describe('NotificationService grouped-email interception', () => {
       expect(deliveryTargetsOf(0).email).toBeDefined()
     })
 
+    it('merges an emailOverride htmlBody into the dispatched email target', async () => {
+      await buildService().create(
+        NotificationTaskActions.CompletedToSharedCU,
+        makeTask({ assigneeType: AssigneeType.internalUser }),
+        {
+          disableEmail: false,
+          emailOverride: { htmlBody: '<h1>Custom</h1>' },
+        },
+      )
+
+      expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+      expect(deliveryTargetsOf(0).email.htmlBody).toBe('<h1>Custom</h1>')
+    })
+
     it('does not buffer when there is no CU email (e.g. disableEmail / IU recipient)', async () => {
       await buildService().create(NotificationTaskActions.Assigned, makeTask(), { disableEmail: true })
 

@@ -189,6 +189,8 @@ export const EmailNotificationDetailsSchema = z.object({
   header: z.string().optional(),
   title: z.string().optional(),
   body: z.string().optional(),
+  // Raw HTML body for the email. Only honored via a direct Copilot API call (the SDK type omits it).
+  htmlBody: z.string().optional(),
 })
 export type EmailNotificationDetails = z.infer<typeof EmailNotificationDetailsSchema>
 
