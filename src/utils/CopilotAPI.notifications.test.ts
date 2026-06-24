@@ -5,6 +5,9 @@ const OTHER_APP_ID = '00000000-0000-4000-8000-000000000002'
 
 const loadCopilotAPI = async () => {
   jest.resetModules()
+  jest.doMock('@/app/api/core/utils/withRetry', () => ({
+    withRetry: (fn: (...args: unknown[]) => unknown, args: unknown[]) => fn(...args),
+  }))
   jest.doMock('copilot-node-sdk', () => ({
     copilotApi: jest.fn(() => ({})),
   }))
@@ -31,6 +34,7 @@ describe('CopilotAPI client notification filtering', () => {
   })
 
   afterEach(() => {
+    jest.dontMock('@/app/api/core/utils/withRetry')
     jest.dontMock('copilot-node-sdk')
   })
 
