@@ -13,7 +13,7 @@ import { CopilotAPI } from '@/utils/CopilotAPI'
 import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
-import { getEmailDetails, getInProductNotificationDetails } from '@api/notification/notification.helpers'
+import { getEmailDetails, getInProductNotificationDetails, mergeEmailOverride } from '@api/notification/notification.helpers'
 import { AssigneeType, ClientNotification, GroupedEmailEventType, Prisma, Task } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { enqueueGroupedEmailFlush } from '@/jobs/notifications/flush-grouped-email'
@@ -61,7 +61,7 @@ export class NotificationService extends BaseService {
       const baseEmail = opts.disableEmail
         ? undefined
         : getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
-      const email = baseEmail && opts.emailOverride ? { ...baseEmail, ...opts.emailOverride } : baseEmail
+      const email = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts.emailOverride }) : baseEmail
 
       // Non-null only when this CU email should be diverted into the grouped buffer.
       const groupedType = email && recipientId ? this.groupedEventTypeFor(action) : null
@@ -160,7 +160,7 @@ export class NotificationService extends BaseService {
       const baseEmail = opts?.email
         ? getEmailDetails(workspace, actionUserName, task, { commentId: opts?.commentId })[action]
         : undefined
-      const email = baseEmail && opts?.emailOverride ? { ...baseEmail, ...opts.emailOverride } : baseEmail
+      const email = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts?.emailOverride }) : baseEmail
 
       // Get a list of all notifications dispatched for these taskId, clientId, companyId combinations
       // This will be used to filter out any duplicate notifications during creation

@@ -168,7 +168,7 @@ describe('NotificationService grouped-email interception', () => {
       expect(deliveryTargetsOf(0).email).toBeDefined()
     })
 
-    it('merges an emailOverride htmlBody into the dispatched email target', async () => {
+    it('sends htmlBody and drops the default template body when the override omits body', async () => {
       await buildService().create(
         NotificationTaskActions.CompletedToSharedCU,
         makeTask({ assigneeType: AssigneeType.internalUser }),
@@ -180,6 +180,32 @@ describe('NotificationService grouped-email interception', () => {
 
       expect(mockCreateNotification).toHaveBeenCalledTimes(1)
       expect(deliveryTargetsOf(0).email.htmlBody).toBe('<h1>Custom</h1>')
+      expect(deliveryTargetsOf(0).email.body).toBeUndefined()
+    })
+
+    it('keeps an explicit body alongside htmlBody', async () => {
+      await buildService().create(
+        NotificationTaskActions.CompletedToSharedCU,
+        makeTask({ assigneeType: AssigneeType.internalUser }),
+        {
+          disableEmail: false,
+          emailOverride: { htmlBody: '<h1>Custom</h1>', body: 'plain text fallback' },
+        },
+      )
+
+      expect(deliveryTargetsOf(0).email.htmlBody).toBe('<h1>Custom</h1>')
+      expect(deliveryTargetsOf(0).email.body).toBe('plain text fallback')
+    })
+
+    it('retains the default template body when no htmlBody override is given', async () => {
+      await buildService().create(
+        NotificationTaskActions.CompletedToSharedCU,
+        makeTask({ assigneeType: AssigneeType.internalUser }),
+        { disableEmail: false },
+      )
+
+      expect(deliveryTargetsOf(0).email.body).toBeDefined()
+      expect(deliveryTargetsOf(0).email.htmlBody).toBeUndefined()
     })
 
     it('does not buffer when there is no CU email (e.g. disableEmail / IU recipient)', async () => {
