@@ -88,3 +88,5 @@ describe('CopilotAPI#getClientNotifications', () => {
     )
   })
 })
+
+export {}

@@ -47,3 +47,5 @@ describe('ValidateCountService', () => {
     expect(getClientNotifications).not.toHaveBeenCalled()
   })
 })
+
+export {}
