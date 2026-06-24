@@ -17,6 +17,9 @@ const loadCopilotAPI = async (env: Record<string, string | undefined> = {}) => {
   jest.doMock('copilot-node-sdk', () => ({
     copilotApi: jest.fn(() => ({})),
   }))
+  jest.doMock('@/app/api/core/utils/withRetry', () => ({
+    withRetry: jest.fn((fn, args) => fn(...args)),
+  }))
 
   return import('@/utils/CopilotAPI')
 }
@@ -24,6 +27,7 @@ const loadCopilotAPI = async (env: Record<string, string | undefined> = {}) => {
 afterEach(() => {
   jest.resetModules()
   jest.dontMock('copilot-node-sdk')
+  jest.dontMock('@/app/api/core/utils/withRetry')
   process.env = ORIGINAL_ENV
 })
 
