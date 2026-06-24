@@ -1,6 +1,6 @@
 import APIError from '@/app/api/core/exceptions/api'
 import { withRetry } from '@/app/api/core/utils/withRetry'
-import { copilotAPIKey as apiKey, APP_ID, assemblyApiDomain } from '@/config'
+import { copilotAPIKey as apiKey, assemblyApiDomain, getCopilotAppId } from '@/config'
 import { MAX_LIMIT_CLIENT_COUNT } from '@/constants/users'
 import {
   AssemblyMetadata,
@@ -292,6 +292,12 @@ export class CopilotAPI {
     } = { limit: 100 },
   ) {
     console.info('CopilotAPI#_getClientNotifications', this.token)
+    const appId = getCopilotAppId()
+    if (!appId) {
+      console.warn('CopilotAPI#_getClientNotifications | Skipping because Copilot app id is not configured')
+      return []
+    }
+
     const response = await this.manualFetch(
       'notifications',
       {
@@ -304,7 +310,7 @@ export class CopilotAPI {
     const notifications = z.array(NotificationCreatedResponseSchema).parse(response.data)
     // Return only all notifications triggered by tasks-app
     return notifications
-      .filter((notification) => notification.appId === z.string({ message: 'Missing AppID in environment' }).parse(APP_ID))
+      .filter((notification) => notification.appId === appId)
       .filter((notification) => {
         const isSameRecipientCompanyId =
           notification.recipientCompanyId && notification.recipientCompanyId === recipientCompanyId
