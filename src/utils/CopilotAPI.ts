@@ -1,4 +1,5 @@
 import APIError from '@/app/api/core/exceptions/api'
+import httpStatus from 'http-status'
 import { withRetry } from '@/app/api/core/utils/withRetry'
 import { copilotAPIKey as apiKey, APP_ID, assemblyApiDomain } from '@/config'
 import { MAX_LIMIT_CLIENT_COUNT } from '@/constants/users'
@@ -231,6 +232,13 @@ export class CopilotAPI {
     // Direct REST call instead of the SDK: the SDK request type omits `deliveryTargets.email.htmlBody`,
     // so HTML email bodies only reach Copilot when we post the request body ourselves.
     const workspaceId = await this._resolveWorkspaceId()
+    // Fail fast rather than fall back to an unscoped X-API-KEY, which would misroute the notification.
+    if (!workspaceId) {
+      throw new APIError(
+        httpStatus.UNAUTHORIZED,
+        'CopilotAPI#createNotification | Could not resolve workspaceId for notification dispatch',
+      )
+    }
     const notification = await this._manualFetch('notifications', undefined, workspaceId, {
       method: 'POST',
       body: requestBody,
