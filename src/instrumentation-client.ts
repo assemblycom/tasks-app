@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
+import { FETCH_FAILURE_ERROR_PATTERNS, shouldDropFetchFailureEvent } from '@/utils/sentryFilters'
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
 const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV
@@ -33,9 +34,13 @@ if (dsn) {
       //   }),
     ],
 
-    ignoreErrors: [/fetch failed/i, /failed to fetch/i],
+    ignoreErrors: FETCH_FAILURE_ERROR_PATTERNS,
 
     beforeSend(event) {
+      if (shouldDropFetchFailureEvent(event)) {
+        return null
+      }
+
       if (!isProd && event.type === undefined) {
         return null
       }
