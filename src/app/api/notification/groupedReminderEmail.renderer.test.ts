@@ -56,11 +56,11 @@ describe('renderGroupedReminderEmail', () => {
     expect(result.htmlBody).toContain('<em>+2 other tasks</em><br>')
   })
 
-  it('truncates task titles longer than 50 characters', () => {
-    const longTitle = 'A'.repeat(55)
+  it('truncates task titles longer than 100 characters', () => {
+    const longTitle = 'A'.repeat(105)
     const result = renderGroupedReminderEmail([{ taskTitle: longTitle, reminderType: TaskReminderType.DUE_DATE_TODAY }])
-    expect(result.htmlBody).toContain('A'.repeat(50) + '…')
-    expect(result.htmlBody).not.toContain('A'.repeat(51))
+    expect(result.htmlBody).toContain('A'.repeat(100) + '…')
+    expect(result.htmlBody).not.toContain('A'.repeat(101))
   })
 
   it('sorts entries by urgency: overdue first, no-due-date last', () => {

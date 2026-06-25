@@ -12,7 +12,7 @@ export interface GroupedReminderEmailDetails {
   htmlBody: string
 }
 
-const MAX_TITLE_LENGTH = 50
+const MAX_TITLE_LENGTH = 100
 const ITEMS_PER_GROUP = 3
 
 const reminderLabel: Record<TaskReminderType, string> = {

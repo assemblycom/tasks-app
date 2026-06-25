@@ -106,14 +106,14 @@ describe('renderGroupedEmail', () => {
     expect(email.htmlBody).toContain(expected)
   })
 
-  it('truncates task titles longer than 50 characters', () => {
-    const longTitle = 'A'.repeat(55)
+  it('truncates task titles longer than 100 characters', () => {
+    const longTitle = 'A'.repeat(105)
     const email = renderGroupedEmail({
       totalEventCount: 1,
       sections: [section({ taskNames: [longTitle] })],
     })
-    expect(email.htmlBody).toContain('A'.repeat(50) + '…')
-    expect(email.htmlBody).not.toContain('A'.repeat(51))
+    expect(email.htmlBody).toContain('A'.repeat(100) + '…')
+    expect(email.htmlBody).not.toContain('A'.repeat(101))
   })
 
   it('returns an empty body when there are no sections', () => {

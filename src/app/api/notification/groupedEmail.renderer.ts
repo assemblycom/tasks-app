@@ -11,7 +11,7 @@ export interface GroupedEmailDetails {
   htmlBody: string
 }
 
-const MAX_TITLE_LENGTH = 50
+const MAX_TITLE_LENGTH = 100
 
 const pluralize = (count: number, singular: string, plural: string): string => (count === 1 ? singular : plural)
 
