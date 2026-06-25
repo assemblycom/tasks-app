@@ -37,7 +37,6 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
       if (error instanceof ZodError) {
         formattedError = error.format() as ZodFormattedError<string>
       }
-      console.error(formattedError)
 
       // Default staus and message for JSON error response
       let status: number = (error as StatusableError).status || httpStatus.BAD_REQUEST
@@ -63,6 +62,10 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
           status = httpStatus.NOT_FOUND
           message = 'The requested resource was not found'
         }
+      }
+
+      if (status >= httpStatus.INTERNAL_SERVER_ERROR) {
+        console.error(formattedError)
       }
 
       return NextResponse.json({ error: message, errors }, { status })
