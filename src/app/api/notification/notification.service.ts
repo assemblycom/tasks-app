@@ -461,7 +461,7 @@ export class NotificationService extends BaseService {
           console.info('fetched client Ids', clientIds)
           recipientIds = clientIds
         }
-        if (associations?.length) {
+        if (associations?.length && task.isShared) {
           const clientId = associations[0].clientId
           if (clientId) {
             recipientIds = [clientId] //spread recipientIds if we allow associations on client tasks.
