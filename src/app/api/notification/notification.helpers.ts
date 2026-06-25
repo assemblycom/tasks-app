@@ -1,7 +1,28 @@
-import { WorkspaceResponse } from '@/types/common'
+import { EmailNotificationDetails, WorkspaceResponse } from '@/types/common'
 import { getWorkspaceLabels } from '@/utils/getWorkspaceLabels'
 import { NotificationTaskActions } from '@api/core/types/tasks'
 import { Task, TaskReminderType } from '@prisma/client'
+
+type EmailDetailWithCta = EmailNotificationDetails & { ctaParams?: Record<string, string> }
+
+/**
+ * Merges a caller-supplied email override onto the default template email.
+ *
+ * When the override carries an `htmlBody`, the default template `body` is dropped unless the caller
+ * explicitly provided one — a leftover plain-text body shadows the HTML in the delivered email.
+ */
+export const mergeEmailOverride = ({
+  base,
+  override,
+}: {
+  base: EmailDetailWithCta
+  override?: EmailNotificationDetails
+}): EmailDetailWithCta => {
+  if (!override) return base
+  const merged: EmailDetailWithCta = { ...base, ...override }
+  if (override.htmlBody && !override.body) delete merged.body
+  return merged
+}
 
 /**
  * Helper function that sets the in-product notification title and body for a given notification trigger

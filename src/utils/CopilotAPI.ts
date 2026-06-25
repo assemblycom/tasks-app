@@ -1,4 +1,5 @@
 import APIError from '@/app/api/core/exceptions/api'
+import httpStatus from 'http-status'
 import { withRetry } from '@/app/api/core/utils/withRetry'
 import { copilotAPIKey as apiKey, APP_ID, assemblyApiDomain } from '@/config'
 import { MAX_LIMIT_CLIENT_COUNT } from '@/constants/users'
@@ -53,26 +54,44 @@ export class CopilotAPI {
     this.copilot = copilotApi({ apiKey: customApiKey ?? apiKey, token })
   }
 
-  private async _manualFetch(route: string, query?: Record<string, string>, workspaceId?: string) {
+  private async _manualFetch(
+    route: string,
+    query?: Record<string, string>,
+    workspaceId?: string,
+    init?: { method?: string; body?: unknown },
+  ) {
     const url = new URL(`${assemblyApiDomain}/v1/${route}`)
     if (query) {
       for (const key of Object.keys(query)) {
         url.searchParams.set(key, query[key])
       }
     }
-    const headers = {
+    const headers: Record<string, string> = {
       'X-API-KEY': workspaceId ? `${workspaceId}/${apiKey}` : apiKey,
       accept: 'application/json',
     }
+    if (init?.body !== undefined) headers['content-type'] = 'application/json'
 
     console.info('CopilotAPI#manualFetch |', url, headers)
-    const resp = await fetch(url, { headers })
+    const resp = await fetch(url, {
+      method: init?.method ?? 'GET',
+      headers,
+      body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
+    })
     const body = await resp.json()
     if (!resp.ok) {
       console.error('CopilotAPI#manualFetch | Response is not ok', resp, body)
       throw new APIError(resp.status, 'Failed to perform a Copilot API call: ' + JSON.stringify(body))
     }
     return body
+  }
+
+  // Resolves the workspace used to scope the X-API-KEY for manual REST calls. Job-style instances
+  // carry it in `customApiKey` (`${workspaceId}/${apiKey}`); token-style instances derive it from the token.
+  private async _resolveWorkspaceId(): Promise<string | undefined> {
+    if (this.customApiKey) return this.customApiKey.split('/')[0]
+    const payload = await this._getTokenPayload()
+    return payload?.workspaceId
   }
 
   // NOTE: Any method prefixed with _ is a API method that doesn't implement retry & delay
@@ -210,7 +229,20 @@ export class CopilotAPI {
 
   async _createNotification(requestBody: NotificationRequestBody): Promise<NotificationCreatedResponse> {
     console.info('CopilotAPI#_createNotification', this.token)
-    const notification = await this.copilot.createNotification({ requestBody })
+    // Direct REST call instead of the SDK: the SDK request type omits `deliveryTargets.email.htmlBody`,
+    // so HTML email bodies only reach Copilot when we post the request body ourselves.
+    const workspaceId = await this._resolveWorkspaceId()
+    // Fail fast rather than fall back to an unscoped X-API-KEY, which would misroute the notification.
+    if (!workspaceId) {
+      throw new APIError(
+        httpStatus.UNAUTHORIZED,
+        'CopilotAPI#createNotification | Could not resolve workspaceId for notification dispatch',
+      )
+    }
+    const notification = await this._manualFetch('notifications', undefined, workspaceId, {
+      method: 'POST',
+      body: requestBody,
+    })
     return NotificationCreatedResponseSchema.parse(notification)
   }
 
