@@ -1,7 +1,3 @@
-/**
- * @jest-environment jsdom
- */
-
 import {
   canSubmitTapwriteContent,
   clampProseMirrorPosition,
@@ -9,9 +5,32 @@ import {
   isTapwriteInteractionActive,
 } from '@/utils/tapwriteEditorState'
 
+const originalDocument = globalThis.document
+
+function mockDocumentQuerySelector(result: Element | null) {
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      querySelector: jest.fn(() => result),
+    },
+  })
+}
+
+function restoreDocument() {
+  if (originalDocument) {
+    Object.defineProperty(globalThis, 'document', {
+      configurable: true,
+      value: originalDocument,
+    })
+    return
+  }
+
+  delete (globalThis as { document?: Document }).document
+}
+
 describe('tapwriteEditorState', () => {
   afterEach(() => {
-    document.body.innerHTML = ''
+    restoreDocument()
   })
 
   it('detects active Tapwrite interactions from status flags', () => {
@@ -21,7 +40,7 @@ describe('tapwriteEditorState', () => {
   })
 
   it('treats Tippy popovers as active Tapwrite interactions', () => {
-    document.body.innerHTML = '<div class="tippy-box"></div>'
+    mockDocumentQuerySelector({} as Element)
 
     expect(hasTapwritePopover()).toBe(true)
     expect(isTapwriteInteractionActive({ isListActive: false, isFloatingMenuActive: false })).toBe(true)
@@ -30,7 +49,7 @@ describe('tapwriteEditorState', () => {
   it('blocks content submission while Tapwrite interactions are active', () => {
     expect(canSubmitTapwriteContent(true)).toBe(false)
 
-    document.body.innerHTML = '<div class="tippy-box"></div>'
+    mockDocumentQuerySelector({} as Element)
 
     expect(canSubmitTapwriteContent(false)).toBe(false)
   })
