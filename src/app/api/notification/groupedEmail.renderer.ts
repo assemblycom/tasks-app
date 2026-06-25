@@ -8,7 +8,7 @@ export interface GroupedEmailDetails {
   subject: string
   header: string
   title: string
-  body: string
+  htmlBody: string
 }
 
 const pluralize = (count: number, singular: string, plural: string): string => (count === 1 ? singular : plural)
@@ -22,16 +22,17 @@ const sectionHeading: Record<GroupedEmailEventType, (count: number) => string> =
 }
 
 const renderSection = (section: GroupedEmailSection): string => {
-  const lines = [sectionHeading[section.eventType](section.count), ...section.taskNames.map((name) => `- ‘${name}’`)]
-  if (section.overflowCount > 0) {
-    lines.push(`+${section.overflowCount} other ${pluralize(section.overflowCount, 'task', 'tasks')}`)
-  }
-  return lines.join('\n')
+  const items = section.taskNames.map((name) => `<li>'${name}'</li>`).join('')
+  const overflow =
+    section.overflowCount > 0
+      ? `<em>+${section.overflowCount} other ${pluralize(section.overflowCount, 'task', 'tasks')}</em>`
+      : ''
+  return `<strong>${sectionHeading[section.eventType](section.count)}</strong><ul>${items}</ul>${overflow}`
 }
 
 export const renderGroupedEmail = (content: GroupedEmailContent): GroupedEmailDetails => ({
   subject: `You have ${content.totalEventCount} new task ${pluralize(content.totalEventCount, 'update', 'updates')}`,
   header: GROUPED_EMAIL_HEADER,
   title: GROUPED_EMAIL_CTA_TITLE,
-  body: content.sections.map(renderSection).join('\n\n'),
+  htmlBody: content.sections.map(renderSection).join(''),
 })

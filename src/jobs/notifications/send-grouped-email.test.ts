@@ -55,7 +55,7 @@ describe('sendGroupedEmail', () => {
       subject: 'You have 2 new task updates',
       header: 'Catch up on task activity',
       title: 'View all tasks',
-      body: expect.stringContaining('2 tasks assigned to you'),
+      htmlBody: expect.stringContaining('2 tasks assigned to you'),
     })
     expect(payload.deliveryTargets.inProduct).toBeUndefined()
   })

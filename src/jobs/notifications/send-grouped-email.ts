@@ -32,7 +32,7 @@ export const sendGroupedEmail = async ({
         subject: email.subject,
         header: email.header,
         title: email.title,
-        body: email.body,
+        htmlBody: email.htmlBody,
       },
     },
   }
