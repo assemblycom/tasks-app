@@ -27,7 +27,3 @@ Task App uses full-stack NextJS - relying on Server + Client Components, Materia
 4. Optionally, to build the project or for other scripts, please refer to the `package.json` file.
 
 > For detailed guides related to Supabase / Trigger setup, consult our wiki
-
-## Local supabase setup
-
-> Note:- The supabase has configured to use ports 64323, 64321, ..etc instead of 54323 and 54321..
