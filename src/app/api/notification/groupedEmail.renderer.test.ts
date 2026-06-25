@@ -57,7 +57,7 @@ describe('renderGroupedEmail', () => {
       sections: [section({ count: 12, taskNames: ['A', 'B', 'C'], overflowCount: 9 })],
     })
 
-    expect(email.htmlBody).toContain('<em>+9 other tasks</em>')
+    expect(email.htmlBody).toContain('<em>+9 other tasks</em><br>')
   })
 
   it('singularizes the overflow line for a single other task', () => {
@@ -66,7 +66,7 @@ describe('renderGroupedEmail', () => {
       sections: [section({ count: 4, taskNames: ['A', 'B', 'C'], overflowCount: 1 })],
     })
 
-    expect(email.htmlBody).toContain('<em>+1 other task</em>')
+    expect(email.htmlBody).toContain('<em>+1 other task</em><br>')
     expect(email.htmlBody).not.toContain('<em>+1 other tasks</em>')
   })
 
@@ -104,6 +104,16 @@ describe('renderGroupedEmail', () => {
     })
 
     expect(email.htmlBody).toContain(expected)
+  })
+
+  it('truncates task titles longer than 50 characters', () => {
+    const longTitle = 'A'.repeat(55)
+    const email = renderGroupedEmail({
+      totalEventCount: 1,
+      sections: [section({ taskNames: [longTitle] })],
+    })
+    expect(email.htmlBody).toContain('A'.repeat(50) + '…')
+    expect(email.htmlBody).not.toContain('A'.repeat(51))
   })
 
   it('returns an empty body when there are no sections', () => {

@@ -12,7 +12,7 @@ export interface GroupedReminderEmailDetails {
   htmlBody: string
 }
 
-const MAX_TITLE_LENGTH = 60
+const MAX_TITLE_LENGTH = 50
 const ITEMS_PER_GROUP = 3
 
 const reminderLabel: Record<TaskReminderType, string> = {
@@ -54,10 +54,10 @@ const pluralize = (n: number, singular: string, plural: string): string => (n ==
 const renderGroup = (group: UrgencyGroup, entries: ReminderEntry[]): string => {
   const shown = entries.slice(0, ITEMS_PER_GROUP)
   const overflow = entries.length - shown.length
+  const overflowHtml = overflow > 0 ? `<em>+${overflow} other ${pluralize(overflow, 'task', 'tasks')}</em><br>` : ''
   const items = shown
     .map((e) => `<li>‘${truncateTitle(e.taskTitle)}’ – <em>${reminderLabel[e.reminderType]}</em></li>`)
     .join('')
-  const overflowHtml = overflow > 0 ? `<em>+${overflow} other ${pluralize(overflow, 'task', 'tasks')}</em>` : ''
   return `<strong>${group}</strong><ul>${items}</ul>${overflowHtml}`
 }
 
