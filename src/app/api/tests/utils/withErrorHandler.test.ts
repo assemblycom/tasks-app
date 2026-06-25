@@ -45,8 +45,7 @@ describe('withErrorHandler util', () => {
 
     const nextResponse = await withErrorHandler(handler)(req, null)
     const response = await nextResponse.json()
-    expect(response.error[0].expected).toBe('string')
-    expect(response.error[0].received).toBe('number')
+    expect(response.error).toBe('Expected string, received number')
     expect(nextResponse.status).toBe(httpStatus.UNPROCESSABLE_ENTITY)
     expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
