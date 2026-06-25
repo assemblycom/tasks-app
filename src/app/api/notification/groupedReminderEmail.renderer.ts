@@ -9,7 +9,7 @@ export interface GroupedReminderEmailDetails {
   subject: string
   header: string
   title: string
-  body: string
+  htmlBody: string
 }
 
 const reminderLabel: Record<TaskReminderType, string> = {
@@ -23,10 +23,11 @@ const reminderLabel: Record<TaskReminderType, string> = {
 
 export const renderGroupedReminderEmail = (entries: ReminderEntry[]): GroupedReminderEmailDetails => {
   const n = entries.length
+  const items = entries.map((e) => `<li>'${e.taskTitle}' – <em>${reminderLabel[e.reminderType]}</em></li>`).join('')
   return {
     subject: `[Reminder] You have ${n} ${n === 1 ? 'task' : 'tasks'} to complete`,
     header: 'Task reminders',
     title: 'View all tasks',
-    body: entries.map((e) => `- '${e.taskTitle}' - ${reminderLabel[e.reminderType]}`).join('\n'),
+    htmlBody: `<ul>${items}</ul>`,
   }
 }

@@ -2,7 +2,7 @@ import { TaskReminderType } from '@prisma/client'
 import { ReminderEntry, renderGroupedReminderEmail } from './groupedReminderEmail.renderer'
 
 describe('renderGroupedReminderEmail', () => {
-  it('renders N=2 grouped reminder with correct subject, header, title, and body', () => {
+  it('renders N=2 grouped reminder with correct subject, header, title, and htmlBody', () => {
     const entries: ReminderEntry[] = [
       { taskTitle: 'Submit tax documents', reminderType: TaskReminderType.DUE_DATE_TODAY },
       { taskTitle: 'Review contract', reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D },
@@ -12,7 +12,9 @@ describe('renderGroupedReminderEmail', () => {
     expect(result.subject).toBe('[Reminder] You have 2 tasks to complete')
     expect(result.header).toBe('Task reminders')
     expect(result.title).toBe('View all tasks')
-    expect(result.body).toBe(["- 'Submit tax documents' - Due today", "- 'Review contract' - Overdue by 3 days"].join('\n'))
+    expect(result.htmlBody).toBe(
+      "<ul><li>'Submit tax documents' – <em>Due today</em></li><li>'Review contract' – <em>Overdue by 3 days</em></li></ul>",
+    )
   })
 
   it('singularizes "task" in subject when N=1', () => {
@@ -20,7 +22,7 @@ describe('renderGroupedReminderEmail', () => {
     expect(result.subject).toBe('[Reminder] You have 1 task to complete')
   })
 
-  it('renders 4 tasks with one line per task', () => {
+  it('renders 4 tasks as 4 li elements', () => {
     const entries: ReminderEntry[] = [
       { taskTitle: 'Task A', reminderType: TaskReminderType.DUE_DATE_TODAY },
       { taskTitle: 'Task B', reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D },
@@ -29,7 +31,7 @@ describe('renderGroupedReminderEmail', () => {
     ]
     const result = renderGroupedReminderEmail(entries)
     expect(result.subject).toBe('[Reminder] You have 4 tasks to complete')
-    expect(result.body.split('\n')).toHaveLength(4)
+    expect(result.htmlBody.match(/<li>/g)).toHaveLength(4)
   })
 
   it.each([
@@ -44,6 +46,6 @@ describe('renderGroupedReminderEmail', () => {
       { taskTitle: 'A task', reminderType },
       { taskTitle: 'Another task', reminderType: TaskReminderType.DUE_DATE_TODAY },
     ])
-    expect(result.body).toContain(expectedLabel)
+    expect(result.htmlBody).toContain(expectedLabel)
   })
 })
