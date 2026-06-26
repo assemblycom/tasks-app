@@ -3,6 +3,8 @@ import { CopilotAPI } from '@/utils/CopilotAPI'
 import { TaskReminderType } from '@prisma/client'
 import { sendReminderEmail } from './send-reminder-email'
 
+jest.mock('@/config', () => ({ reminderSubjectOverrideWorkspaces: new Set(['ws_override']) }))
+
 const workspace: WorkspaceResponse = {
   id: 'ws_1',
   brandName: 'Acme',
@@ -114,5 +116,42 @@ describe('sendReminderEmail', () => {
         copilot: buildCopilotMock(createNotification),
       }),
     ).rejects.toThrow('copilot 5xx')
+  })
+
+  it('uses the task title with the escalating tag as subject for override workspaces', async () => {
+    const createNotification = jest.fn().mockResolvedValue({ id: 'notif_4', createdAt: '2026-05-25T00:00:00Z' })
+
+    await sendReminderEmail({
+      task,
+      recipientClientId: 'client_1',
+      recipientCompanyId: 'company_1',
+      reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D,
+      isCompanyRecipient: false,
+      workspace: { ...workspace, id: 'ws_override' },
+      copilot: buildCopilotMock(createNotification),
+    })
+
+    const payload = createNotification.mock.calls[0][0]
+    expect(payload.deliveryTargets.email.subject).toBe('[Overdue] Submit timesheet')
+    // Only the subject is customized — the rest of the reminder copy is unchanged.
+    expect(payload.deliveryTargets.email.header).toBe('A task was assigned to you')
+    expect(payload.deliveryTargets.email.title).toBe('View task')
+  })
+
+  it('keeps the generic subject for workspaces not in the override set', async () => {
+    const createNotification = jest.fn().mockResolvedValue({ id: 'notif_5', createdAt: '2026-05-25T00:00:00Z' })
+
+    await sendReminderEmail({
+      task,
+      recipientClientId: 'client_1',
+      recipientCompanyId: 'company_1',
+      reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D,
+      isCompanyRecipient: false,
+      workspace,
+      copilot: buildCopilotMock(createNotification),
+    })
+
+    const payload = createNotification.mock.calls[0][0]
+    expect(payload.deliveryTargets.email.subject).toBe('[Overdue] Task was due 3 days ago')
   })
 })
