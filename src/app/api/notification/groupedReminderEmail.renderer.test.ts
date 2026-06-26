@@ -48,4 +48,12 @@ describe('renderGroupedReminderEmail', () => {
     ])
     expect(result.htmlBody).toContain(expectedLabel)
   })
+
+  it('escapes HTML in task titles to prevent markup injection', () => {
+    const result = renderGroupedReminderEmail([
+      { taskTitle: `</li><img src=x onerror="alert(1)">`, reminderType: TaskReminderType.DUE_DATE_TODAY },
+    ])
+    expect(result.htmlBody).not.toContain('<img')
+    expect(result.htmlBody).toContain('&lt;/li&gt;&lt;img src=x onerror=&quot;alert(1)&quot;&gt;')
+  })
 })

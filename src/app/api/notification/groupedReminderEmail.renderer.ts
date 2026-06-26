@@ -1,4 +1,5 @@
 import { TaskReminderType } from '@prisma/client'
+import { escapeHtml } from '@/utils/escapeHtml'
 
 export type ReminderEntry = {
   taskTitle: string
@@ -23,7 +24,9 @@ const reminderLabel: Record<TaskReminderType, string> = {
 
 export const renderGroupedReminderEmail = (entries: ReminderEntry[]): GroupedReminderEmailDetails => {
   const n = entries.length
-  const items = entries.map((e) => `<li>'${e.taskTitle}' – <em>${reminderLabel[e.reminderType]}</em></li>`).join('')
+  const items = entries
+    .map((e) => `<li>'${escapeHtml(e.taskTitle)}' – <em>${reminderLabel[e.reminderType]}</em></li>`)
+    .join('')
   return {
     subject: `[Reminder] You have ${n} ${n === 1 ? 'task' : 'tasks'} to complete`,
     header: 'Task reminders',

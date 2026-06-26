@@ -1,4 +1,5 @@
 import { GroupedEmailEventType } from '@prisma/client'
+import { escapeHtml } from '@/utils/escapeHtml'
 import { GroupedEmailContent, GroupedEmailSection } from './groupedEmail.composer'
 
 export const GROUPED_EMAIL_HEADER = 'Catch up on task activity'
@@ -22,7 +23,7 @@ const sectionHeading: Record<GroupedEmailEventType, (count: number) => string> =
 }
 
 const renderSection = (section: GroupedEmailSection): string => {
-  const items = section.taskNames.map((name) => `<li>'${name}'</li>`).join('')
+  const items = section.taskNames.map((name) => `<li>'${escapeHtml(name)}'</li>`).join('')
   const overflow =
     section.overflowCount > 0
       ? `<em>+${section.overflowCount} other ${pluralize(section.overflowCount, 'task', 'tasks')}</em>`
