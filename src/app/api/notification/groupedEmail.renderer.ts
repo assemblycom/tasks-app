@@ -12,7 +12,12 @@ export interface GroupedEmailDetails {
   htmlBody: string
 }
 
+const MAX_TITLE_LENGTH = 100
+
 const pluralize = (count: number, singular: string, plural: string): string => (count === 1 ? singular : plural)
+
+const truncateTitle = (title: string): string =>
+  title.length > MAX_TITLE_LENGTH ? `${title.slice(0, MAX_TITLE_LENGTH)}…` : title
 
 const sectionHeading: Record<GroupedEmailEventType, (count: number) => string> = {
   [GroupedEmailEventType.ASSIGNED]: (count) => `${count} ${pluralize(count, 'task', 'tasks')} assigned to you`,
@@ -23,11 +28,11 @@ const sectionHeading: Record<GroupedEmailEventType, (count: number) => string> =
 }
 
 const renderSection = (section: GroupedEmailSection): string => {
-  const items = section.taskNames.map((name) => `<li>'${escapeHtml(name)}'</li>`).join('')
   const overflow =
     section.overflowCount > 0
-      ? `<em>+${section.overflowCount} other ${pluralize(section.overflowCount, 'task', 'tasks')}</em>`
+      ? `<em>+${section.overflowCount} other ${pluralize(section.overflowCount, 'task', 'tasks')}</em><br>`
       : ''
+  const items = section.taskNames.map((name) => `<li>'${escapeHtml(truncateTitle(name))}'</li>`).join('')
   return `<strong>${sectionHeading[section.eventType](section.count)}</strong><ul>${items}</ul>${overflow}`
 }
 
