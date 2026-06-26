@@ -81,9 +81,9 @@ const seedEvent = async ({
   })
 }
 
-const unsentCount = async (windowKey: string): Promise<number> => {
+const totalCount = async (windowKey: string): Promise<number> => {
   const rows = await getTestDb().$queryRaw<{ count: bigint }[]>`
-    SELECT count(*) FROM "GroupedEmailEvents" WHERE "windowKey" = ${windowKey} AND "sentAt" IS NULL`
+    SELECT count(*) FROM "GroupedEmailEvents" WHERE "windowKey" = ${windowKey}`
   return Number(rows[0].count)
 }
 
@@ -99,7 +99,7 @@ beforeEach(async () => {
 afterAll(disconnectTestDb)
 
 describe('flush-grouped-email idempotency (real DB)', () => {
-  it('sends one grouped email for multiple events and marks every row as sent', async () => {
+  it('sends one grouped email for multiple events and deletes all rows on success', async () => {
     const window = 'win_multi_event'
     const taskA = await seedTask({ workspaceId: WS, assigneeId: CLIENT_A, assigneeType: 'client', companyId: COMPANY })
     const taskB = await seedTask({ workspaceId: WS, assigneeId: CLIENT_A, assigneeType: 'client', companyId: COMPANY })
@@ -120,7 +120,7 @@ describe('flush-grouped-email idempotency (real DB)', () => {
 
     expect(mockCreateNotification).toHaveBeenCalledTimes(1)
     expect(result).toMatchObject({ recipients: 1, sent: 1, sentGrouped: 1, sentIndividual: 0 })
-    expect(await unsentCount(window)).toBe(0)
+    expect(await totalCount(window)).toBe(0)
   })
 
   it('is idempotent: re-flushing a fully-sent window is a no-op', async () => {
@@ -142,8 +142,9 @@ describe('flush-grouped-email idempotency (real DB)', () => {
 
     await flushGroupedEmailRun({ workspaceId: WS, windowKey: window })
     expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(await totalCount(window)).toBe(0)
 
-    // Second flush: all rows already have sentAt set — no email, skipped return.
+    // Second flush: rows were deleted — no email, skipped return.
     const result = await flushGroupedEmailRun({ workspaceId: WS, windowKey: window })
     expect(mockCreateNotification).toHaveBeenCalledTimes(1)
     expect(result).toMatchObject({ skipped: true })
@@ -169,14 +170,14 @@ describe('flush-grouped-email idempotency (real DB)', () => {
     mockCreateNotification.mockRejectedValueOnce(new Error('copilot 5xx'))
     await expect(flushGroupedEmailRun({ workspaceId: WS, windowKey: window })).rejects.toThrow('copilot 5xx')
 
-    // Rows are still unsent — retry can re-attempt.
-    expect(await unsentCount(window)).toBe(2)
+    // Failed run: rows are preserved so the retry can re-attempt.
+    expect(await totalCount(window)).toBe(2)
 
-    // Retry succeeds.
+    // Retry succeeds: rows are deleted.
     mockCreateNotification.mockResolvedValueOnce({ id: 'notif_2' })
     await flushGroupedEmailRun({ workspaceId: WS, windowKey: window })
     expect(mockCreateNotification).toHaveBeenCalledTimes(2)
-    expect(await unsentCount(window)).toBe(0)
+    expect(await totalCount(window)).toBe(0)
   })
 
   it('sends one email per recipient when the window holds events for multiple clients', async () => {
@@ -217,10 +218,10 @@ describe('flush-grouped-email idempotency (real DB)', () => {
     const recipients = mockCreateNotification.mock.calls.map((c) => c[0].recipientClientId).sort()
     expect(recipients).toEqual([CLIENT_A, CLIENT_B].sort())
     expect(result).toMatchObject({ recipients: 2, sent: 2, sentGrouped: 2, sentIndividual: 0 })
-    expect(await unsentCount(window)).toBe(0)
+    expect(await totalCount(window)).toBe(0)
   })
 
-  it('skips events for archived tasks and marks their rows sent without emailing', async () => {
+  it('skips events for archived tasks and deletes all rows on success', async () => {
     const window = 'win_archived'
     const archivedTask = await seedTask({
       workspaceId: WS,
@@ -244,11 +245,10 @@ describe('flush-grouped-email idempotency (real DB)', () => {
     // Only the live task appears in the grouped email (1 event); individual snapshot path.
     expect(mockCreateNotification).toHaveBeenCalledTimes(1)
     expect(result).toMatchObject({ sentGrouped: 0, sentIndividual: 1 })
-    // All rows are marked sent regardless of whether the task was live.
-    expect(await unsentCount(window)).toBe(0)
+    expect(await totalCount(window)).toBe(0)
   })
 
-  it('marks the recipient sent without emailing when every task in the window was archived', async () => {
+  it('deletes rows without emailing when every task in the window was archived', async () => {
     const window = 'win_all_archived'
     const archivedTask = await seedTask({
       workspaceId: WS,
@@ -263,10 +263,10 @@ describe('flush-grouped-email idempotency (real DB)', () => {
 
     expect(mockCreateNotification).not.toHaveBeenCalled()
     expect(result).toMatchObject({ sent: 0 })
-    expect(await unsentCount(window)).toBe(0)
+    expect(await totalCount(window)).toBe(0)
   })
 
-  it('marks the recipient sent without emailing when every task in the window was soft-deleted', async () => {
+  it('deletes rows without emailing when every task in the window was soft-deleted', async () => {
     const window = 'win_all_deleted'
     const deletedTask = await seedTask({
       workspaceId: WS,
@@ -281,6 +281,6 @@ describe('flush-grouped-email idempotency (real DB)', () => {
 
     expect(mockCreateNotification).not.toHaveBeenCalled()
     expect(result).toMatchObject({ sent: 0 })
-    expect(await unsentCount(window)).toBe(0)
+    expect(await totalCount(window)).toBe(0)
   })
 })

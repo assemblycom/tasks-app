@@ -40,6 +40,9 @@ const readUnsentWindowEvents = (db: ReturnType<typeof DBClient.getInstance>, win
     FROM "GroupedEmailEvents"
     WHERE "windowKey" = ${windowKey} AND "sentAt" IS NULL`
 
+const deleteWindowRows = (db: ReturnType<typeof DBClient.getInstance>, windowKey: string) =>
+  db.$executeRaw`DELETE FROM "GroupedEmailEvents" WHERE "windowKey" = ${windowKey} AND "sentAt" IS NOT NULL`
+
 const markRecipientSent = (
   db: ReturnType<typeof DBClient.getInstance>,
   windowKey: string,
@@ -166,6 +169,16 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
       recipientClientId: group.recipientClientId,
       liveEvents: liveEvents.length,
       outcome: singleEmail ? ('individual' as const) : liveEvents.length >= 1 ? ('grouped' as const) : ('skipped' as const),
+    })
+  }
+
+  try {
+    await deleteWindowRows(db, windowKey)
+  } catch (err) {
+    logger.error('flush-grouped-email: window cleanup failed, rows left with sentAt set', {
+      workspaceId,
+      windowKey,
+      error: serializeError(err),
     })
   }
 
