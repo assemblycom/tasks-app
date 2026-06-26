@@ -103,7 +103,7 @@ describe('flushGroupedEmailRun', () => {
     expect(args).toMatchObject({ senderId: 'iu_1', recipientClientId: 'client_1', recipientCompanyId: 'company_1' })
     expect(args.content.totalEventCount).toBe(2)
     expect(mockCreateNotification).not.toHaveBeenCalled()
-    expect(mockExecuteRaw).toHaveBeenCalledTimes(1) // markRecipientSent
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(2) // markRecipientSent + deleteWindowRows
     expect(result).toMatchObject({ recipients: 1, sent: 1, sentGrouped: 1, sentIndividual: 0 })
   })
 
@@ -116,7 +116,7 @@ describe('flushGroupedEmailRun', () => {
     expect(mockCreateNotification).toHaveBeenCalledWith(expect.objectContaining({ recipientClientId: 'client_1' }))
     expect(mockSendGroupedEmail).not.toHaveBeenCalled()
     expect(mockGetInternalUsers).not.toHaveBeenCalled() // no workspace IU needed for the individual path
-    expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(2) // markRecipientSent + deleteWindowRows
     expect(result).toMatchObject({ recipients: 1, sent: 1, sentGrouped: 0, sentIndividual: 1 })
   })
 
@@ -166,7 +166,7 @@ describe('flushGroupedEmailRun', () => {
 
     expect(mockSendGroupedEmail).not.toHaveBeenCalled()
     expect(mockCreateNotification).not.toHaveBeenCalled()
-    expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(2) // markRecipientSent + deleteWindowRows
     expect(result).toMatchObject({ sent: 0, sentGrouped: 0, sentIndividual: 0 })
   })
 
@@ -177,7 +177,7 @@ describe('flushGroupedEmailRun', () => {
 
     expect(mockCreateNotification).toHaveBeenCalledTimes(2)
     expect(mockSendGroupedEmail).not.toHaveBeenCalled()
-    expect(mockExecuteRaw).toHaveBeenCalledTimes(2)
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(3) // markRecipientSent x2 + deleteWindowRows
     expect(result).toMatchObject({ recipients: 2, sent: 2, sentGrouped: 0, sentIndividual: 2 })
   })
 
@@ -191,7 +191,7 @@ describe('flushGroupedEmailRun', () => {
 
     expect(mockCreateNotification).toHaveBeenCalledTimes(2)
     expect(mockCreateNotification.mock.calls[1][0]).toMatchObject({ senderCompanyId: undefined })
-    expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(2) // markRecipientSent + deleteWindowRows
   })
 
   it('does not mark a recipient sent when their send fails (so a retry re-sends)', async () => {

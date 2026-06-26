@@ -247,6 +247,16 @@ export const getEmailDetails = (
   }
 }
 
+// Escalating cadence tag prefixed to the subject line as the due date approaches (OUT-3861).
+export const REMINDER_ESCALATION_TAG: Record<TaskReminderType, string> = {
+  [TaskReminderType.NO_DUE_DATE_3D]: '[Reminder]',
+  [TaskReminderType.NO_DUE_DATE_7D]: '[Reminder]',
+  [TaskReminderType.DUE_DATE_BEFORE_3D]: '[Due Soon]',
+  [TaskReminderType.DUE_DATE_TODAY]: '[Due Soon]',
+  [TaskReminderType.DUE_DATE_OVERDUE_3D]: '[Overdue]',
+  [TaskReminderType.DUE_DATE_OVERDUE_7D]: '[Overdue]',
+}
+
 // Subjects intentionally omit any `<brandName> portal:` prefix — Copilot's email
 // service prepends that itself, and adding it here results in a duplicated prefix.
 export const getReminderEmailDetails = (
