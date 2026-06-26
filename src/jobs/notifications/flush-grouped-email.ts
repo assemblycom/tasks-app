@@ -41,7 +41,7 @@ const readUnsentWindowEvents = (db: ReturnType<typeof DBClient.getInstance>, win
     WHERE "windowKey" = ${windowKey} AND "sentAt" IS NULL`
 
 const deleteWindowRows = (db: ReturnType<typeof DBClient.getInstance>, windowKey: string) =>
-  db.$executeRaw`DELETE FROM "GroupedEmailEvents" WHERE "windowKey" = ${windowKey}`
+  db.$executeRaw`DELETE FROM "GroupedEmailEvents" WHERE "windowKey" = ${windowKey} AND "sentAt" IS NOT NULL`
 
 const markRecipientSent = (
   db: ReturnType<typeof DBClient.getInstance>,
