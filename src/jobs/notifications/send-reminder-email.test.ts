@@ -30,7 +30,6 @@ describe('sendReminderEmail', () => {
       recipientCompanyId: 'company_1',
       reminderType: TaskReminderType.NO_DUE_DATE_3D,
       isCompanyRecipient: false,
-      workspaceId: 'ws_1',
       workspace,
       copilot: buildCopilotMock(createNotification),
     })
@@ -47,7 +46,6 @@ describe('sendReminderEmail', () => {
       recipientCompanyId: 'company_1',
       reminderType: TaskReminderType.NO_DUE_DATE_3D,
       isCompanyRecipient: false,
-      workspaceId: 'ws_1',
       workspace,
       copilot: buildCopilotMock(createNotification),
     })
@@ -78,7 +76,6 @@ describe('sendReminderEmail', () => {
       recipientCompanyId: 'company_1',
       reminderType: TaskReminderType.DUE_DATE_TODAY,
       isCompanyRecipient: true,
-      workspaceId: 'ws_1',
       workspace,
       copilot: buildCopilotMock(createNotification),
     })
@@ -97,7 +94,6 @@ describe('sendReminderEmail', () => {
       recipientCompanyId: null,
       reminderType: TaskReminderType.NO_DUE_DATE_3D,
       isCompanyRecipient: false,
-      workspaceId: 'ws_1',
       workspace,
       copilot: buildCopilotMock(createNotification),
     })
@@ -116,7 +112,6 @@ describe('sendReminderEmail', () => {
         recipientCompanyId: 'company_1',
         reminderType: TaskReminderType.NO_DUE_DATE_3D,
         isCompanyRecipient: false,
-        workspaceId: 'ws_1',
         workspace,
         copilot: buildCopilotMock(createNotification),
       }),
@@ -132,8 +127,7 @@ describe('sendReminderEmail', () => {
       recipientCompanyId: 'company_1',
       reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D,
       isCompanyRecipient: false,
-      workspaceId: 'ws_override',
-      workspace,
+      workspace: { ...workspace, id: 'ws_override' },
       copilot: buildCopilotMock(createNotification),
     })
 
@@ -153,7 +147,6 @@ describe('sendReminderEmail', () => {
       recipientCompanyId: 'company_1',
       reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D,
       isCompanyRecipient: false,
-      workspaceId: 'ws_1',
       workspace,
       copilot: buildCopilotMock(createNotification),
     })

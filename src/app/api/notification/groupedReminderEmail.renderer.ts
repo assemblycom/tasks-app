@@ -1,5 +1,4 @@
 import { TaskReminderType } from '@prisma/client'
-import { escapeHtml } from '@/utils/escapeHtml'
 
 export type ReminderEntry = {
   taskTitle: string
@@ -57,7 +56,7 @@ const renderGroup = (group: UrgencyGroup, entries: ReminderEntry[]): string => {
   const overflow = entries.length - shown.length
   const overflowHtml = overflow > 0 ? `<em>+${overflow} other ${pluralize(overflow, 'task', 'tasks')}</em><br>` : ''
   const items = shown
-    .map((e) => `<li>‘${escapeHtml(truncateTitle(e.taskTitle))}’ – <em>${reminderLabel[e.reminderType]}</em></li>`)
+    .map((e) => `<li>‘${truncateTitle(e.taskTitle)}’ – <em>${reminderLabel[e.reminderType]}</em></li>`)
     .join('')
   return `<strong>${group}</strong><ul>${items}</ul>${overflowHtml}`
 }

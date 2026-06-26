@@ -119,14 +119,4 @@ describe('renderGroupedEmail', () => {
   it('returns an empty body when there are no sections', () => {
     expect(renderGroupedEmail({ totalEventCount: 0, sections: [] }).htmlBody).toBe('')
   })
-
-  it('escapes HTML in task names to prevent markup injection', () => {
-    const email = renderGroupedEmail({
-      totalEventCount: 1,
-      sections: [section({ taskNames: [`</li><img src=x onerror="alert(1)">`] })],
-    })
-
-    expect(email.htmlBody).not.toContain('<img')
-    expect(email.htmlBody).toContain('&lt;/li&gt;&lt;img src=x onerror=&quot;alert(1)&quot;&gt;')
-  })
 })

@@ -12,7 +12,6 @@ export type SendReminderEmailArgs = {
   recipientCompanyId: string | null
   reminderType: TaskReminderType
   isCompanyRecipient: boolean
-  workspaceId: string
   workspace: WorkspaceResponse
   copilot: CopilotAPI
 }
@@ -25,7 +24,6 @@ export const sendReminderEmail = async ({
   recipientCompanyId,
   reminderType,
   isCompanyRecipient,
-  workspaceId,
   workspace,
   copilot,
 }: SendReminderEmailArgs): Promise<string> => {
@@ -33,7 +31,7 @@ export const sendReminderEmail = async ({
 
   // For opted-in workspaces, mirror the customized assignment email by using the task title as the
   // subject, prefixed with the escalating cadence tag (OUT-3861).
-  const subject = reminderSubjectOverrideWorkspaces.has(workspaceId)
+  const subject = reminderSubjectOverrideWorkspaces.has(workspace.id)
     ? `${REMINDER_ESCALATION_TAG[reminderType]} ${task.title}`
     : details.subject
 

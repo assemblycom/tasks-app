@@ -32,7 +32,6 @@ export const dispatchReminderEmailRun = async (payload: DispatchReminderEmailPay
     recipientCompanyId: payload.recipientCompanyId,
     reminderType: payload.reminderType,
     isCompanyRecipient: payload.isCompanyRecipient,
-    workspaceId: payload.workspaceId,
     workspace: payload.workspace,
     copilot,
   })
