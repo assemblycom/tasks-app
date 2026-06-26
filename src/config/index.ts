@@ -49,3 +49,12 @@ export const showQueries = (() => {
 })()
 
 export const assemblyApiDomain = z.string().url().parse(process.env.NEXT_PUBLIC_ASSEMBLY_API_DOMAIN)
+
+// Workspaces whose single reminder emails use the task title as the subject, prefixed with the
+// escalating cadence tag (OUT-3861). Comma-separated workspace ids, e.g. C1: us-west-2_lg5zB-Utp.
+export const reminderSubjectOverrideWorkspaces = new Set(
+  (process.env.REMINDER_SUBJECT_OVERRIDE_WORKSPACES || '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean),
+)
