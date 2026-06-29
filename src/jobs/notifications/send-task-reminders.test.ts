@@ -12,7 +12,7 @@ const mockCaptureException = jest.fn()
 
 jest.mock('@trigger.dev/sdk/v3', () => ({
   schedules: {
-    task: ({ run }: { run: (payload: unknown, ctx?: unknown) => unknown }) => ({ run }),
+    task: (config: { run: (payload: unknown, ctx?: unknown) => unknown; retry?: unknown }) => config,
   },
   logger: { log: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }))
@@ -72,8 +72,12 @@ jest.mock('bottleneck', () => ({
 import { sendTaskReminders } from './send-task-reminders'
 
 type RunResult = { enqueued: number; skipped: number; workspaceCount: number }
+type TriggerTaskConfig = {
+  run: (payload: { timestamp: Date }) => Promise<RunResult>
+  retry?: unknown
+}
 const runJob = async (): Promise<RunResult> => {
-  const { run } = sendTaskReminders as unknown as { run: (payload: { timestamp: Date }) => Promise<RunResult> }
+  const { run } = sendTaskReminders as unknown as TriggerTaskConfig
   return run({ timestamp: new Date() })
 }
 
@@ -106,6 +110,18 @@ describe('sendTaskReminders', () => {
     mockGetWorkspace.mockResolvedValue(workspace)
     mockBatchTrigger.mockResolvedValue({ batchId: 'b1' })
     mockGroupedBatchTrigger.mockResolvedValue({ batchId: 'b2' })
+  })
+
+  it('retries transient cron-level failures before marking the sweep failed', () => {
+    const { retry } = sendTaskReminders as unknown as TriggerTaskConfig
+
+    expect(retry).toEqual({
+      maxAttempts: 3,
+      factor: 2,
+      minTimeoutInMs: 1_000,
+      maxTimeoutInMs: 15_000,
+      randomize: true,
+    })
   })
 
   it('exits cleanly when no rows are eligible', async () => {

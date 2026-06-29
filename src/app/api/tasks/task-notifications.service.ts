@@ -3,6 +3,7 @@ import { TaskWithWorkflowState } from '@/types/db'
 import { TaskResponseSchema, Associations, AssociationsSchema, ViewerType } from '@/types/dto/tasks.dto'
 import { getTaskAssociations } from '@/utils/assignee'
 import { CopilotAPI } from '@/utils/CopilotAPI'
+import { withDbRetry } from '@/utils/dbRetry'
 import User from '@api/core/models/User.model'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
@@ -37,6 +38,7 @@ export class TaskNotificationsService extends BaseService {
   private async checkParentAccessible(task: TaskWithWorkflowState): Promise<boolean> {
     if (!task.assigneeId || !task.parentId) return false
 
+    const parentId = task.parentId
     const associations = AssociationsSchema.parse(task.associations)
     const checkParentAssociations = (
       clientId: string | null,
@@ -58,9 +60,12 @@ export class TaskNotificationsService extends BaseService {
     }
 
     if (task.assigneeType === AssigneeType.client || task.assigneeType === AssigneeType.company || !!associations?.length) {
-      const parentTask = await this.db.task.findFirst({
-        where: { id: task.parentId, workspaceId: this.user.workspaceId },
-        select: { assigneeId: true, assigneeType: true, associations: true },
+      const parentTask = await withDbRetry({
+        operation: () =>
+          this.db.task.findFirst({
+            where: { id: parentId, workspaceId: this.user.workspaceId },
+            select: { assigneeId: true, assigneeType: true, associations: true },
+          }),
       })
       if (!parentTask) return false
 

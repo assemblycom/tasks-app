@@ -10,7 +10,7 @@ const mockBatchTrigger = jest.fn()
 
 jest.mock('@trigger.dev/sdk/v3', () => ({
   schedules: {
-    task: ({ run }: { run: (payload: unknown, ctx?: unknown) => unknown }) => ({ run }),
+    task: (config: { run: (payload: unknown, ctx?: unknown) => unknown; retry?: unknown }) => config,
   },
   logger: { log: jest.fn(), error: jest.fn() },
 }))
@@ -57,10 +57,12 @@ jest.mock('bottleneck', () => ({
 import { autoArchiveCompletedTasks } from './auto-archive-completed-tasks'
 
 type RunResult = { totalArchived: number; workspaceCount: number }
+type TriggerTaskConfig = {
+  run: (payload: { timestamp: Date }) => Promise<RunResult>
+  retry?: unknown
+}
 const runJob = async (): Promise<RunResult> => {
-  const { run } = autoArchiveCompletedTasks as unknown as {
-    run: (payload: { timestamp: Date }) => Promise<RunResult>
-  }
+  const { run } = autoArchiveCompletedTasks as unknown as TriggerTaskConfig
   return run({ timestamp: new Date() })
 }
 
@@ -79,6 +81,18 @@ describe('autoArchiveCompletedTasks', () => {
       cb({ $queryRaw: mockQueryRaw, activityLog: { createMany: mockActivityLogCreateMany } }),
     )
     mockBatchTrigger.mockResolvedValue({ batchId: 'b1' })
+  })
+
+  it('retries transient cron-level failures before marking the sweep failed', () => {
+    const { retry } = autoArchiveCompletedTasks as unknown as TriggerTaskConfig
+
+    expect(retry).toEqual({
+      maxAttempts: 3,
+      factor: 2,
+      minTimeoutInMs: 1_000,
+      maxTimeoutInMs: 15_000,
+      randomize: true,
+    })
   })
 
   it('exits cleanly when no workspace has eligible tasks', async () => {

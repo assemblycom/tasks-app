@@ -17,6 +17,7 @@ type ArchivedRow = { id: string }
 export const autoArchiveCompletedTasks = schedules.task({
   id: 'auto-archive-completed-tasks',
   cron: '0 2 * * *',
+  retry: { maxAttempts: 3, factor: 2, minTimeoutInMs: 1_000, maxTimeoutInMs: 15_000, randomize: true },
   maxDuration: 3000,
   run: async (payload) => {
     const db = DBClient.getInstance()

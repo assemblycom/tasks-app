@@ -30,6 +30,7 @@ type LedgerPlanEntry = {
 export const sendTaskReminders = schedules.task({
   id: 'send-task-reminders',
   cron: '0 0 * * *',
+  retry: { maxAttempts: 3, factor: 2, minTimeoutInMs: 1_000, maxTimeoutInMs: 15_000, randomize: true },
   maxDuration: 3000,
   run: async (payload) => {
     const db = DBClient.getInstance()
