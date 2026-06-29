@@ -27,12 +27,12 @@ const sectionHeading: Record<GroupedEmailEventType, (count: number) => string> =
 }
 
 const renderSection = (section: GroupedEmailSection): string => {
-  const overflow =
+  const overflowItem =
     section.overflowCount > 0
-      ? `<em>+${section.overflowCount} other ${pluralize(section.overflowCount, 'task', 'tasks')}</em><br>`
+      ? `<li><em>+${section.overflowCount} other ${pluralize(section.overflowCount, 'task', 'tasks')}</em></li>`
       : ''
   const items = section.taskNames.map((name) => `<li>'${truncateTitle(name)}'</li>`).join('')
-  return `<strong>${sectionHeading[section.eventType](section.count)}</strong><ul>${items}</ul>${overflow}`
+  return `<strong>${sectionHeading[section.eventType](section.count)}</strong><ul>${items}${overflowItem}</ul>`
 }
 
 export const renderGroupedEmail = (content: GroupedEmailContent): GroupedEmailDetails => ({
