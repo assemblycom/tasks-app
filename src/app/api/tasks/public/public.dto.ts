@@ -1,4 +1,4 @@
-import { RFC3339DateSchema } from '@/types/common'
+import { EmailNotificationDetailsSchema, RFC3339DateSchema } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { AssigneeType } from '@prisma/client'
 import { z } from 'zod'
@@ -87,6 +87,7 @@ export const publicTaskCreateDtoSchemaFactory = (token: string) => {
       internalUserId: z.string().uuid().optional(),
       clientId: z.string().uuid().optional(),
       companyId: z.string().uuid().optional(),
+      email: EmailNotificationDetailsSchema.optional(),
     })
     .and(viewersAssociationExclusivitySchema)
     .superRefine(async (data, ctx) => {

@@ -1,6 +1,7 @@
 import 'server-only'
 
-import { getReminderEmailDetails } from '@/app/api/notification/notification.helpers'
+import { getReminderEmailDetails, REMINDER_ESCALATION_TAG } from '@/app/api/notification/notification.helpers'
+import { reminderSubjectOverrideWorkspaces, reminderSubjectSearch, reminderSubjectReplacement } from '@/config'
 import { NotificationRequestBody, WorkspaceResponse } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { Task, TaskReminderType } from '@prisma/client'
@@ -28,6 +29,14 @@ export const sendReminderEmail = async ({
 }: SendReminderEmailArgs): Promise<string> => {
   const details = getReminderEmailDetails(workspace, task, isCompanyRecipient)[reminderType]
 
+  // fine for both to be undefined
+  const replacedSubjectTitle = task.title.replace(reminderSubjectSearch, reminderSubjectReplacement || '')
+  // For opted-in workspaces, mirror the customized assignment email by using the task title as the
+  // subject, prefixed with the escalating cadence tag (OUT-3861).
+  const subject = reminderSubjectOverrideWorkspaces.has(workspace.id)
+    ? `${REMINDER_ESCALATION_TAG[reminderType]} ${replacedSubjectTitle}`
+    : details.subject
+
   const payload: NotificationRequestBody = {
     senderId: task.createdById,
     senderType: 'internalUser',
@@ -35,7 +44,7 @@ export const sendReminderEmail = async ({
     recipientCompanyId: recipientCompanyId ?? undefined,
     deliveryTargets: {
       email: {
-        subject: details.subject,
+        subject,
         header: details.header,
         title: details.title,
         body: details.body,
