@@ -54,11 +54,11 @@ const pluralize = (n: number, singular: string, plural: string): string => (n ==
 const renderGroup = (group: UrgencyGroup, entries: ReminderEntry[]): string => {
   const shown = entries.slice(0, ITEMS_PER_GROUP)
   const overflow = entries.length - shown.length
-  const overflowHtml = overflow > 0 ? `<em>+${overflow} other ${pluralize(overflow, 'task', 'tasks')}</em><br>` : ''
+  const overflowItem = overflow > 0 ? `<li><em>+${overflow} other ${pluralize(overflow, 'task', 'tasks')}</em></li>` : ''
   const items = shown
     .map((e) => `<li>‘${truncateTitle(e.taskTitle)}’ – <em>${reminderLabel[e.reminderType]}</em></li>`)
     .join('')
-  return `<strong>${group}</strong><ul>${items}</ul>${overflowHtml}`
+  return `<strong>${group}</strong><ul>${items}${overflowItem}</ul>`
 }
 
 export const renderGroupedReminderEmail = (entries: ReminderEntry[]): GroupedReminderEmailDetails => {
