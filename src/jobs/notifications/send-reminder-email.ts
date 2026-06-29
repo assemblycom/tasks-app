@@ -42,7 +42,7 @@ const buildReminderSubject = ({
     .replace(/\s+/g, ' ')
     .trim()
 
-  if (!replacedSubjectTitle) return fallbackSubject
+  if (!replacedSubjectTitle || replacedSubjectTitle === reminderSubjectReplacement.trim()) return fallbackSubject
 
   return truncateSubject(`${REMINDER_ESCALATION_TAG[reminderType]} ${replacedSubjectTitle}`)
 }

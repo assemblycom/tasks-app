@@ -178,7 +178,7 @@ describe('sendReminderEmail', () => {
     const subject = createNotification.mock.calls[0][0].deliveryTargets.email.subject
     expect(subject).toHaveLength(120)
     expect(subject).toBe(
-      '[Overdue] Quarterly review: with extra compliance context with extra compliance context with extra compliance context with...',
+      '[Overdue] Quarterly review: with extra compliance context with extra compliance context with extra compliance context...',
     )
   })
 
