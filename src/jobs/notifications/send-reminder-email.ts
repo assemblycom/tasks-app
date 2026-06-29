@@ -6,6 +6,8 @@ import { NotificationRequestBody, WorkspaceResponse } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { Task, TaskReminderType } from '@prisma/client'
 
+const MAX_REMINDER_SUBJECT_LENGTH = 120
+
 export type SendReminderEmailArgs = {
   task: Pick<Task, 'id' | 'title' | 'createdById'>
   recipientClientId: string
@@ -14,6 +16,35 @@ export type SendReminderEmailArgs = {
   isCompanyRecipient: boolean
   workspace: WorkspaceResponse
   copilot: CopilotAPI
+}
+
+const truncateSubject = (subject: string): string => {
+  if (subject.length <= MAX_REMINDER_SUBJECT_LENGTH) return subject
+
+  return `${subject.slice(0, MAX_REMINDER_SUBJECT_LENGTH - 3).trimEnd()}...`
+}
+
+const buildReminderSubject = ({
+  fallbackSubject,
+  reminderType,
+  taskTitle,
+  workspaceId,
+}: {
+  fallbackSubject: string
+  reminderType: TaskReminderType
+  taskTitle: string
+  workspaceId: string
+}): string => {
+  if (!reminderSubjectOverrideWorkspaces.has(workspaceId)) return fallbackSubject
+
+  const replacedSubjectTitle = taskTitle
+    .replace(reminderSubjectSearch, reminderSubjectReplacement || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!replacedSubjectTitle) return fallbackSubject
+
+  return truncateSubject(`${REMINDER_ESCALATION_TAG[reminderType]} ${replacedSubjectTitle}`)
 }
 
 // Email-only: omits deliveryTargets.inProduct and does not write to ClientNotification.
@@ -29,13 +60,12 @@ export const sendReminderEmail = async ({
 }: SendReminderEmailArgs): Promise<string> => {
   const details = getReminderEmailDetails(workspace, task, isCompanyRecipient)[reminderType]
 
-  // fine for both to be undefined
-  const replacedSubjectTitle = task.title.replace(reminderSubjectSearch, reminderSubjectReplacement || '')
-  // For opted-in workspaces, mirror the customized assignment email by using the task title as the
-  // subject, prefixed with the escalating cadence tag (OUT-3861).
-  const subject = reminderSubjectOverrideWorkspaces.has(workspace.id)
-    ? `${REMINDER_ESCALATION_TAG[reminderType]} ${replacedSubjectTitle}`
-    : details.subject
+  const subject = buildReminderSubject({
+    fallbackSubject: details.subject,
+    reminderType,
+    taskTitle: task.title,
+    workspaceId: workspace.id,
+  })
 
   const payload: NotificationRequestBody = {
     senderId: task.createdById,
