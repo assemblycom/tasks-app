@@ -241,4 +241,10 @@ describe('flushGroupedEmailOnFailure', () => {
       windowKey: 'client_1:win_1',
     })
   })
+
+  it('deletes all rows for the window so orphaned events do not accumulate', async () => {
+    await flushGroupedEmailOnFailure({ payload, error: new Error('terminal') })
+
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
+  })
 })
