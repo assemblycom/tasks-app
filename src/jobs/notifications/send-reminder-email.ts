@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { getReminderEmailDetails, REMINDER_ESCALATION_TAG } from '@/app/api/notification/notification.helpers'
-import { reminderSubjectOverrideWorkspaces } from '@/config'
+import { reminderSubjectOverrideWorkspaces, reminderSubjectSearch, reminderSubjectReplacement } from '@/config'
 import { NotificationRequestBody, WorkspaceResponse } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { Task, TaskReminderType } from '@prisma/client'
@@ -29,10 +29,13 @@ export const sendReminderEmail = async ({
 }: SendReminderEmailArgs): Promise<string> => {
   const details = getReminderEmailDetails(workspace, task, isCompanyRecipient)[reminderType]
 
+  const replacedSubjectTitle = reminderSubjectSearch
+    ? task.title.replace(reminderSubjectSearch, reminderSubjectReplacement)
+    : task.title
   // For opted-in workspaces, mirror the customized assignment email by using the task title as the
   // subject, prefixed with the escalating cadence tag (OUT-3861).
   const subject = reminderSubjectOverrideWorkspaces.has(workspace.id)
-    ? `${REMINDER_ESCALATION_TAG[reminderType]} ${task.title}`
+    ? `${REMINDER_ESCALATION_TAG[reminderType]} ${replacedSubjectTitle}`
     : details.subject
 
   const payload: NotificationRequestBody = {
