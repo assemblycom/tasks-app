@@ -50,6 +50,12 @@ export const showQueries = (() => {
 
 export const assemblyApiDomain = z.string().url().parse(process.env.NEXT_PUBLIC_ASSEMBLY_API_DOMAIN)
 
+// Substring stripped from the task title when building the reminder email subject for
+// subject-override workspaces, and the value it's replaced with. Configured via env so the
+// workspace-specific phrasing isn't hardcoded (OUT-3919).
+export const reminderSubjectSearch = process.env.REMINDER_SUBJECT_SEARCH || ''
+export const reminderSubjectReplacement = process.env.REMINDER_SUBJECT_REPLACEMENT || ''
+
 // Workspaces whose single reminder emails use the task title as the subject, prefixed with the
 // escalating cadence tag (OUT-3861). Comma-separated workspace ids, e.g. C1: us-west-2_lg5zB-Utp.
 export const reminderSubjectOverrideWorkspaces = new Set(
