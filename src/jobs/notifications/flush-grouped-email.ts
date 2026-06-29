@@ -198,7 +198,21 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
 export const flushGroupedEmailOnFailure = async ({ payload, error }: { payload: unknown; error: unknown }) => {
   const { workspaceId, windowKey } = payload as FlushGroupedEmailPayload
   Sentry.captureException(error, { tags: { job: TASK_ID, workspaceId, windowKey } })
-  logger.error('flush-grouped-email: retries exhausted', { workspaceId, windowKey, error: serializeError(error) })
+  logger.error('flush-grouped-email: retries exhausted, cleaning up window', {
+    workspaceId,
+    windowKey,
+    error: serializeError(error),
+  })
+  const db = DBClient.getInstance()
+  try {
+    await db.$executeRaw`DELETE FROM "GroupedEmailEvents" WHERE "windowKey" = ${windowKey}`
+  } catch (deleteErr) {
+    logger.error('flush-grouped-email: window cleanup on failure failed, rows are orphaned', {
+      workspaceId,
+      windowKey,
+      error: serializeError(deleteErr),
+    })
+  }
 }
 
 export const flushGroupedEmail = task({
