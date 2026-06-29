@@ -43,8 +43,8 @@ describe('renderGroupedReminderEmail', () => {
       { taskTitle: 'Overdue 4', reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D },
     ]
     const result = renderGroupedReminderEmail(entries)
-    expect(result.htmlBody.match(/<li>/g)).toHaveLength(3)
-    expect(result.htmlBody).toContain('<em>+1 other task</em><br>')
+    expect(result.htmlBody.match(/<li>/g)).toHaveLength(4)
+    expect(result.htmlBody).toContain('<li><em>+1 other task</em></li>')
   })
 
   it('pluralizes overflow when more than 1 task is hidden', () => {
@@ -53,7 +53,7 @@ describe('renderGroupedReminderEmail', () => {
       reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D,
     }))
     const result = renderGroupedReminderEmail(entries)
-    expect(result.htmlBody).toContain('<em>+2 other tasks</em><br>')
+    expect(result.htmlBody).toContain('<li><em>+2 other tasks</em></li>')
   })
 
   it('truncates task titles longer than 100 characters', () => {

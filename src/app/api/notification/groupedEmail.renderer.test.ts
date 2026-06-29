@@ -57,7 +57,7 @@ describe('renderGroupedEmail', () => {
       sections: [section({ count: 12, taskNames: ['A', 'B', 'C'], overflowCount: 9 })],
     })
 
-    expect(email.htmlBody).toContain('<em>+9 other tasks</em><br>')
+    expect(email.htmlBody).toContain('<li><em>+9 other tasks</em></li>')
   })
 
   it('singularizes the overflow line for a single other task', () => {
@@ -66,8 +66,8 @@ describe('renderGroupedEmail', () => {
       sections: [section({ count: 4, taskNames: ['A', 'B', 'C'], overflowCount: 1 })],
     })
 
-    expect(email.htmlBody).toContain('<em>+1 other task</em><br>')
-    expect(email.htmlBody).not.toContain('<em>+1 other tasks</em>')
+    expect(email.htmlBody).toContain('<li><em>+1 other task</em></li>')
+    expect(email.htmlBody).not.toContain('<li><em>+1 other tasks</em></li>')
   })
 
   it('omits overflow element when there is no overflow', () => {
