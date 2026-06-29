@@ -159,6 +159,46 @@ describe('sendReminderEmail', () => {
     expect(payload.deliveryTargets.email.subject).toBe('[Overdue] Quarterly review:')
   })
 
+  it('normalizes and truncates long task-title subjects for override workspaces', async () => {
+    const createNotification = jest.fn().mockResolvedValue({ id: 'notif_7', createdAt: '2026-05-25T00:00:00Z' })
+
+    await sendReminderEmail({
+      task: {
+        ...task,
+        title: `Quarterly   review: Acme Bank ${'with extra compliance context '.repeat(5)}`,
+      },
+      recipientClientId: 'client_1',
+      recipientCompanyId: 'company_1',
+      reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D,
+      isCompanyRecipient: false,
+      workspace: { ...workspace, id: 'ws_override' },
+      copilot: buildCopilotMock(createNotification),
+    })
+
+    const subject = createNotification.mock.calls[0][0].deliveryTargets.email.subject
+    expect(subject).toHaveLength(120)
+    expect(subject).toBe(
+      '[Overdue] Quarterly review: with extra compliance context with extra compliance context with extra compliance context...',
+    )
+  })
+
+  it('falls back to the default subject when an override title becomes empty', async () => {
+    const createNotification = jest.fn().mockResolvedValue({ id: 'notif_8', createdAt: '2026-05-25T00:00:00Z' })
+
+    await sendReminderEmail({
+      task: { ...task, title: ': Acme Bank' },
+      recipientClientId: 'client_1',
+      recipientCompanyId: 'company_1',
+      reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D,
+      isCompanyRecipient: false,
+      workspace: { ...workspace, id: 'ws_override' },
+      copilot: buildCopilotMock(createNotification),
+    })
+
+    const payload = createNotification.mock.calls[0][0]
+    expect(payload.deliveryTargets.email.subject).toBe('[Overdue] Task was due 3 days ago')
+  })
+
   it('keeps the generic subject for workspaces not in the override set', async () => {
     const createNotification = jest.fn().mockResolvedValue({ id: 'notif_5', createdAt: '2026-05-25T00:00:00Z' })
 
