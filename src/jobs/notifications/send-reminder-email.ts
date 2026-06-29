@@ -29,9 +29,8 @@ export const sendReminderEmail = async ({
 }: SendReminderEmailArgs): Promise<string> => {
   const details = getReminderEmailDetails(workspace, task, isCompanyRecipient)[reminderType]
 
-  const replacedSubjectTitle = reminderSubjectReplacement // fine for reminderSubjectSearch to be undefined
-    ? task.title.replace(reminderSubjectSearch, reminderSubjectReplacement)
-    : task.title
+  // fine for both to be undefined
+  const replacedSubjectTitle = task.title.replace(reminderSubjectSearch, reminderSubjectReplacement || '')
   // For opted-in workspaces, mirror the customized assignment email by using the task title as the
   // subject, prefixed with the escalating cadence tag (OUT-3861).
   const subject = reminderSubjectOverrideWorkspaces.has(workspace.id)
