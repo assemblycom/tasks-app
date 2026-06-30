@@ -13,10 +13,16 @@ jest.mock('@/utils/CopilotAPI', () => ({
 
 describe('withErrorHandler util', () => {
   let req: NextRequest
+  let consoleErrorSpy: jest.SpyInstance
 
   beforeEach(() => {
     jest.clearAllMocks()
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
     req = buildNextRequest(`/?token=iu-token`)
+  })
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore()
   })
 
   it('catches and builds proper response for APIError', async () => {
@@ -28,6 +34,7 @@ describe('withErrorHandler util', () => {
     const response = await nextResponse.json()
     expect(response.error).toBe('Please provide a valid token')
     expect(nextResponse.status).toBe(httpStatus.UNAUTHORIZED)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
 
   it('catches and builds proper response for ZodError', async () => {
@@ -38,9 +45,9 @@ describe('withErrorHandler util', () => {
 
     const nextResponse = await withErrorHandler(handler)(req, null)
     const response = await nextResponse.json()
-    expect(response.error[0].expected).toBe('string')
-    expect(response.error[0].received).toBe('number')
+    expect(response.error).toBe('Expected string, received number')
     expect(nextResponse.status).toBe(httpStatus.UNPROCESSABLE_ENTITY)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
 
   it('catches and builds proper response for CopilotApiError', async () => {
@@ -52,6 +59,40 @@ describe('withErrorHandler util', () => {
     const response = await nextResponse.json()
     expect(response.error).toBe('Please provide a valid token')
     expect(nextResponse.status).toBe(httpStatus.UNAUTHORIZED)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+  })
+
+  it('catches and builds proper response for Copilot SDK style ApiError', async () => {
+    const error = new Error('Not Found') as Error & {
+      status: number
+      body: { message: string }
+    }
+    error.name = 'ApiError'
+    error.status = httpStatus.NOT_FOUND
+    error.body = { message: 'Not Found' }
+
+    const handler = async (_req: NextRequest, _params: any) => {
+      throw error
+    }
+
+    const nextResponse = await withErrorHandler(handler)(req, null)
+    const response = await nextResponse.json()
+    expect(response.error).toBe('Not Found')
+    expect(nextResponse.status).toBe(httpStatus.NOT_FOUND)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+  })
+
+  it('logs server errors while returning the standardized response', async () => {
+    const error = new APIError(httpStatus.INTERNAL_SERVER_ERROR, 'Unexpected failure')
+    const handler = async (_req: NextRequest, _params: any) => {
+      throw error
+    }
+
+    const nextResponse = await withErrorHandler(handler)(req, null)
+    const response = await nextResponse.json()
+    expect(response.error).toBe('Unexpected failure')
+    expect(nextResponse.status).toBe(httpStatus.INTERNAL_SERVER_ERROR)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(error)
   })
 
   it('returns proper response if no errors are encountered', async () => {
@@ -63,5 +104,6 @@ describe('withErrorHandler util', () => {
     const response = await nextResponse.json()
     expect(response.message).toBe('Yay!')
     expect(nextResponse.status).toBe(httpStatus.OK)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
 })
