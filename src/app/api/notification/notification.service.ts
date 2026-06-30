@@ -597,6 +597,7 @@ export class NotificationService extends BaseService {
     switch (action) {
       case NotificationTaskActions.Assigned:
       case NotificationTaskActions.AssignedToCompany:
+      case NotificationTaskActions.ReassignedToIU:
         return GroupedEmailEventType.ASSIGNED
       case NotificationTaskActions.Shared:
       case NotificationTaskActions.SharedToCompany:

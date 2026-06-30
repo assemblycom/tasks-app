@@ -280,12 +280,13 @@ describe('NotificationService grouped-email interception', () => {
 })
 
 describe('guard: CU wiring boundaries', () => {
-  it('maps every CU-targeted action to the correct GroupedEmailEventType', () => {
+  it('maps every buffered action to the correct GroupedEmailEventType', () => {
     const svc = buildService() as unknown as {
       groupedEventTypeFor: (a: NotificationTaskActions) => GroupedEmailEventType | null
     }
     expect(svc.groupedEventTypeFor(NotificationTaskActions.Assigned)).toBe(GroupedEmailEventType.ASSIGNED)
     expect(svc.groupedEventTypeFor(NotificationTaskActions.AssignedToCompany)).toBe(GroupedEmailEventType.ASSIGNED)
+    expect(svc.groupedEventTypeFor(NotificationTaskActions.ReassignedToIU)).toBe(GroupedEmailEventType.ASSIGNED)
     expect(svc.groupedEventTypeFor(NotificationTaskActions.Shared)).toBe(GroupedEmailEventType.SHARED)
     expect(svc.groupedEventTypeFor(NotificationTaskActions.SharedToCompany)).toBe(GroupedEmailEventType.SHARED)
     expect(svc.groupedEventTypeFor(NotificationTaskActions.Commented)).toBe(GroupedEmailEventType.COMMENT)
@@ -298,6 +299,7 @@ describe('guard: CU wiring boundaries', () => {
     const mapped = [
       NotificationTaskActions.Assigned,
       NotificationTaskActions.AssignedToCompany,
+      NotificationTaskActions.ReassignedToIU,
       NotificationTaskActions.Shared,
       NotificationTaskActions.SharedToCompany,
       NotificationTaskActions.Commented,
