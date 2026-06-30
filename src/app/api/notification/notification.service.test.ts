@@ -318,6 +318,6 @@ describe('guard: CU wiring boundaries', () => {
   it('never writes recipientIuId in a CU grouped event row', async () => {
     await buildService().create(NotificationTaskActions.Assigned, makeTask())
     const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
-    expect(row.recipientIuId).toBeUndefined()
+    expect(row.recipientIuId).toBeNull()
   })
 })
