@@ -92,6 +92,19 @@ describe('withErrorHandler util', () => {
     expect(console.error).not.toHaveBeenCalled()
   })
 
+  it('logs unclassified Prisma known request errors', async () => {
+    const error = buildPrismaError('P2002')
+    const handler = async (_req: NextRequest, _params: any) => {
+      throw error
+    }
+
+    const nextResponse = await withErrorHandler(handler)(req, null)
+    const response = await nextResponse.json()
+    expect(response.error).toBe('Something went wrong')
+    expect(nextResponse.status).toBe(httpStatus.BAD_REQUEST)
+    expect(console.error).toHaveBeenCalledWith(error)
+  })
+
   it('logs unexpected errors', async () => {
     const error = new Error('boom')
     const handler = async (_req: NextRequest, _params: any) => {

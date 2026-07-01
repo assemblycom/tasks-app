@@ -35,7 +35,7 @@ const getPrismaErrorResponse = (error: PrismaClientKnownRequestError): ErrorResp
   return {
     status: httpStatus.BAD_REQUEST,
     message: 'Something went wrong',
-    shouldLog: false,
+    shouldLog: true,
   }
 }
 
