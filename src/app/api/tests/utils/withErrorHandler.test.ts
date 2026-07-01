@@ -82,6 +82,7 @@ describe('withErrorHandler util', () => {
       throw new PrismaClientKnownRequestError('Malformed UUID', {
         code: 'P2023',
         clientVersion: '5.19.0',
+        meta: { message: 'Inconsistent column data: Error creating UUID, invalid character' },
       })
     }
 
@@ -90,6 +91,23 @@ describe('withErrorHandler util', () => {
     expect(response.error).toBe('The requested resource was not found')
     expect(nextResponse.status).toBe(httpStatus.NOT_FOUND)
     expect(console.error).not.toHaveBeenCalled()
+  })
+
+  it('logs non-UUID Prisma P2023 errors instead of hiding them as 404', async () => {
+    const error = new PrismaClientKnownRequestError('Inconsistent column data', {
+      code: 'P2023',
+      clientVersion: '5.19.0',
+      meta: { message: 'Value out of range for the type enum' },
+    })
+    const handler = async (_req: NextRequest, _params: any) => {
+      throw error
+    }
+
+    const nextResponse = await withErrorHandler(handler)(req, null)
+    const response = await nextResponse.json()
+    expect(response.error).toBe('Something went wrong')
+    expect(nextResponse.status).toBe(httpStatus.BAD_REQUEST)
+    expect(console.error).toHaveBeenCalledWith(error)
   })
 
   it('maps raw query invalid UUID errors to 404 without logging', async () => {

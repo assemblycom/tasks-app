@@ -13,12 +13,20 @@ type ErrorResponse = {
   status: number
 }
 
-const isPostgresInvalidUuidError = (error: PrismaClientKnownRequestError) => {
-  return error.code === 'P2010' && error.meta?.code === '22P02'
+// P2023 ("Inconsistent column data") covers more than UUIDs (e.g. enum mismatches), so
+// only treat it as not-found when the meta message points at a malformed UUID — otherwise
+// it stays an unclassified error that logs, rather than being silently hidden as a 404.
+const isInvalidUuidError = (error: PrismaClientKnownRequestError) => {
+  if (error.code === 'P2010' && error.meta?.code === '22P02') {
+    return true
+  }
+
+  const metaMessage = error.meta?.message
+  return error.code === 'P2023' && typeof metaMessage === 'string' && metaMessage.toLowerCase().includes('uuid')
 }
 
 const getPrismaKnownRequestErrorResponse = (error: PrismaClientKnownRequestError): ErrorResponse | null => {
-  if (error.code === 'P2025' || error.code === 'P2023' || isPostgresInvalidUuidError(error)) {
+  if (error.code === 'P2025' || isInvalidUuidError(error)) {
     return {
       status: httpStatus.NOT_FOUND,
       message: 'The requested resource was not found',
