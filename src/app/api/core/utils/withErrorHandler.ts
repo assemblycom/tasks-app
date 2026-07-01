@@ -7,6 +7,77 @@ import { ZodError, ZodFormattedError } from 'zod'
 
 export type RequestHandler = (req: NextRequest, params: any) => Promise<NextResponse>
 
+type ErrorResponse = {
+  status: number
+  message: string | ZodFormattedError<string>
+  errors?: unknown[]
+  shouldLog: boolean
+}
+
+const getZodErrorMessage = (error: ZodError) => {
+  const flattened = error.flatten()
+  const allMessages = [...flattened.formErrors, ...Object.values(flattened.fieldErrors).flat()].filter(Boolean)
+
+  return allMessages[0] || (error.format() as ZodFormattedError<string>)
+}
+
+const shouldLogStatus = (status: number) => status >= httpStatus.INTERNAL_SERVER_ERROR
+
+const getPrismaErrorResponse = (error: PrismaClientKnownRequestError): ErrorResponse => {
+  if (error.code === 'P2025' || error.code === 'P2023') {
+    return {
+      status: httpStatus.NOT_FOUND,
+      message: 'The requested resource was not found',
+      shouldLog: false,
+    }
+  }
+
+  return {
+    status: httpStatus.BAD_REQUEST,
+    message: 'Something went wrong',
+    shouldLog: false,
+  }
+}
+
+const getErrorResponse = (error: unknown): ErrorResponse => {
+  if (error instanceof ZodError) {
+    return {
+      status: httpStatus.UNPROCESSABLE_ENTITY,
+      message: getZodErrorMessage(error),
+      shouldLog: false,
+    }
+  }
+
+  if (error instanceof CopilotApiError) {
+    const status = error.status || httpStatus.BAD_REQUEST
+
+    return {
+      status,
+      message: error.body.message || 'Something went wrong',
+      shouldLog: shouldLogStatus(status),
+    }
+  }
+
+  if (error instanceof APIError) {
+    return {
+      status: error.status,
+      message: error.message || 'Something went wrong',
+      errors: error.errors,
+      shouldLog: shouldLogStatus(error.status),
+    }
+  }
+
+  if (error instanceof PrismaClientKnownRequestError) {
+    return getPrismaErrorResponse(error)
+  }
+
+  return {
+    status: (error as StatusableError).status || httpStatus.BAD_REQUEST,
+    message: (error as MessagableError).body?.message || 'Something went wrong',
+    shouldLog: true,
+  }
+}
+
 /**
  * Reusable utility that wraps a given request handler with a global error handler to standardize response structure
  * in case of failures. Catches exceptions thrown from the handler, and returns a formatted error response.
@@ -27,42 +98,13 @@ export type RequestHandler = (req: NextRequest, params: any) => Promise<NextResp
  */
 export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
   return async (req: NextRequest, params: any) => {
-    // Execute the handler wrapped in a try... catch block
     try {
       return await handler(req, params)
     } catch (error: unknown) {
-      // Format error in a readable way
+      const { status, message, errors, shouldLog } = getErrorResponse(error)
 
-      let formattedError = error
-      if (error instanceof ZodError) {
-        formattedError = error.format() as ZodFormattedError<string>
-      }
-      console.error(formattedError)
-
-      // Default staus and message for JSON error response
-      let status: number = (error as StatusableError).status || httpStatus.BAD_REQUEST
-      let message: string | ZodFormattedError<string> = (error as MessagableError).body?.message || 'Something went wrong'
-      let errors: unknown[] | undefined = undefined
-
-      // Build a proper response based on the type of Error encountered
-      if (error instanceof ZodError) {
-        status = httpStatus.UNPROCESSABLE_ENTITY
-        const flattened = error.flatten()
-        const allMessages = [...flattened.formErrors, ...Object.values(flattened.fieldErrors).flat()].filter(Boolean)
-        message = allMessages[0] || (formattedError as ZodFormattedError<string>)
-      } else if (error instanceof CopilotApiError) {
-        status = error.status || status
-        message = error.body.message || message
-      } else if (error instanceof APIError) {
-        status = error.status
-        message = error.message || message
-        errors = error.errors
-      } else if (error instanceof PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
-          // Code for NOT FOUND in Prisma
-          status = httpStatus.NOT_FOUND
-          message = 'The requested resource was not found'
-        }
+      if (shouldLog) {
+        console.error(error instanceof ZodError ? error.format() : error)
       }
 
       return NextResponse.json({ error: message, errors }, { status })
