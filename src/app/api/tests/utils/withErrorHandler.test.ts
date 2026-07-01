@@ -124,6 +124,19 @@ describe('withErrorHandler util', () => {
     expect(console.error).toHaveBeenCalledWith(error)
   })
 
+  it('logs unexpected errors that default to a 4xx response', async () => {
+    const error = new Error('Unexpected boom')
+    const handler = async (_req: NextRequest, _params: any) => {
+      throw error
+    }
+
+    const nextResponse = await withErrorHandler(handler)(req, null)
+    const response = await nextResponse.json()
+    expect(response.error).toBe('Something went wrong')
+    expect(nextResponse.status).toBe(httpStatus.BAD_REQUEST)
+    expect(console.error).toHaveBeenCalledWith(error)
+  })
+
   it('returns proper response if no errors are encountered', async () => {
     const handler = async (_req: NextRequest, _params: any) => {
       return NextResponse.json({ message: 'Yay!' })

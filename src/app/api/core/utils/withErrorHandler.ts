@@ -67,12 +67,21 @@ const normalizeError = (error: unknown): ErrorResponse => {
   return defaultResponse
 }
 
+const isExpectedClientError = (error: unknown) => {
+  return (
+    error instanceof ZodError ||
+    error instanceof CopilotApiError ||
+    error instanceof APIError ||
+    (error instanceof PrismaClientKnownRequestError && getPrismaKnownRequestErrorResponse(error) !== null)
+  )
+}
+
 const shouldLogError = (error: unknown, response: ErrorResponse) => {
   if (response.status >= httpStatus.INTERNAL_SERVER_ERROR) {
     return true
   }
 
-  return error instanceof PrismaClientKnownRequestError && getPrismaKnownRequestErrorResponse(error) === null
+  return !isExpectedClientError(error)
 }
 
 /**
