@@ -7,6 +7,7 @@ const mockBatchTrigger = jest.fn()
 const mockGroupedBatchTrigger = jest.fn()
 const mockGetWorkspace = jest.fn()
 const mockGetCompanyClients = jest.fn()
+const mockGetClient = jest.fn()
 const mockCopilotApiCtor = jest.fn()
 const mockCaptureException = jest.fn()
 
@@ -39,7 +40,7 @@ jest.mock('@/lib/db', () => ({
 jest.mock('@/utils/CopilotAPI', () => ({
   CopilotAPI: jest.fn().mockImplementation((...args: unknown[]) => {
     mockCopilotApiCtor(...args)
-    return { getWorkspace: mockGetWorkspace, getCompanyClients: mockGetCompanyClients }
+    return { getWorkspace: mockGetWorkspace, getCompanyClients: mockGetCompanyClients, getClient: mockGetClient }
   }),
 }))
 
@@ -100,6 +101,7 @@ describe('sendTaskReminders', () => {
     mockBatchTrigger.mockReset()
     mockGetWorkspace.mockReset()
     mockGetCompanyClients.mockReset()
+    mockGetClient.mockReset()
     mockCopilotApiCtor.mockReset()
     mockCaptureException.mockReset()
     mockGroupedBatchTrigger.mockReset()
@@ -151,6 +153,24 @@ describe('sendTaskReminders', () => {
       reminderType: TaskReminderType.NO_DUE_DATE_3D,
       isCompanyRecipient: false,
       workspace,
+    })
+  })
+
+  it('resolves the client company before enqueueing when a client-assigned task has no task companyId', async () => {
+    mockGetEligibleReminders.mockResolvedValueOnce([buildRow({ companyId: null })])
+    mockGetClient.mockResolvedValueOnce({ id: 'client_1', companyId: 'company_from_client' })
+    mockTaskReminderSentCreateManyAndReturn.mockResolvedValueOnce([
+      { id: 'ledger_1', taskId: 'task_1', recipientId: 'client_1', reminderType: TaskReminderType.NO_DUE_DATE_3D },
+    ])
+
+    const result = await runJob()
+
+    expect(result).toEqual({ enqueued: 1, skipped: 0, workspaceCount: 1 })
+    expect(mockGetClient).toHaveBeenCalledWith('client_1')
+    expect(mockBatchTrigger.mock.calls[0][0][0].payload).toMatchObject({
+      recipientClientId: 'client_1',
+      recipientCompanyId: 'company_from_client',
+      isCompanyRecipient: false,
     })
   })
 

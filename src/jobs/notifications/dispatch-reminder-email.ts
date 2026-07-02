@@ -16,7 +16,7 @@ export type DispatchReminderEmailPayload = {
   workspaceId: string
   task: Pick<Task, 'id' | 'title' | 'createdById'>
   recipientClientId: string
-  recipientCompanyId: string | null
+  recipientCompanyId: string
   reminderType: TaskReminderType
   isCompanyRecipient: boolean
   workspace: WorkspaceResponse

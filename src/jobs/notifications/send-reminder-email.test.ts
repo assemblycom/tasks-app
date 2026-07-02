@@ -89,13 +89,13 @@ describe('sendReminderEmail', () => {
     expect(payload.deliveryTargets.email.subject).toBe('[Due Soon] Task due today')
   })
 
-  it('omits recipientCompanyId when null', async () => {
+  it('requires recipientCompanyId for client email recipients', async () => {
     const createNotification = jest.fn().mockResolvedValue({ id: 'notif_3', createdAt: '2026-05-25T00:00:00Z' })
 
     await sendReminderEmail({
       task,
       recipientClientId: 'client_1',
-      recipientCompanyId: null,
+      recipientCompanyId: 'company_1',
       reminderType: TaskReminderType.NO_DUE_DATE_3D,
       isCompanyRecipient: false,
       workspace,
@@ -103,7 +103,7 @@ describe('sendReminderEmail', () => {
     })
 
     const payload = createNotification.mock.calls[0][0]
-    expect(payload.recipientCompanyId).toBeUndefined()
+    expect(payload.recipientCompanyId).toBe('company_1')
   })
 
   it('propagates errors from Copilot (no ledger compensation here)', async () => {

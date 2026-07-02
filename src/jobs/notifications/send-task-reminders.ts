@@ -20,7 +20,7 @@ const BATCH_TRIGGER_CHUNK_SIZE = 500
 
 type WorkspaceTotals = { enqueued: number; skipped: number }
 
-type Recipient = { clientId: string; companyId: string | null }
+type Recipient = { clientId: string; companyId: string }
 
 type LedgerPlanEntry = {
   task: EligibilityRow
@@ -270,9 +270,15 @@ const processWorkspace = async (
 
 // IU rows are filtered upstream so only client/company assignees reach here.
 const resolveRecipients = async (copilot: CopilotAPI, task: EligibilityRow): Promise<Recipient[]> => {
-  if (task.assigneeType !== AssigneeType.company) {
+  if (task.assigneeType === AssigneeType.company) {
+    const members = await copilot.getCompanyClients(task.assigneeId)
+    return members.map((m) => ({ clientId: m.id, companyId: task.assigneeId }))
+  }
+
+  if (task.companyId) {
     return [{ clientId: task.assigneeId, companyId: task.companyId }]
   }
-  const members = await copilot.getCompanyClients(task.assigneeId)
-  return members.map((m) => ({ clientId: m.id, companyId: task.assigneeId }))
+
+  const client = await copilot.getClient(task.assigneeId)
+  return [{ clientId: task.assigneeId, companyId: client.companyId }]
 }
