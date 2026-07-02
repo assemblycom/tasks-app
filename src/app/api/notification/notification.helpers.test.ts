@@ -52,4 +52,20 @@ describe('getReminderEmailDetails', () => {
       expect(result[variant].ctaParams).toEqual({ taskId: 'task_1' })
     }
   })
+
+  it('omits htmlBody when no evaluationTitle is supplied', () => {
+    const result = getReminderEmailDetails(workspace, task, false)
+    for (const variant of Object.values(TaskReminderType)) {
+      expect(result[variant].htmlBody).toBeUndefined()
+    }
+  })
+
+  it('emits an evaluation htmlBody with the bolded title for every variant when opted in', () => {
+    const result = getReminderEmailDetails(workspace, task, false, 'Premier Collection Mystery Shop')
+    for (const variant of Object.values(TaskReminderType)) {
+      expect(result[variant].htmlBody).toContain(
+        'mystery shop evaluation for <strong>Premier Collection Mystery Shop</strong>',
+      )
+    }
+  })
 })

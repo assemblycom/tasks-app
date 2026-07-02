@@ -137,9 +137,10 @@ describe('sendReminderEmail', () => {
 
     const payload = createNotification.mock.calls[0][0]
     expect(payload.deliveryTargets.email.subject).toBe('[Overdue] Submit timesheet')
-    // Only the subject is customized — the rest of the reminder copy is unchanged.
-    expect(payload.deliveryTargets.email.header).toBe('A task was assigned to you')
-    expect(payload.deliveryTargets.email.title).toBe('View task')
+    expect(payload.deliveryTargets.email.header).toBe('Review your mystery shop evaluation')
+    expect(payload.deliveryTargets.email.title).toBe('Review Evaluation')
+    expect(payload.deliveryTargets.email.body).toBeUndefined()
+    expect(payload.deliveryTargets.email.htmlBody).toContain('mystery shop evaluation for <strong>Submit timesheet</strong>')
   })
 
   it('strips the configured search phrase from the subject for override workspaces', async () => {
