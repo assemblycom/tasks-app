@@ -72,9 +72,9 @@ export class NotificationService extends BaseService {
         const association = AssociationsSchema.parse(task.associations)?.[0]
         await this.bufferGroupedEmailEvent({
           task,
-          recipientClientId: isIuRecipient ? null : recipientId,
-          recipientCompanyId: isIuRecipient ? null : (task.companyId ?? association?.companyId ?? null),
-          recipientIuId: isIuRecipient ? recipientId : null,
+          ...(!isIuRecipient && { recipientClientId: recipientId }),
+          ...(!isIuRecipient && { recipientCompanyId: task.companyId ?? association?.companyId ?? undefined }),
+          ...(isIuRecipient && { recipientIuId: recipientId }),
           eventType: groupedType,
           commentId: opts.commentId,
           individualEmail: this.buildNotificationDetails(
@@ -207,7 +207,7 @@ export class NotificationService extends BaseService {
             await this.bufferGroupedEmailEvent({
               task,
               recipientClientId: recipientId,
-              recipientCompanyId: task.companyId ?? association?.companyId ?? null,
+              recipientCompanyId: task.companyId ?? association?.companyId ?? undefined,
               eventType: groupedType,
               commentId: opts?.commentId,
               individualEmail: this.buildNotificationDetails(task, senderId, recipientId, { email }, opts?.senderCompanyId),
@@ -611,9 +611,9 @@ export class NotificationService extends BaseService {
 
   private async bufferGroupedEmailEvent(args: {
     task: Task
-    recipientClientId?: string | null
-    recipientCompanyId?: string | null
-    recipientIuId?: string | null
+    recipientClientId?: string
+    recipientCompanyId?: string
+    recipientIuId?: string
     eventType: GroupedEmailEventType
     commentId?: string
     individualEmail: NotificationRequestBody
