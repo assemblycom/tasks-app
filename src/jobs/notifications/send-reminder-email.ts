@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { getReminderEmailDetails, REMINDER_ESCALATION_TAG } from '@/app/api/notification/notification.helpers'
-import { reminderSubjectOverrideWorkspaces, reminderSubjectSearch, reminderSubjectReplacement } from '@/config'
+import { reminderSubjectOverrideWorkspaces, reminderSubjectReplacement, reminderSubjectSearch } from '@/config'
 import { NotificationRequestBody, WorkspaceResponse } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { Task, TaskReminderType } from '@prisma/client'
@@ -27,29 +27,40 @@ export const sendReminderEmail = async ({
   workspace,
   copilot,
 }: SendReminderEmailArgs): Promise<string> => {
-  const details = getReminderEmailDetails(workspace, task, isCompanyRecipient)[reminderType]
-
-  // fine for both to be undefined
-  const replacedSubjectTitle = task.title.replace(reminderSubjectSearch, reminderSubjectReplacement || '')
   // For opted-in workspaces, mirror the customized assignment email by using the task title as the
   // subject, prefixed with the escalating cadence tag (OUT-3861).
-  const subject = reminderSubjectOverrideWorkspaces.has(workspace.id)
-    ? `${REMINDER_ESCALATION_TAG[reminderType]} ${replacedSubjectTitle}`
-    : details.subject
+  const needsOverride = reminderSubjectOverrideWorkspaces.has(workspace.id)
+  const displayTitle = task.title.replace(reminderSubjectSearch, reminderSubjectReplacement || '')
+  // Subject mirrors the assignment email and keeps the "Action Required: " prefix; the evaluation
+  // body drops it so the prose reads naturally and matches the inline task title.
+  const evaluationTitle = displayTitle.replace('Action Required: ', '')
+  const details = getReminderEmailDetails(workspace, task, isCompanyRecipient, needsOverride ? evaluationTitle : undefined)[
+    reminderType
+  ]
+
+  const subject = needsOverride ? `${REMINDER_ESCALATION_TAG[reminderType]} ${displayTitle}` : details.subject
+
+  // htmlBody is only honored when body is omitted, so the override path sends HTML and drops body.
+  const email = needsOverride
+    ? {
+        subject,
+        header: 'Review your mystery shop evaluation',
+        title: 'Review Evaluation',
+        htmlBody: details.htmlBody,
+      }
+    : {
+        subject,
+        header: details.header,
+        title: details.title,
+        body: details.body,
+      }
 
   const payload: NotificationRequestBody = {
     senderId: task.createdById,
     senderType: 'internalUser',
     recipientClientId,
     recipientCompanyId: recipientCompanyId ?? undefined,
-    deliveryTargets: {
-      email: {
-        subject,
-        header: details.header,
-        title: details.title,
-        body: details.body,
-      },
-    },
+    deliveryTargets: { email },
   }
 
   const notification = await copilot.createNotification(payload)

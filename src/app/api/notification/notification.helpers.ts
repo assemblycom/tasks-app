@@ -257,12 +257,18 @@ export const REMINDER_ESCALATION_TAG: Record<TaskReminderType, string> = {
   [TaskReminderType.DUE_DATE_OVERDUE_7D]: '[Overdue]',
 }
 
+const escapeHtml = (value: string): string =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
 // Subjects intentionally omit any `<brandName> portal:` prefix — Copilot's email
 // service prepends that itself, and adding it here results in a duplicated prefix.
+// `evaluationTitle` is passed in already-cleaned (rather than derived here) because the cleaning
+// config is server-only; when set, it enables the evaluation htmlBody variant (OUT-3947).
 export const getReminderEmailDetails = (
   workspace: WorkspaceResponse,
   task: Pick<Task, 'id' | 'title'>,
   isCompanyRecipient: boolean,
+  evaluationTitle?: string,
 ): Record<
   TaskReminderType,
   {
@@ -270,6 +276,7 @@ export const getReminderEmailDetails = (
     subject: string
     header: string
     body: string
+    htmlBody?: string
     ctaParams: { taskId: string }
   }
 > => {
@@ -277,6 +284,7 @@ export const getReminderEmailDetails = (
   const header = isCompanyRecipient ? `A task was assigned to your ${labels.groupTerm}` : 'A task was assigned to you'
   const ctaParams = { taskId: task.id }
   const title = 'View task'
+  const evaluation = `<strong>${escapeHtml(evaluationTitle || '')}</strong>`
 
   return {
     [TaskReminderType.NO_DUE_DATE_3D]: {
@@ -284,6 +292,9 @@ export const getReminderEmailDetails = (
       header,
       title,
       body: `This is a friendly reminder that you have a task ‘${task.title}’ assigned to you that's still pending completion.\n\nIf you've already completed this task, please mark it as done in the portal.`,
+      htmlBody: !evaluationTitle
+        ? undefined
+        : `<p>This is a friendly reminder that you have a mystery shop evaluation for ${evaluation} that's still pending completion.</p><p>If you've already reviewed the evaluation, please mark it as done in the portal.</p>`,
       ctaParams,
     },
     [TaskReminderType.NO_DUE_DATE_7D]: {
@@ -291,6 +302,9 @@ export const getReminderEmailDetails = (
       header,
       title,
       body: `This is a friendly reminder that you have a task ‘${task.title}’ that was assigned to you a week ago and is still pending.\n\nIf you've already completed this task, please mark it as done in the portal.`,
+      htmlBody: !evaluationTitle
+        ? undefined
+        : `<p>This is a friendly reminder that you have a mystery shop evaluation for ${evaluation} that was assigned to you a week ago and is still pending.</p><p>If you've already reviewed the evaluation, please mark it as done in the portal.</p>`,
       ctaParams,
     },
     [TaskReminderType.DUE_DATE_BEFORE_3D]: {
@@ -298,6 +312,9 @@ export const getReminderEmailDetails = (
       header,
       title,
       body: `This is a friendly reminder that you have a task ‘${task.title}’ due in 3 days.\n\nPlease make sure to complete this task by the due date.`,
+      htmlBody: !evaluationTitle
+        ? undefined
+        : `<p>This is a friendly reminder that your mystery shop evaluation for ${evaluation} is due in 3 days.</p><p>Please make sure to review your evaluation by the due date.</p>`,
       ctaParams,
     },
     [TaskReminderType.DUE_DATE_TODAY]: {
@@ -305,6 +322,9 @@ export const getReminderEmailDetails = (
       header,
       title,
       body: `This is a friendly reminder that you have a task ‘${task.title}’ due today.\n\nPlease complete this task as soon as possible.`,
+      htmlBody: !evaluationTitle
+        ? undefined
+        : `<p>This is a friendly reminder that your mystery shop evaluation for ${evaluation} is due today.</p><p>Please review your evaluation as soon as possible.</p>`,
       ctaParams,
     },
     [TaskReminderType.DUE_DATE_OVERDUE_3D]: {
@@ -312,6 +332,9 @@ export const getReminderEmailDetails = (
       header,
       title,
       body: `This is a friendly reminder that the task ‘${task.title}’ is now overdue. It was due 3 days ago and is still pending completion.`,
+      htmlBody: !evaluationTitle
+        ? undefined
+        : `<p>This is a friendly reminder that your mystery shop evaluation for ${evaluation} is now overdue. It was due 3 days ago and is still pending completion.</p>`,
       ctaParams,
     },
     [TaskReminderType.DUE_DATE_OVERDUE_7D]: {
@@ -319,6 +342,9 @@ export const getReminderEmailDetails = (
       header,
       title,
       body: `This is a friendly reminder that the task ‘${task.title}’ is now one week overdue.\n\nPlease complete this task as soon as possible.`,
+      htmlBody: !evaluationTitle
+        ? undefined
+        : `<p>This is a friendly reminder that your mystery shop evaluation for ${evaluation} is now one week overdue.</p><p>Please review your evaluation as soon as possible.</p>`,
       ctaParams,
     },
   }

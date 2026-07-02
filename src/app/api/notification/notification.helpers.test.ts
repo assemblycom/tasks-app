@@ -52,4 +52,27 @@ describe('getReminderEmailDetails', () => {
       expect(result[variant].ctaParams).toEqual({ taskId: 'task_1' })
     }
   })
+
+  it('omits htmlBody when no evaluationTitle is supplied', () => {
+    const result = getReminderEmailDetails(workspace, task, false)
+    for (const variant of Object.values(TaskReminderType)) {
+      expect(result[variant].htmlBody).toBeUndefined()
+    }
+  })
+
+  it('emits an evaluation htmlBody with the bolded title for every variant when opted in', () => {
+    const result = getReminderEmailDetails(workspace, task, false, 'Premier Collection Mystery Shop')
+    for (const variant of Object.values(TaskReminderType)) {
+      expect(result[variant].htmlBody).toContain(
+        'mystery shop evaluation for <strong>Premier Collection Mystery Shop</strong>',
+      )
+    }
+  })
+
+  it('HTML-escapes the evaluation title to prevent markup injection', () => {
+    const result = getReminderEmailDetails(workspace, task, false, 'Report </strong><img src=x onerror=alert(1)>')
+    const htmlBody = result[TaskReminderType.NO_DUE_DATE_3D].htmlBody
+    expect(htmlBody).toContain('Report &lt;/strong&gt;&lt;img src=x onerror=alert(1)&gt;')
+    expect(htmlBody).not.toContain('<img src=x')
+  })
 })
