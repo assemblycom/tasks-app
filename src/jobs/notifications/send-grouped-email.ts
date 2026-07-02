@@ -8,8 +8,9 @@ import { CopilotAPI } from '@/utils/CopilotAPI'
 export type SendGroupedEmailArgs = {
   content: GroupedEmailContent
   senderId: string
-  recipientClientId: string
-  recipientCompanyId: string | null
+  recipientClientId?: string | null
+  recipientCompanyId?: string | null
+  recipientInternalUserId?: string | null
   copilot: CopilotAPI
 }
 
@@ -18,6 +19,7 @@ export const sendGroupedEmail = async ({
   senderId,
   recipientClientId,
   recipientCompanyId,
+  recipientInternalUserId,
   copilot,
 }: SendGroupedEmailArgs): Promise<string> => {
   const email = renderGroupedEmail(content)
@@ -25,8 +27,9 @@ export const sendGroupedEmail = async ({
   const payload: NotificationRequestBody = {
     senderId,
     senderType: 'internalUser',
-    recipientClientId,
+    recipientClientId: recipientClientId ?? undefined,
     recipientCompanyId: recipientCompanyId ?? undefined,
+    recipientInternalUserId: recipientInternalUserId ?? undefined,
     deliveryTargets: {
       email: {
         subject: email.subject,

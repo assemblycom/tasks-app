@@ -8,6 +8,7 @@ const mockFindFirst = jest.fn()
 const mockFindMany = jest.fn()
 const mockClientNotifCreate = jest.fn()
 const mockClientNotifCreateMany = jest.fn()
+const mockInternalUserNotifCreate = jest.fn()
 const mockQueryRaw = jest.fn()
 const mockGroupedCreateMany = jest.fn()
 
@@ -30,6 +31,7 @@ jest.mock('@/lib/db', () => ({
         createMany: (...args: unknown[]) => mockClientNotifCreateMany(...args),
       },
       groupedEmailEvent: { createMany: (...args: unknown[]) => mockGroupedCreateMany(...args) },
+      internalUserNotification: { create: (...args: unknown[]) => mockInternalUserNotifCreate(...args) },
       $queryRaw: (...args: unknown[]) => mockQueryRaw(...args),
     }),
   },
@@ -90,6 +92,7 @@ beforeEach(() => {
   mockGroupedCreateMany.mockResolvedValue({ count: 1 })
   mockClientNotifCreate.mockResolvedValue({})
   mockClientNotifCreateMany.mockResolvedValue({ count: 1 })
+  mockInternalUserNotifCreate.mockResolvedValue({})
   mockCreateNotification.mockResolvedValue({
     id: 'notif_1',
     createdAt: '2026-06-15T10:00:00.000Z',
@@ -277,12 +280,13 @@ describe('NotificationService grouped-email interception', () => {
 })
 
 describe('guard: CU wiring boundaries', () => {
-  it('maps every CU-targeted action to the correct GroupedEmailEventType', () => {
+  it('maps every buffered action to the correct GroupedEmailEventType', () => {
     const svc = buildService() as unknown as {
       groupedEventTypeFor: (a: NotificationTaskActions) => GroupedEmailEventType | null
     }
     expect(svc.groupedEventTypeFor(NotificationTaskActions.Assigned)).toBe(GroupedEmailEventType.ASSIGNED)
     expect(svc.groupedEventTypeFor(NotificationTaskActions.AssignedToCompany)).toBe(GroupedEmailEventType.ASSIGNED)
+    expect(svc.groupedEventTypeFor(NotificationTaskActions.ReassignedToIU)).toBe(GroupedEmailEventType.ASSIGNED)
     expect(svc.groupedEventTypeFor(NotificationTaskActions.Shared)).toBe(GroupedEmailEventType.SHARED)
     expect(svc.groupedEventTypeFor(NotificationTaskActions.SharedToCompany)).toBe(GroupedEmailEventType.SHARED)
     expect(svc.groupedEventTypeFor(NotificationTaskActions.Commented)).toBe(GroupedEmailEventType.COMMENT)
@@ -295,6 +299,7 @@ describe('guard: CU wiring boundaries', () => {
     const mapped = [
       NotificationTaskActions.Assigned,
       NotificationTaskActions.AssignedToCompany,
+      NotificationTaskActions.ReassignedToIU,
       NotificationTaskActions.Shared,
       NotificationTaskActions.SharedToCompany,
       NotificationTaskActions.Commented,
@@ -318,6 +323,50 @@ describe('guard: CU wiring boundaries', () => {
   it('never writes recipientIuId in a CU grouped event row', async () => {
     await buildService().create(NotificationTaskActions.Assigned, makeTask())
     const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
-    expect(row.recipientIuId).toBeUndefined()
+    expect(row.recipientIuId).toBeNull()
+  })
+})
+
+describe('guard: IU wiring boundaries', () => {
+  it('buffers an Assigned IU email with recipientIuId set and all client fields null', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockGroupedCreateMany).toHaveBeenCalledTimes(1)
+    const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
+    expect(row).toMatchObject({
+      workspaceId: 'ws_1',
+      recipientIuId: task.assigneeId,
+      recipientClientId: null,
+      recipientCompanyId: null,
+      eventType: GroupedEmailEventType.ASSIGNED,
+      taskId: task.id,
+    })
+    expect(row.windowKey).toMatch(/^33333333-3333-3333-3333-333333333333:iu:/)
+    expect(mockEnqueueFlush).toHaveBeenCalledWith({ workspaceId: 'ws_1', windowKey: row.windowKey })
+
+    // individual email snapshot routes to the IU, not a client
+    expect(row.individualEmail.recipientInternalUserId).toBe(task.assigneeId)
+    expect(row.individualEmail.recipientClientId).toBeUndefined()
+  })
+
+  it('sends the in-product notification to recipientInternalUserId and strips the email target', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    const sent = mockCreateNotification.mock.calls[0][0]
+    expect(sent.recipientInternalUserId).toBe(task.assigneeId)
+    expect(sent.recipientClientId).toBeUndefined()
+    expect(deliveryTargetsOf(0).inProduct).toBeDefined()
+    expect(deliveryTargetsOf(0).email).toBeUndefined()
+  })
+
+  it('does not buffer when disableEmail is true for an IU task', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: true })
+
+    expect(mockGroupedCreateMany).not.toHaveBeenCalled()
+    expect(mockEnqueueFlush).not.toHaveBeenCalled()
   })
 })

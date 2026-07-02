@@ -6,6 +6,7 @@ import { CopilotAPI } from '@/utils/CopilotAPI'
 import User from '@api/core/models/User.model'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
+import { isIuEmailEnabled } from '@api/notification/isIuEmailEnabled'
 import { NotificationService } from '@api/notification/notification.service'
 import { AssigneeType, StateType, Task, WorkflowState } from '@prisma/client'
 import { z } from 'zod'
@@ -484,7 +485,7 @@ export class TaskNotificationsService extends BaseService {
       // In future when reassignment is supported, change this logic to support reassigned to client as well
       notificationType,
       task,
-      { disableEmail: task.assigneeType === AssigneeType.internalUser, emailOverride },
+      { disableEmail: task.assigneeType === AssigneeType.internalUser && !isIuEmailEnabled(), emailOverride },
     )
     // Create a new entry in ClientNotifications table so we can mark as read on
     // behalf of client later

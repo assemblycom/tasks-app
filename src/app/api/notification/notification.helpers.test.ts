@@ -1,5 +1,6 @@
+import { NotificationTaskActions } from '@api/core/types/tasks'
 import { WorkspaceResponse } from '@/types/common'
-import { getReminderEmailDetails } from './notification.helpers'
+import { getEmailDetails, getReminderEmailDetails } from './notification.helpers'
 import { TaskReminderType } from '@prisma/client'
 
 const workspace: WorkspaceResponse = {
@@ -52,4 +53,18 @@ describe('getReminderEmailDetails', () => {
       expect(result[variant].ctaParams).toEqual({ taskId: 'task_1' })
     }
   })
+})
+
+describe('getEmailDetails', () => {
+  // Actions that email an IU recipient must have a template here, or the grouped
+  // buffer silently skips them (in-product fires but no email is ever flushed).
+  it.each([NotificationTaskActions.Assigned, NotificationTaskActions.ReassignedToIU])(
+    'defines an email template for IU-recipient action %s',
+    (action) => {
+      const details = getEmailDetails(workspace, 'Arpan Two')[action]
+      expect(details).toBeDefined()
+      expect(details?.subject).toBeTruthy()
+      expect(details?.body).toBeTruthy()
+    },
+  )
 })
