@@ -76,6 +76,11 @@ const resolveSenderId = async (copilot: CopilotAPI): Promise<string> => {
   return senderId
 }
 
+// Copilot only emails an IU recipient when the sender is a real participant, so attribute the
+// grouped summary to the actual actor from the buffered events, not an arbitrary workspace IU.
+const senderFromEvents = (events: WindowEvent[]): string | undefined =>
+  events.map((e) => e.individualEmail?.senderId).find((id): id is string => Boolean(id))
+
 const sendIndividualEmail = async (copilot: CopilotAPI, payload: NotificationRequestBody): Promise<void> => {
   try {
     await copilot.createNotification(payload)
@@ -180,10 +185,10 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
       sent += 1
       sentIndividual += 1
     } else if (liveEvents.length >= 1) {
-      senderId ??= await resolveSenderId(copilot)
+      const groupSenderId = senderFromEvents(liveEvents) ?? (senderId ??= await resolveSenderId(copilot))
       await sendGroupedEmail({
         content: composeGroupedEmail(liveEvents),
-        senderId,
+        senderId: groupSenderId,
         recipientClientId: group.recipientClientId,
         recipientCompanyId: group.recipientCompanyId,
         copilot,
@@ -217,10 +222,10 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
       sent += 1
       sentIndividual += 1
     } else if (liveEvents.length >= 1) {
-      senderId ??= await resolveSenderId(copilot)
+      const groupSenderId = senderFromEvents(liveEvents) ?? (senderId ??= await resolveSenderId(copilot))
       await sendGroupedEmail({
         content: composeGroupedEmail(liveEvents),
-        senderId,
+        senderId: groupSenderId,
         recipientInternalUserId: group.recipientIuId,
         copilot,
       })
