@@ -18,6 +18,7 @@ describe('withErrorHandler util', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     jest.spyOn(console, 'error').mockImplementation()
+    jest.spyOn(console, 'warn').mockImplementation()
     req = buildNextRequest(`/?token=iu-token`)
   })
 
@@ -62,12 +63,13 @@ describe('withErrorHandler util', () => {
     expect(console.error).not.toHaveBeenCalled()
   })
 
-  it('maps Prisma not-found errors to 404 without logging', async () => {
+  it('maps Prisma not-found errors to 404 and warns instead of erroring', async () => {
+    const error = new PrismaClientKnownRequestError('Record not found', {
+      code: 'P2025',
+      clientVersion: '5.19.0',
+    })
     const handler = async (_req: NextRequest, _params: any) => {
-      throw new PrismaClientKnownRequestError('Record not found', {
-        code: 'P2025',
-        clientVersion: '5.19.0',
-      })
+      throw error
     }
 
     const nextResponse = await withErrorHandler(handler)(req, null)
@@ -75,15 +77,17 @@ describe('withErrorHandler util', () => {
     expect(response.error).toBe('The requested resource was not found')
     expect(nextResponse.status).toBe(httpStatus.NOT_FOUND)
     expect(console.error).not.toHaveBeenCalled()
+    expect(console.warn).toHaveBeenCalledWith(error)
   })
 
-  it('maps Prisma invalid UUID errors to 404 without logging', async () => {
+  it('maps Prisma invalid UUID errors to 404 and warns instead of erroring', async () => {
+    const error = new PrismaClientKnownRequestError('Malformed UUID', {
+      code: 'P2023',
+      clientVersion: '5.19.0',
+      meta: { message: 'Inconsistent column data: Error creating UUID, invalid character' },
+    })
     const handler = async (_req: NextRequest, _params: any) => {
-      throw new PrismaClientKnownRequestError('Malformed UUID', {
-        code: 'P2023',
-        clientVersion: '5.19.0',
-        meta: { message: 'Inconsistent column data: Error creating UUID, invalid character' },
-      })
+      throw error
     }
 
     const nextResponse = await withErrorHandler(handler)(req, null)
@@ -91,6 +95,7 @@ describe('withErrorHandler util', () => {
     expect(response.error).toBe('The requested resource was not found')
     expect(nextResponse.status).toBe(httpStatus.NOT_FOUND)
     expect(console.error).not.toHaveBeenCalled()
+    expect(console.warn).toHaveBeenCalledWith(error)
   })
 
   it('logs non-UUID Prisma P2023 errors instead of hiding them as 404', async () => {
@@ -110,13 +115,14 @@ describe('withErrorHandler util', () => {
     expect(console.error).toHaveBeenCalledWith(error)
   })
 
-  it('maps raw query invalid UUID errors to 404 without logging', async () => {
+  it('maps raw query invalid UUID errors to 404 and warns instead of erroring', async () => {
+    const error = new PrismaClientKnownRequestError('Raw query failed', {
+      code: 'P2010',
+      clientVersion: '5.19.0',
+      meta: { code: '22P02' },
+    })
     const handler = async (_req: NextRequest, _params: any) => {
-      throw new PrismaClientKnownRequestError('Raw query failed', {
-        code: 'P2010',
-        clientVersion: '5.19.0',
-        meta: { code: '22P02' },
-      })
+      throw error
     }
 
     const nextResponse = await withErrorHandler(handler)(req, null)
@@ -124,6 +130,7 @@ describe('withErrorHandler util', () => {
     expect(response.error).toBe('The requested resource was not found')
     expect(nextResponse.status).toBe(httpStatus.NOT_FOUND)
     expect(console.error).not.toHaveBeenCalled()
+    expect(console.warn).toHaveBeenCalledWith(error)
   })
 
   it('logs unclassified Prisma known request errors', async () => {
