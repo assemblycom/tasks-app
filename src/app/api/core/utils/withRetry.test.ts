@@ -6,6 +6,41 @@ jest.mock('@sentry/nextjs', () => ({
   }),
 }))
 
+jest.mock('p-retry', () => ({
+  __esModule: true,
+  default: jest.fn(
+    async (
+      fn: () => Promise<unknown>,
+      options: {
+        retries?: number
+        onFailedAttempt?: (error: Error & { attemptNumber: number; retriesLeft: number }) => void
+        shouldRetry?: (error: unknown) => boolean
+      },
+    ) => {
+      const maxAttempts = (options.retries ?? 0) + 1
+
+      const runAttempt = async (attemptNumber: number): Promise<unknown> => {
+        try {
+          return await fn()
+        } catch (error) {
+          const retriesLeft = maxAttempts - attemptNumber
+          const failedAttemptError = Object.assign(error instanceof Error ? error : new Error(String(error)), {
+            attemptNumber,
+            retriesLeft,
+          })
+
+          options.onFailedAttempt?.(failedAttemptError)
+
+          if (retriesLeft <= 0 || !options.shouldRetry?.(error)) throw error
+          return runAttempt(attemptNumber + 1)
+        }
+      }
+
+      return runAttempt(1)
+    },
+  ),
+}))
+
 const createTlsDisconnectError = () =>
   Object.assign(new TypeError('fetch failed'), {
     cause: Object.assign(new Error('Client network socket disconnected before secure TLS connection was established'), {
