@@ -370,11 +370,15 @@ export class CopilotAPI {
     console.info('CopilotAPI#dispatchWebhook | Request headers:', headers)
 
     try {
-      await fetch(url, {
-        method: 'POST',
-        headers,
-        body: payload ? JSON.stringify(payload) : null,
-      })
+      await withRetry(
+        () =>
+          fetch(url, {
+            method: 'POST',
+            headers,
+            body: payload ? JSON.stringify(payload) : null,
+          }),
+        [],
+      )
     } catch (e) {
       console.error(`Failed to dispatch webhook for event ${eventName}`, e)
     }
