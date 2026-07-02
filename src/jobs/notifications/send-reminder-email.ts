@@ -31,7 +31,10 @@ export const sendReminderEmail = async ({
   // subject, prefixed with the escalating cadence tag (OUT-3861).
   const needsOverride = reminderSubjectOverrideWorkspaces.has(workspace.id)
   const displayTitle = task.title.replace(reminderSubjectSearch, reminderSubjectReplacement || '')
-  const details = getReminderEmailDetails(workspace, task, isCompanyRecipient, needsOverride ? displayTitle : undefined)[
+  // Subject mirrors the assignment email and keeps the "Action Required: " prefix; the evaluation
+  // body drops it so the prose reads naturally and matches the inline task title.
+  const evaluationTitle = displayTitle.replace('Action Required: ', '')
+  const details = getReminderEmailDetails(workspace, task, isCompanyRecipient, needsOverride ? evaluationTitle : undefined)[
     reminderType
   ]
 

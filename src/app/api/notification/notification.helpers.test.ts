@@ -68,4 +68,11 @@ describe('getReminderEmailDetails', () => {
       )
     }
   })
+
+  it('HTML-escapes the evaluation title to prevent markup injection', () => {
+    const result = getReminderEmailDetails(workspace, task, false, 'Report </strong><img src=x onerror=alert(1)>')
+    const htmlBody = result[TaskReminderType.NO_DUE_DATE_3D].htmlBody
+    expect(htmlBody).toContain('Report &lt;/strong&gt;&lt;img src=x onerror=alert(1)&gt;')
+    expect(htmlBody).not.toContain('<img src=x')
+  })
 })

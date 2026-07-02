@@ -257,6 +257,9 @@ export const REMINDER_ESCALATION_TAG: Record<TaskReminderType, string> = {
   [TaskReminderType.DUE_DATE_OVERDUE_7D]: '[Overdue]',
 }
 
+const escapeHtml = (value: string): string =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
 // Subjects intentionally omit any `<brandName> portal:` prefix — Copilot's email
 // service prepends that itself, and adding it here results in a duplicated prefix.
 // `evaluationTitle` is passed in already-cleaned (rather than derived here) because the cleaning
@@ -281,7 +284,7 @@ export const getReminderEmailDetails = (
   const header = isCompanyRecipient ? `A task was assigned to your ${labels.groupTerm}` : 'A task was assigned to you'
   const ctaParams = { taskId: task.id }
   const title = 'View task'
-  const evaluation = `<strong>${(evaluationTitle || '').replace('Action Required: ', '')}</strong>`
+  const evaluation = `<strong>${escapeHtml(evaluationTitle || '')}</strong>`
 
   return {
     [TaskReminderType.NO_DUE_DATE_3D]: {
