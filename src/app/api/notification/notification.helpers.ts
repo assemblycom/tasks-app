@@ -202,6 +202,13 @@ export const getEmailDetails = (
       title: 'View task',
       ctaParams,
     },
+    [NotificationTaskActions.ReassignedToIU]: {
+      subject: 'A task was reassigned to you',
+      header: 'A task was reassigned to you',
+      title: 'View task',
+      body: `The task ‘${task?.title}’ was reassigned to you by ${actionUser}. To see details about the task open it below.`,
+      ctaParams,
+    },
     [NotificationTaskActions.ReassignedToClient]: {
       subject: 'A task was reassigned to you',
       header: 'A task was reassigned to you',

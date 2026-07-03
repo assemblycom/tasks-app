@@ -53,6 +53,9 @@ export const assemblyApiDomain = z.string().url().parse(process.env.NEXT_PUBLIC_
 // Substring stripped from the task title when building the reminder email subject for
 // subject-override workspaces, and the value it's replaced with. Configured via env so the
 // workspace-specific phrasing isn't hardcoded (OUT-3919).
+// Bypasses the platform preference check while OUT-3929 is pending. Set true in dev/staging.
+export const iuEmailAlwaysEnabled = process.env.IU_EMAIL_ALWAYS_ENABLED === 'true'
+
 export const reminderSubjectSearch = process.env.REMINDER_SUBJECT_SEARCH || ''
 export const reminderSubjectReplacement = process.env.REMINDER_SUBJECT_REPLACEMENT || ''
 
