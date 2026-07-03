@@ -36,13 +36,25 @@ export class NotificationService extends BaseService {
     } = { disableEmail: false },
   ) {
     try {
-      // 1.Check for existing notification. Skip if duplicate
-      const existingNotification = task.clientId
-        ? await this.db.clientNotification.findFirst({
-            where: { taskId: task.id, clientId: task.clientId, companyId: task.companyId },
-          })
-        : null
-      if (task.clientId && existingNotification && !opts.commentId) {
+      const isAssignedToIu =
+        task.assigneeType === AssigneeType.internalUser &&
+        (action === NotificationTaskActions.Assigned || action === NotificationTaskActions.ReassignedToIU)
+      // Completion notifications go to the task creator, an IU
+      const isRecipientIu =
+        isAssignedToIu ||
+        action === NotificationTaskActions.CompletedByIU ||
+        action === NotificationTaskActions.CompletedForCompanyByIU
+
+      // 1. Check for existing notification. Skip if duplicate. This dedup is keyed on the client
+      // assignee, so it must not gate IU-recipient notifications (e.g. CompletedByIU on a
+      // client-assigned task, whose recipient is the creator IU, not the client).
+      const existingNotification =
+        task.clientId && !isRecipientIu
+          ? await this.db.clientNotification.findFirst({
+              where: { taskId: task.id, clientId: task.clientId, companyId: task.companyId },
+            })
+          : null
+      if (existingNotification && !opts.commentId) {
         console.error(`NotificationService#create | Found existing notification for ${task.clientId}`, existingNotification)
         return
       }
@@ -54,10 +66,6 @@ export class NotificationService extends BaseService {
         task,
         action,
       )
-
-      const isAssignedToIu =
-        task.assigneeType === AssigneeType.internalUser &&
-        (action === NotificationTaskActions.Assigned || action === NotificationTaskActions.ReassignedToIU)
 
       const inProduct = opts.disableInProduct
         ? undefined
@@ -74,7 +82,7 @@ export class NotificationService extends BaseService {
           task,
           recipientId,
           companyId: task.companyId ?? association?.companyId ?? undefined,
-          isRecipientIu: isAssignedToIu,
+          isRecipientIu,
           eventType: groupedType,
           commentId: opts.commentId,
           individualEmail: this.buildNotificationDetails(
@@ -83,7 +91,7 @@ export class NotificationService extends BaseService {
             recipientId,
             { email },
             senderCompanyId,
-            isAssignedToIu,
+            isRecipientIu,
           ),
         })
       }
@@ -96,7 +104,7 @@ export class NotificationService extends BaseService {
         recipientId,
         { inProduct, email },
         senderCompanyId,
-        isAssignedToIu,
+        isRecipientIu,
       )
       if (groupedType) notificationDetails.deliveryTargets = { inProduct }
       if (!inProduct && !notificationDetails.deliveryTargets?.email) return
@@ -188,6 +196,12 @@ export class NotificationService extends BaseService {
       const association = AssociationsSchema.parse(task.associations)?.[0]
       // Non-null only when these CU emails should be diverted into the grouped buffer.
       const groupedType = email ? this.groupedEventTypeFor(action) : null
+      // Completion recipients are IUs; undefined (not false) elsewhere so paths like the
+      // Commented-to-IU job keep the absence-of-email inference in buildNotificationDetails
+      const isRecipientIu =
+        action === NotificationTaskActions.Completed || action === NotificationTaskActions.CompletedByCompanyMember
+          ? true
+          : undefined
 
       // NOTE: The reason we are skipping using NotificationService#create and implementing notification dispatch + save manually is because
       // we can just do one `createMany` DB call instead of one per notification, saving a ton of DB calls
@@ -208,9 +222,17 @@ export class NotificationService extends BaseService {
               task,
               recipientId,
               companyId: task.companyId ?? association?.companyId ?? undefined,
+              isRecipientIu,
               eventType: groupedType,
               commentId: opts?.commentId,
-              individualEmail: this.buildNotificationDetails(task, senderId, recipientId, { email }, opts?.senderCompanyId),
+              individualEmail: this.buildNotificationDetails(
+                task,
+                senderId,
+                recipientId,
+                { email },
+                opts?.senderCompanyId,
+                isRecipientIu,
+              ),
             })
             if (!inProduct) continue
           }
@@ -223,6 +245,7 @@ export class NotificationService extends BaseService {
             recipientId,
             { inProduct, email },
             opts?.senderCompanyId,
+            isRecipientIu,
           )
           if (groupedType) notificationDetails.deliveryTargets = { inProduct }
 
@@ -604,6 +627,11 @@ export class NotificationService extends BaseService {
         return GroupedEmailEventType.SHARED
       case NotificationTaskActions.Commented:
         return GroupedEmailEventType.COMMENT
+      case NotificationTaskActions.Completed:
+      case NotificationTaskActions.CompletedByIU:
+      case NotificationTaskActions.CompletedByCompanyMember:
+      case NotificationTaskActions.CompletedForCompanyByIU:
+        return GroupedEmailEventType.COMPLETED
       default:
         return null
     }
