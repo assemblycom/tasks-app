@@ -7,6 +7,94 @@ import { ZodError, ZodFormattedError } from 'zod'
 
 export type RequestHandler = (req: NextRequest, params: any) => Promise<NextResponse>
 
+type ErrorResponse = {
+  errors?: unknown[]
+  message: string | ZodFormattedError<string>
+  status: number
+}
+
+// P2023 ("Inconsistent column data") covers more than UUIDs (e.g. enum mismatches), so
+// only treat it as not-found when the meta message points at a malformed UUID — otherwise
+// it stays an unclassified error that logs, rather than being silently hidden as a 404.
+const isInvalidUuidError = (error: PrismaClientKnownRequestError) => {
+  if (error.code === 'P2010' && error.meta?.code === '22P02') {
+    return true
+  }
+
+  const metaMessage = error.meta?.message
+  return error.code === 'P2023' && typeof metaMessage === 'string' && metaMessage.toLowerCase().includes('uuid')
+}
+
+const getPrismaKnownRequestErrorResponse = (error: PrismaClientKnownRequestError): ErrorResponse | null => {
+  if (error.code === 'P2025' || isInvalidUuidError(error)) {
+    return {
+      status: httpStatus.NOT_FOUND,
+      message: 'The requested resource was not found',
+    }
+  }
+
+  return null
+}
+
+const normalizeError = (error: unknown): ErrorResponse => {
+  const defaultResponse = {
+    status: (error as StatusableError).status || httpStatus.BAD_REQUEST,
+    message: (error as MessagableError).body?.message || 'Something went wrong',
+  }
+
+  if (error instanceof ZodError) {
+    const flattened = error.flatten()
+    const allMessages = [...flattened.formErrors, ...Object.values(flattened.fieldErrors).flat()].filter(Boolean)
+
+    return {
+      status: httpStatus.UNPROCESSABLE_ENTITY,
+      message: allMessages[0] || (error.format() as ZodFormattedError<string>),
+    }
+  }
+
+  if (error instanceof CopilotApiError) {
+    return {
+      ...defaultResponse,
+      status: error.status || defaultResponse.status,
+      message: error.body.message || defaultResponse.message,
+    }
+  }
+
+  if (error instanceof APIError) {
+    return {
+      status: error.status,
+      message: error.message || defaultResponse.message,
+      errors: error.errors,
+    }
+  }
+
+  if (error instanceof PrismaClientKnownRequestError) {
+    return getPrismaKnownRequestErrorResponse(error) || defaultResponse
+  }
+
+  return defaultResponse
+}
+
+const isExpectedPrismaError = (error: unknown) =>
+  error instanceof PrismaClientKnownRequestError && getPrismaKnownRequestErrorResponse(error) !== null
+
+const isExpectedClientError = (error: unknown) => {
+  return (
+    error instanceof ZodError ||
+    error instanceof CopilotApiError ||
+    error instanceof APIError ||
+    isExpectedPrismaError(error)
+  )
+}
+
+const shouldLogError = (error: unknown, response: ErrorResponse) => {
+  if (response.status >= httpStatus.INTERNAL_SERVER_ERROR) {
+    return true
+  }
+
+  return !isExpectedClientError(error)
+}
+
 /**
  * Reusable utility that wraps a given request handler with a global error handler to standardize response structure
  * in case of failures. Catches exceptions thrown from the handler, and returns a formatted error response.
@@ -31,41 +119,18 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
     try {
       return await handler(req, params)
     } catch (error: unknown) {
-      // Format error in a readable way
+      const response = normalizeError(error)
+      const expectedPrismaError = isExpectedPrismaError(error)
 
-      let formattedError = error
-      if (error instanceof ZodError) {
-        formattedError = error.format() as ZodFormattedError<string>
-      }
-      console.error(formattedError)
-
-      // Default staus and message for JSON error response
-      let status: number = (error as StatusableError).status || httpStatus.BAD_REQUEST
-      let message: string | ZodFormattedError<string> = (error as MessagableError).body?.message || 'Something went wrong'
-      let errors: unknown[] | undefined = undefined
-
-      // Build a proper response based on the type of Error encountered
-      if (error instanceof ZodError) {
-        status = httpStatus.UNPROCESSABLE_ENTITY
-        const flattened = error.flatten()
-        const allMessages = [...flattened.formErrors, ...Object.values(flattened.fieldErrors).flat()].filter(Boolean)
-        message = allMessages[0] || (formattedError as ZodFormattedError<string>)
-      } else if (error instanceof CopilotApiError) {
-        status = error.status || status
-        message = error.body.message || message
-      } else if (error instanceof APIError) {
-        status = error.status
-        message = error.message || message
-        errors = error.errors
-      } else if (error instanceof PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
-          // Code for NOT FOUND in Prisma
-          status = httpStatus.NOT_FOUND
-          message = 'The requested resource was not found'
-        }
+      if (shouldLogError(error, response)) {
+        console.error(error instanceof ZodError ? error.format() : error)
+      } else if (expectedPrismaError) {
+        // Keep a breadcrumb for mapped Prisma errors (e.g. P2025) without alerting Sentry —
+        // a nested-write failure can still signal a real data-integrity issue worth seeing.
+        console.warn(error)
       }
 
-      return NextResponse.json({ error: message, errors }, { status })
+      return NextResponse.json({ error: response.message, errors: response.errors }, { status: response.status })
     }
   }
 }

@@ -209,7 +209,8 @@ export class CopilotAPI {
 
   async _getCompanyClients(companyId: string): Promise<ClientResponse[]> {
     console.info('CopilotAPI#_getCompanyClients', this.token)
-    return (await this.getClients({ limit: 10000, companyId })).data || []
+    const clients = (await this.getClients({ limit: 10000, companyId })).data || []
+    return clients.filter((c) => c.status !== 'deleted')
   }
 
   async _getCustomFields(): Promise<CustomFieldResponse> {
