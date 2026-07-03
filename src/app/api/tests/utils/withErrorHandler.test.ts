@@ -133,7 +133,7 @@ describe('withErrorHandler util', () => {
     expect(console.warn).toHaveBeenCalledWith(error)
   })
 
-  it('logs unclassified Prisma known request errors', async () => {
+  it('maps Prisma unique constraint errors to 409 and warns instead of erroring', async () => {
     const error = new PrismaClientKnownRequestError('Unique constraint failed', {
       code: 'P2002',
       clientVersion: '5.19.0',
@@ -144,9 +144,28 @@ describe('withErrorHandler util', () => {
 
     const nextResponse = await withErrorHandler(handler)(req, null)
     const response = await nextResponse.json()
-    expect(response.error).toBe('Something went wrong')
-    expect(nextResponse.status).toBe(httpStatus.BAD_REQUEST)
-    expect(console.error).toHaveBeenCalledWith(error)
+    expect(response.error).toBe('A resource with these values already exists')
+    expect(nextResponse.status).toBe(httpStatus.CONFLICT)
+    expect(console.error).not.toHaveBeenCalled()
+    expect(console.warn).toHaveBeenCalledWith(error)
+  })
+
+  it('recognizes Prisma known request errors across module boundaries', async () => {
+    const error = {
+      code: 'P2025',
+      constructor: { name: 'PrismaClientKnownRequestError' },
+      message: 'Record not found',
+    }
+    const handler = async (_req: NextRequest, _params: any) => {
+      throw error
+    }
+
+    const nextResponse = await withErrorHandler(handler)(req, null)
+    const response = await nextResponse.json()
+    expect(response.error).toBe('The requested resource was not found')
+    expect(nextResponse.status).toBe(httpStatus.NOT_FOUND)
+    expect(console.error).not.toHaveBeenCalled()
+    expect(console.warn).toHaveBeenCalledWith(error)
   })
 
   it('logs unexpected errors that default to a 4xx response', async () => {

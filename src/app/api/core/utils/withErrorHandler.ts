@@ -1,6 +1,5 @@
 import { CopilotApiError, MessagableError, StatusableError } from '@/types/CopilotApiError'
 import APIError from '@api/core/exceptions/api'
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library'
 import httpStatus from 'http-status'
 import { NextRequest, NextResponse } from 'next/server'
 import { ZodError, ZodFormattedError } from 'zod'
@@ -13,10 +12,45 @@ type ErrorResponse = {
   status: number
 }
 
+type PrismaKnownRequestError = {
+  code: string
+  meta?: Record<string, unknown>
+  name?: string
+}
+
+const PRISMA_KNOWN_REQUEST_ERROR_NAME = 'PrismaClientKnownRequestError'
+
+const getConstructorName = (constructor: unknown) => {
+  if (typeof constructor === 'function') {
+    return constructor.name
+  }
+
+  if (!constructor || typeof constructor !== 'object') {
+    return undefined
+  }
+
+  const name = (constructor as { name?: unknown }).name
+  return typeof name === 'string' ? name : undefined
+}
+
+const isPrismaKnownRequestError = (error: unknown): error is PrismaKnownRequestError => {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const candidate = error as Partial<PrismaKnownRequestError>
+  const constructorName = getConstructorName(candidate.constructor)
+
+  return (
+    typeof candidate.code === 'string' &&
+    (candidate.name === PRISMA_KNOWN_REQUEST_ERROR_NAME || constructorName === PRISMA_KNOWN_REQUEST_ERROR_NAME)
+  )
+}
+
 // P2023 ("Inconsistent column data") covers more than UUIDs (e.g. enum mismatches), so
 // only treat it as not-found when the meta message points at a malformed UUID — otherwise
 // it stays an unclassified error that logs, rather than being silently hidden as a 404.
-const isInvalidUuidError = (error: PrismaClientKnownRequestError) => {
+const isInvalidUuidError = (error: PrismaKnownRequestError) => {
   if (error.code === 'P2010' && error.meta?.code === '22P02') {
     return true
   }
@@ -25,11 +59,18 @@ const isInvalidUuidError = (error: PrismaClientKnownRequestError) => {
   return error.code === 'P2023' && typeof metaMessage === 'string' && metaMessage.toLowerCase().includes('uuid')
 }
 
-const getPrismaKnownRequestErrorResponse = (error: PrismaClientKnownRequestError): ErrorResponse | null => {
+const getPrismaKnownRequestErrorResponse = (error: PrismaKnownRequestError): ErrorResponse | null => {
   if (error.code === 'P2025' || isInvalidUuidError(error)) {
     return {
       status: httpStatus.NOT_FOUND,
       message: 'The requested resource was not found',
+    }
+  }
+
+  if (error.code === 'P2002') {
+    return {
+      status: httpStatus.CONFLICT,
+      message: 'A resource with these values already exists',
     }
   }
 
@@ -68,7 +109,7 @@ const normalizeError = (error: unknown): ErrorResponse => {
     }
   }
 
-  if (error instanceof PrismaClientKnownRequestError) {
+  if (isPrismaKnownRequestError(error)) {
     return getPrismaKnownRequestErrorResponse(error) || defaultResponse
   }
 
@@ -76,7 +117,7 @@ const normalizeError = (error: unknown): ErrorResponse => {
 }
 
 const isExpectedPrismaError = (error: unknown) =>
-  error instanceof PrismaClientKnownRequestError && getPrismaKnownRequestErrorResponse(error) !== null
+  isPrismaKnownRequestError(error) && getPrismaKnownRequestErrorResponse(error) !== null
 
 const isExpectedClientError = (error: unknown) => {
   return (
