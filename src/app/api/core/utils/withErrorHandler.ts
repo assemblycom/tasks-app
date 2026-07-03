@@ -120,14 +120,9 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
       return await handler(req, params)
     } catch (error: unknown) {
       const response = normalizeError(error)
-      const expectedPrismaError = isExpectedPrismaError(error)
 
       if (shouldLogError(error, response)) {
         console.error(error instanceof ZodError ? error.format() : error)
-      } else if (expectedPrismaError) {
-        // Keep a breadcrumb for mapped Prisma errors (e.g. P2025) without alerting Sentry —
-        // a nested-write failure can still signal a real data-integrity issue worth seeing.
-        console.warn(error)
       }
 
       return NextResponse.json({ error: response.message, errors: response.errors }, { status: response.status })
