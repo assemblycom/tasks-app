@@ -101,6 +101,8 @@ beforeEach(() => {
 })
 
 const deliveryTargetsOf = (call: number) => mockCreateNotification.mock.calls[call][0].deliveryTargets
+const queryRawParamsOf = (call: number) =>
+  mockQueryRaw.mock.calls[call].flatMap((arg: { values?: unknown[] }) => arg?.values ?? arg)
 
 describe('NotificationService grouped-email interception', () => {
   describe('create()', () => {
@@ -121,7 +123,7 @@ describe('NotificationService grouped-email interception', () => {
       })
       // window is scoped to the (clientId, companyId) pair, not the client alone
       expect(row.windowKey).toMatch(new RegExp(`^${task.assigneeId}:${task.companyId}:`))
-      expect(mockQueryRaw.mock.calls[0]).toContain(task.companyId)
+      expect(queryRawParamsOf(0)).toContain(task.companyId)
       expect(mockEnqueueFlush).toHaveBeenCalledWith({ workspaceId: 'ws_1', windowKey: row.windowKey })
 
       // the row snapshots the exact individual email to replay for a single-event window
@@ -156,7 +158,7 @@ describe('NotificationService grouped-email interception', () => {
       const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
       expect(row.recipientCompanyId).toBe(companyB)
       expect(row.windowKey).toMatch(new RegExp(`^33333333-3333-3333-3333-333333333333:${companyB}:`))
-      expect(mockQueryRaw.mock.calls[0]).toContain(companyB)
+      expect(queryRawParamsOf(0)).toContain(companyB)
     })
 
     it('does not buffer or strip email for a non-target action (byte-for-byte)', async () => {

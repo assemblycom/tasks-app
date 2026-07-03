@@ -55,7 +55,7 @@ export class NotificationService extends BaseService {
         action,
       )
 
-      const isIuRecipient =
+      const isAssignedToIu =
         task.assigneeType === AssigneeType.internalUser &&
         (action === NotificationTaskActions.Assigned || action === NotificationTaskActions.ReassignedToIU)
 
@@ -72,9 +72,9 @@ export class NotificationService extends BaseService {
         const association = AssociationsSchema.parse(task.associations)?.[0]
         await this.bufferGroupedEmailEvent({
           task,
-          ...(!isIuRecipient && { recipientClientId: recipientId }),
-          ...(!isIuRecipient && { recipientCompanyId: task.companyId ?? association?.companyId ?? undefined }),
-          ...(isIuRecipient && { recipientIuId: recipientId }),
+          recipientId,
+          companyId: task.companyId ?? association?.companyId ?? undefined,
+          isRecipientIu: isAssignedToIu,
           eventType: groupedType,
           commentId: opts.commentId,
           individualEmail: this.buildNotificationDetails(
@@ -83,7 +83,7 @@ export class NotificationService extends BaseService {
             recipientId,
             { email },
             senderCompanyId,
-            isIuRecipient,
+            isAssignedToIu,
           ),
         })
       }
@@ -96,7 +96,7 @@ export class NotificationService extends BaseService {
         recipientId,
         { inProduct, email },
         senderCompanyId,
-        isIuRecipient,
+        isAssignedToIu,
       )
       if (groupedType) notificationDetails.deliveryTargets = { inProduct }
       if (!inProduct && !notificationDetails.deliveryTargets?.email) return
@@ -118,7 +118,7 @@ export class NotificationService extends BaseService {
       // NOTE: There are cases where task.assigneeType does not account for IU notification!
       // E.g. When receiving notifications from others completing task that IU created.
       // For now we don't have to store these so this hasn't been accounted for
-      if (isIuRecipient) {
+      if (isAssignedToIu) {
         // Notification recipient is IU in this case
         await this.db.internalUserNotification.create({
           data: {
@@ -206,8 +206,8 @@ export class NotificationService extends BaseService {
           if (groupedType) {
             await this.bufferGroupedEmailEvent({
               task,
-              recipientClientId: recipientId,
-              recipientCompanyId: task.companyId ?? association?.companyId ?? undefined,
+              recipientId,
+              companyId: task.companyId ?? association?.companyId ?? undefined,
               eventType: groupedType,
               commentId: opts?.commentId,
               individualEmail: this.buildNotificationDetails(task, senderId, recipientId, { email }, opts?.senderCompanyId),
@@ -611,49 +611,41 @@ export class NotificationService extends BaseService {
 
   private async bufferGroupedEmailEvent(args: {
     task: Task
-    recipientClientId?: string
-    recipientCompanyId?: string
-    recipientIuId?: string
+    recipientId: string
+    companyId?: string
+    isRecipientIu?: boolean
     eventType: GroupedEmailEventType
     commentId?: string
     individualEmail: NotificationRequestBody
   }): Promise<void> {
-    const { task, recipientClientId, recipientCompanyId, recipientIuId, eventType, commentId, individualEmail } = args
-    const isIuRecipient = !!recipientIuId
+    const { task, recipientId, companyId, isRecipientIu, eventType, commentId, individualEmail } = args
 
-    const activeWindow = isIuRecipient
-      ? await this.db.$queryRaw<{ windowKey: string }[]>`
-          SELECT "windowKey" FROM "GroupedEmailEvents"
-          WHERE "workspaceId" = ${task.workspaceId}
-            AND "recipientIuId" = ${recipientIuId}::uuid
-            AND "sentAt" IS NULL
-            AND "createdAt" > now() - interval '5 minutes'
-          ORDER BY "createdAt" DESC
-          LIMIT 1`
-      : await this.db.$queryRaw<{ windowKey: string }[]>`
-          SELECT "windowKey" FROM "GroupedEmailEvents"
-          WHERE "workspaceId" = ${task.workspaceId}
-            AND "recipientClientId" = ${recipientClientId}::uuid
-            AND "recipientCompanyId" IS NOT DISTINCT FROM ${recipientCompanyId}::uuid
-            AND "sentAt" IS NULL
-            AND "createdAt" > now() - interval '5 minutes'
-          ORDER BY "createdAt" DESC
-          LIMIT 1`
+    const recipientFilter = isRecipientIu
+      ? Prisma.sql`"recipientIuId" = ${recipientId}::uuid`
+      : Prisma.sql`"recipientClientId" = ${recipientId}::uuid AND "recipientCompanyId" IS NOT DISTINCT FROM ${companyId ?? null}::uuid`
+    const activeWindow = await this.db.$queryRaw<{ windowKey: string }[]>`
+        SELECT "windowKey" FROM "GroupedEmailEvents"
+        WHERE "workspaceId" = ${task.workspaceId}
+          AND ${recipientFilter}
+          AND "sentAt" IS NULL
+          AND "createdAt" > now() - interval '5 minutes'
+        ORDER BY "createdAt" DESC
+        LIMIT 1`
 
     const isNewWindow = activeWindow.length === 0
     const windowKey = isNewWindow
-      ? isIuRecipient
-        ? `${recipientIuId}:iu:${randomUUID()}`
-        : `${recipientClientId}:${recipientCompanyId ?? 'none'}:${randomUUID()}`
+      ? isRecipientIu
+        ? `${recipientId}:iu:${randomUUID()}`
+        : `${recipientId}:${companyId ?? 'none'}:${randomUUID()}`
       : activeWindow[0].windowKey
 
     await this.db.groupedEmailEvent.createMany({
       data: [
         {
           workspaceId: task.workspaceId,
-          recipientClientId: recipientClientId ?? null,
-          recipientCompanyId: recipientCompanyId ?? null,
-          recipientIuId: recipientIuId ?? null,
+          recipientClientId: isRecipientIu ? null : recipientId,
+          recipientCompanyId: isRecipientIu ? null : (companyId ?? null),
+          recipientIuId: isRecipientIu ? recipientId : null,
           eventType,
           taskId: task.id,
           taskTitleSnapshot: task.title,
@@ -694,7 +686,7 @@ export class NotificationService extends BaseService {
     recipientId: string,
     deliveryTargets: NotificationRequestBody['deliveryTargets'],
     senderCompanyId?: string,
-    isIuRecipient?: boolean,
+    isRecipientIu?: boolean,
   ): NotificationRequestBody {
     const associations = AssociationsSchema.parse(task.associations)
     const association = associations?.[0]
@@ -707,7 +699,7 @@ export class NotificationService extends BaseService {
       deliveryTargets: deliveryTargets || {},
     }
     // Fall back to inferring IU from absence of email for paths not yet updated (e.g. CommentToIU).
-    const isIU = isIuRecipient ?? !notificationDetails.deliveryTargets?.email
+    const isIU = isRecipientIu ?? !notificationDetails.deliveryTargets?.email
     if (isIU) {
       delete notificationDetails.recipientCompanyId
       delete notificationDetails.recipientClientId
