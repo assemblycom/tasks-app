@@ -137,9 +137,29 @@ describe('sendReminderEmail', () => {
 
     const payload = createNotification.mock.calls[0][0]
     expect(payload.deliveryTargets.email.subject).toBe('[Overdue] Submit timesheet')
-    // Only the subject is customized — the rest of the reminder copy is unchanged.
-    expect(payload.deliveryTargets.email.header).toBe('A task was assigned to you')
-    expect(payload.deliveryTargets.email.title).toBe('View task')
+    expect(payload.deliveryTargets.email.header).toBe('Review your mystery shop evaluation')
+    expect(payload.deliveryTargets.email.title).toBe('Review Evaluation')
+    expect(payload.deliveryTargets.email.body).toBeUndefined()
+    expect(payload.deliveryTargets.email.htmlBody).toContain('mystery shop evaluation for <strong>Submit timesheet</strong>')
+  })
+
+  it('keeps "Action Required:" in the subject but drops it from the evaluation htmlBody', async () => {
+    const createNotification = jest.fn().mockResolvedValue({ id: 'notif_7', createdAt: '2026-05-25T00:00:00Z' })
+
+    await sendReminderEmail({
+      task: { ...task, title: 'Action Required: Submit timesheet' },
+      recipientClientId: 'client_1',
+      recipientCompanyId: 'company_1',
+      reminderType: TaskReminderType.DUE_DATE_OVERDUE_3D,
+      isCompanyRecipient: false,
+      workspace: { ...workspace, id: 'ws_override' },
+      copilot: buildCopilotMock(createNotification),
+    })
+
+    const email = createNotification.mock.calls[0][0].deliveryTargets.email
+    expect(email.subject).toBe('[Overdue] Action Required: Submit timesheet')
+    expect(email.htmlBody).toContain('<strong>Submit timesheet</strong>')
+    expect(email.htmlBody).not.toContain('Action Required:')
   })
 
   it('strips the configured search phrase from the subject for override workspaces', async () => {
