@@ -144,13 +144,15 @@ export class NotificationService extends BaseService {
     action: NotificationTaskActions,
     task: Task,
     recipientIds: string[],
-    opts?: {
+    // isRecipientIu is required: the same action (e.g. Commented) fans out to both CU and IU
+    // recipient lists, so routing must be declared by the caller, never inferred.
+    opts: {
+      isRecipientIu: boolean
       email?: boolean
       disableInProduct?: boolean
       commentId?: string
       senderCompanyId?: string
       emailOverride?: EmailNotificationDetails
-      isRecipientIu?: boolean
     },
   ) {
     try {
@@ -194,9 +196,7 @@ export class NotificationService extends BaseService {
       const association = AssociationsSchema.parse(task.associations)?.[0]
       // Non-null only when these emails should be diverted into the grouped buffer.
       const groupedType = email ? this.groupedEventTypeFor(action) : null
-      // Recipient type is declared by the caller — the same action (e.g. Commented) fans out to
-      // both CU and IU recipient lists, so it can't be inferred from the action alone.
-      const isRecipientIu = opts?.isRecipientIu ?? false
+      const isRecipientIu = opts.isRecipientIu
 
       // NOTE: The reason we are skipping using NotificationService#create and implementing notification dispatch + save manually is because
       // we can just do one `createMany` DB call instead of one per notification, saving a ton of DB calls

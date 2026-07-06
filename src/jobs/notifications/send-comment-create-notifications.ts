@@ -41,6 +41,7 @@ export const sendCommentCreateNotifications = task({
       email: true,
       disableInProduct: true,
       commentId: comment.id,
+      isRecipientIu: false,
     })
 
     const { recipientIds: iuRecipientIds, senderCompanyId } = await commentNotificationService.getNotificationParties(

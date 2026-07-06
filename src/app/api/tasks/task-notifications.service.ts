@@ -425,6 +425,7 @@ export class TaskNotificationsService extends BaseService {
     await this.notificationService.createBulkNotification(NotificationTaskActions.SharedToCompany, task, recipientIds, {
       email: true,
       disableInProduct: true,
+      isRecipientIu: false,
     })
   }
 
@@ -449,7 +450,7 @@ export class TaskNotificationsService extends BaseService {
       NotificationTaskActions.CompletedToSharedCompany,
       task,
       recipientIds,
-      { email: true, disableInProduct: true },
+      { email: true, disableInProduct: true, isRecipientIu: false },
     )
   }
 
@@ -517,7 +518,7 @@ export class TaskNotificationsService extends BaseService {
       isReassigned ? NotificationTaskActions.ReassignedToCompany : NotificationTaskActions.AssignedToCompany,
       task,
       recipientIds,
-      { email: true, emailOverride },
+      { email: true, emailOverride, isRecipientIu: false },
     )
   }
 

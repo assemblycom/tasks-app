@@ -228,6 +228,7 @@ describe('NotificationService grouped-email interception', () => {
         email: true,
         disableInProduct: true,
         commentId: '44444444-4444-4444-4444-444444444444',
+        isRecipientIu: false,
       })
 
       expect(mockGroupedCreateMany).toHaveBeenCalledTimes(2)
@@ -248,6 +249,7 @@ describe('NotificationService grouped-email interception', () => {
         ['cu_a', 'cu_b', 'cu_c'],
         {
           email: true,
+          isRecipientIu: false,
         },
       )
 
@@ -263,7 +265,10 @@ describe('NotificationService grouped-email interception', () => {
         associations: [{ companyId: assocCompany }] as unknown as Task['associations'],
       })
 
-      await buildService().createBulkNotification(NotificationTaskActions.SharedToCompany, task, ['cu_a'], { email: true })
+      await buildService().createBulkNotification(NotificationTaskActions.SharedToCompany, task, ['cu_a'], {
+        email: true,
+        isRecipientIu: false,
+      })
 
       expect(mockGroupedCreateMany.mock.calls[0][0].data[0].recipientCompanyId).toBe(assocCompany)
     })
@@ -273,6 +278,7 @@ describe('NotificationService grouped-email interception', () => {
         email: false,
         disableInProduct: false,
         commentId: '44444444-4444-4444-4444-444444444444',
+        isRecipientIu: false,
       })
 
       expect(mockGroupedCreateMany).not.toHaveBeenCalled()
@@ -306,11 +312,12 @@ describe('NotificationService grouped-email interception', () => {
       }
     })
 
-    it('routes a Commented email with email enabled to the client when isRecipientIu is not set (no email-absence inference)', async () => {
+    it('routes an email-enabled Commented email to the client when isRecipientIu is false (no email-absence inference)', async () => {
       await buildService().createBulkNotification(NotificationTaskActions.Commented, makeTask(), ['cu_a'], {
         email: true,
         disableInProduct: true,
         commentId: '44444444-4444-4444-4444-444444444444',
+        isRecipientIu: false,
       })
 
       const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
