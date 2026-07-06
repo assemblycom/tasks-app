@@ -5,6 +5,7 @@ import { CopilotAPI } from '@/utils/CopilotAPI'
 import { isMessagableError } from '@/utils/copilotError'
 import { CommentRepository } from '@/app/api/comments/comment.repository'
 import { CommentService } from '@/app/api/comments/comment.service'
+import { isIuEmailEnabled } from '@/app/api/notification/isIuEmailEnabled'
 import User from '@api/core/models/User.model'
 import { TasksService } from '@api/tasks/tasks.service'
 import { Comment, CommentInitiator, Task } from '@prisma/client'
@@ -166,7 +167,10 @@ const getInitiatorNotificationPromises = (
     body = {
       ...base,
       recipientInternalUserId: initiator.initiatorId,
-      deliveryTargets: { inProduct: deliveryTargets.inProduct },
+      deliveryTargets: {
+        inProduct: deliveryTargets.inProduct,
+        ...(isIuEmailEnabled() && { email: deliveryTargets.email }),
+      },
     }
   } else if (initiator.initiatorType === CommentInitiator.client || assume === CommentInitiator.client) {
     body = {

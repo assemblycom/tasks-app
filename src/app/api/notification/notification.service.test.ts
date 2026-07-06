@@ -228,6 +228,7 @@ describe('NotificationService grouped-email interception', () => {
         email: true,
         disableInProduct: true,
         commentId: '44444444-4444-4444-4444-444444444444',
+        isRecipientIu: false,
       })
 
       expect(mockGroupedCreateMany).toHaveBeenCalledTimes(2)
@@ -248,6 +249,7 @@ describe('NotificationService grouped-email interception', () => {
         ['cu_a', 'cu_b', 'cu_c'],
         {
           email: true,
+          isRecipientIu: false,
         },
       )
 
@@ -263,7 +265,10 @@ describe('NotificationService grouped-email interception', () => {
         associations: [{ companyId: assocCompany }] as unknown as Task['associations'],
       })
 
-      await buildService().createBulkNotification(NotificationTaskActions.SharedToCompany, task, ['cu_a'], { email: true })
+      await buildService().createBulkNotification(NotificationTaskActions.SharedToCompany, task, ['cu_a'], {
+        email: true,
+        isRecipientIu: false,
+      })
 
       expect(mockGroupedCreateMany.mock.calls[0][0].data[0].recipientCompanyId).toBe(assocCompany)
     })
@@ -273,10 +278,53 @@ describe('NotificationService grouped-email interception', () => {
         email: false,
         disableInProduct: false,
         commentId: '44444444-4444-4444-4444-444444444444',
+        isRecipientIu: false,
       })
 
       expect(mockGroupedCreateMany).not.toHaveBeenCalled()
       expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    })
+
+    it('buffers a Commented IU email as an IU row and dispatches the in-product notification to the IU', async () => {
+      await buildService().createBulkNotification(NotificationTaskActions.Commented, makeTask(), ['iu_a', 'iu_b'], {
+        email: true,
+        disableInProduct: false,
+        commentId: '44444444-4444-4444-4444-444444444444',
+        isRecipientIu: true,
+      })
+
+      expect(mockGroupedCreateMany).toHaveBeenCalledTimes(2)
+      const rows = mockGroupedCreateMany.mock.calls.map((c) => c[0].data[0])
+      expect(rows.map((r) => r.recipientIuId)).toEqual(['iu_a', 'iu_b'])
+      for (const row of rows) {
+        expect(row.eventType).toBe(GroupedEmailEventType.COMMENT)
+        expect(row.recipientClientId).toBeNull()
+        expect(row.individualEmail.recipientInternalUserId).toBeDefined()
+        expect(row.individualEmail.recipientClientId).toBeUndefined()
+      }
+
+      // in-product still fires immediately, routed to the IU with the email stripped
+      const sent = mockCreateNotification.mock.calls.map((c) => c[0])
+      expect(sent.map((s) => s.recipientInternalUserId)).toEqual(['iu_a', 'iu_b'])
+      for (const s of sent) {
+        expect(s.recipientClientId).toBeUndefined()
+        expect(s.deliveryTargets.email).toBeUndefined()
+      }
+    })
+
+    it('routes an email-enabled Commented email to the client when isRecipientIu is false (no email-absence inference)', async () => {
+      await buildService().createBulkNotification(NotificationTaskActions.Commented, makeTask(), ['cu_a'], {
+        email: true,
+        disableInProduct: true,
+        commentId: '44444444-4444-4444-4444-444444444444',
+        isRecipientIu: false,
+      })
+
+      const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
+      expect(row.recipientClientId).toBe('cu_a')
+      expect(row.recipientIuId).toBeNull()
+      expect(row.individualEmail.recipientClientId).toBe('cu_a')
+      expect(row.individualEmail.recipientInternalUserId).toBeUndefined()
     })
   })
 })
@@ -430,6 +478,7 @@ describe('guard: IU completion emails', () => {
   it('bulk Completed buffers one COMPLETED IU row per recipient and strips the email from dispatch', async () => {
     await buildService().createBulkNotification(NotificationTaskActions.Completed, makeTask(), ['iu_a', 'iu_b'], {
       email: true,
+      isRecipientIu: true,
     })
 
     expect(mockGroupedCreateMany).toHaveBeenCalledTimes(2)
@@ -453,6 +502,7 @@ describe('guard: IU completion emails', () => {
   it('bulk CompletedByCompanyMember neither buffers nor emails when the flag is off (email opt falsy)', async () => {
     await buildService().createBulkNotification(NotificationTaskActions.CompletedByCompanyMember, makeTask(), ['iu_a'], {
       email: false,
+      isRecipientIu: true,
     })
 
     expect(mockGroupedCreateMany).not.toHaveBeenCalled()

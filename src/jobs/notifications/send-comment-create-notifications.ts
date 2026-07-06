@@ -1,6 +1,7 @@
 import User from '@/app/api/core/models/User.model'
 import { NotificationTaskActions } from '@/app/api/core/types/tasks'
 import { UserRole } from '@/app/api/core/types/user'
+import { isIuEmailEnabled } from '@/app/api/notification/isIuEmailEnabled'
 import { NotificationService } from '@/app/api/notification/notification.service'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { Comment, Task } from '@prisma/client'
@@ -40,6 +41,7 @@ export const sendCommentCreateNotifications = task({
       email: true,
       disableInProduct: true,
       commentId: comment.id,
+      isRecipientIu: false,
     })
 
     const { recipientIds: iuRecipientIds, senderCompanyId } = await commentNotificationService.getNotificationParties(
@@ -50,10 +52,11 @@ export const sendCommentCreateNotifications = task({
     const filteredIUIds = iuRecipientIds.filter((id: string) => id !== comment.initiatorId)
     console.info('creating notifications for IUs', filteredIUIds)
     await commentNotificationService.createBulkNotification(NotificationTaskActions.Commented, task, filteredIUIds, {
-      email: false,
+      email: isIuEmailEnabled(),
       disableInProduct: false,
       commentId: comment.id,
       senderCompanyId,
+      isRecipientIu: true,
     })
   },
 })
