@@ -372,7 +372,7 @@ export class TaskNotificationsService extends BaseService {
         NotificationTaskActions.CompletedByCompanyMember,
         updatedTask,
         recipientIds,
-        { senderCompanyId, email: isIuEmailEnabled() },
+        { senderCompanyId, email: isIuEmailEnabled(), isRecipientIu: true },
       )
       await this.notificationService.markAsReadForAllRecipients(updatedTask)
     } else {
@@ -384,6 +384,7 @@ export class TaskNotificationsService extends BaseService {
       await this.notificationService.createBulkNotification(NotificationTaskActions.Completed, updatedTask, recipientIds, {
         senderCompanyId,
         email: isIuEmailEnabled(),
+        isRecipientIu: true,
       })
       await this.notificationService.markClientNotificationAsRead(updatedTask)
     }

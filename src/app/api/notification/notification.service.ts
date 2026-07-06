@@ -150,6 +150,7 @@ export class NotificationService extends BaseService {
       commentId?: string
       senderCompanyId?: string
       emailOverride?: EmailNotificationDetails
+      isRecipientIu?: boolean
     },
   ) {
     try {
@@ -191,14 +192,11 @@ export class NotificationService extends BaseService {
       const iuNotifications = []
 
       const association = AssociationsSchema.parse(task.associations)?.[0]
-      // Non-null only when these CU emails should be diverted into the grouped buffer.
+      // Non-null only when these emails should be diverted into the grouped buffer.
       const groupedType = email ? this.groupedEventTypeFor(action) : null
-      // Completion recipients are IUs; undefined (not false) elsewhere so paths like the
-      // Commented-to-IU job keep the absence-of-email inference in buildNotificationDetails
-      const isRecipientIu =
-        action === NotificationTaskActions.Completed || action === NotificationTaskActions.CompletedByCompanyMember
-          ? true
-          : undefined
+      // Recipient type is declared by the caller — the same action (e.g. Commented) fans out to
+      // both CU and IU recipient lists, so it can't be inferred from the action alone.
+      const isRecipientIu = opts?.isRecipientIu ?? false
 
       // NOTE: The reason we are skipping using NotificationService#create and implementing notification dispatch + save manually is because
       // we can just do one `createMany` DB call instead of one per notification, saving a ton of DB calls
@@ -728,9 +726,7 @@ export class NotificationService extends BaseService {
       recipientCompanyId: task.companyId ?? association?.companyId ?? undefined,
       deliveryTargets: deliveryTargets || {},
     }
-    // Fall back to inferring IU from absence of email for paths not yet updated (e.g. CommentToIU).
-    const isIU = isRecipientIu ?? !notificationDetails.deliveryTargets?.email
-    if (isIU) {
+    if (isRecipientIu) {
       delete notificationDetails.recipientCompanyId
       delete notificationDetails.recipientClientId
       notificationDetails.recipientInternalUserId = recipientId
