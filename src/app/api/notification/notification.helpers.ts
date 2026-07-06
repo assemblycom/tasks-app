@@ -166,6 +166,14 @@ export const getEmailDetails = (
         }
       : undefined
 
+  const completedDetail = {
+    subject: 'Task marked as done',
+    header: 'A task has been completed',
+    title: 'View task',
+    body: `The task ‘${task?.title}’ has been marked as done by ${actionUser}.\n\nTo see details about the task, open it below.`,
+    ctaParams,
+  }
+
   return {
     [NotificationTaskActions.Assigned]: {
       subject: 'A task was assigned to you',
@@ -181,13 +189,10 @@ export const getEmailDetails = (
       title: 'View task',
       ctaParams,
     },
-    //! Currently disable all IU email notifications
-    // [NotificationTaskActions.Completed]: {
-    //   title: 'A client completed a task',
-    //   subject: 'A client completed a task',
-    //   header: 'A client completed a task',
-    //   body: `A new task was completed by ${actionUser}. You are receiving this notification because you have access to the client.`,
-    // },
+    [NotificationTaskActions.Completed]: completedDetail,
+    [NotificationTaskActions.CompletedByIU]: completedDetail,
+    [NotificationTaskActions.CompletedByCompanyMember]: completedDetail,
+    [NotificationTaskActions.CompletedForCompanyByIU]: completedDetail,
     [NotificationTaskActions.Commented]: {
       subject: 'Comment was added',
       header: 'Comment was added',

@@ -289,12 +289,14 @@ export class TaskNotificationsService extends BaseService {
       // Don't do this in parallel since this can cause rate-limits, each of them has their own bottlenecks for avoiding ratelimits
       shouldCreateNotification &&
         (await this.notificationService.create(NotificationTaskActions.CompletedForCompanyByIU, updatedTask, {
-          disableEmail: true,
+          disableEmail: !isIuEmailEnabled(),
         }))
       await this.notificationService.markAsReadForAllRecipients(updatedTask)
     } else if (updatedTask.assigneeType === AssigneeType.client) {
       shouldCreateNotification &&
-        (await this.notificationService.create(NotificationTaskActions.CompletedByIU, updatedTask, { disableEmail: true }))
+        (await this.notificationService.create(NotificationTaskActions.CompletedByIU, updatedTask, {
+          disableEmail: !isIuEmailEnabled(),
+        }))
       try {
         await this.notificationService.markClientNotificationAsRead(updatedTask)
         return
@@ -303,7 +305,9 @@ export class TaskNotificationsService extends BaseService {
       }
     } else if (updatedTask.assigneeType === AssigneeType.internalUser) {
       shouldCreateNotification &&
-        (await this.notificationService.create(NotificationTaskActions.CompletedByIU, updatedTask, { disableEmail: true }))
+        (await this.notificationService.create(NotificationTaskActions.CompletedByIU, updatedTask, {
+          disableEmail: !isIuEmailEnabled(),
+        }))
     }
   }
 
@@ -368,7 +372,7 @@ export class TaskNotificationsService extends BaseService {
         NotificationTaskActions.CompletedByCompanyMember,
         updatedTask,
         recipientIds,
-        { senderCompanyId },
+        { senderCompanyId, email: isIuEmailEnabled() },
       )
       await this.notificationService.markAsReadForAllRecipients(updatedTask)
     } else {
@@ -379,6 +383,7 @@ export class TaskNotificationsService extends BaseService {
       )
       await this.notificationService.createBulkNotification(NotificationTaskActions.Completed, updatedTask, recipientIds, {
         senderCompanyId,
+        email: isIuEmailEnabled(),
       })
       await this.notificationService.markClientNotificationAsRead(updatedTask)
     }

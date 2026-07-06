@@ -78,8 +78,14 @@ const resolveSenderId = async (copilot: CopilotAPI): Promise<string> => {
 
 // Copilot only emails an IU recipient when the sender is a real participant, so attribute the
 // grouped summary to the actual actor from the buffered events, not an arbitrary workspace IU.
-const senderFromEvents = (events: WindowEvent[]): string | undefined =>
-  events.map((e) => e.individualEmail?.senderId).find((id): id is string => Boolean(id))
+// The full sender context (type + company) must ride along, or a client actor produces a
+// senderId/senderType mismatch that Copilot rejects (or silently drops).
+type EventSender = Pick<NotificationRequestBody, 'senderId' | 'senderType' | 'senderCompanyId'>
+const senderFromEvents = (events: WindowEvent[]): EventSender | undefined => {
+  const email = events.map((e) => e.individualEmail).find((e): e is NotificationRequestBody => Boolean(e?.senderId))
+  if (!email) return undefined
+  return { senderId: email.senderId, senderType: email.senderType, senderCompanyId: email.senderCompanyId }
+}
 
 const sendIndividualEmail = async (copilot: CopilotAPI, payload: NotificationRequestBody): Promise<void> => {
   try {
@@ -185,10 +191,12 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
       sent += 1
       sentIndividual += 1
     } else if (liveEvents.length >= 1) {
-      const groupSenderId = senderFromEvents(liveEvents) ?? (senderId ??= await resolveSenderId(copilot))
+      const sender = senderFromEvents(liveEvents)
       await sendGroupedEmail({
         content: composeGroupedEmail(liveEvents),
-        senderId: groupSenderId,
+        senderId: sender?.senderId ?? (senderId ??= await resolveSenderId(copilot)),
+        senderType: sender?.senderType,
+        senderCompanyId: sender?.senderCompanyId,
         recipientClientId: group.recipientClientId,
         recipientCompanyId: group.recipientCompanyId,
         copilot,
@@ -222,10 +230,12 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
       sent += 1
       sentIndividual += 1
     } else if (liveEvents.length >= 1) {
-      const groupSenderId = senderFromEvents(liveEvents) ?? (senderId ??= await resolveSenderId(copilot))
+      const sender = senderFromEvents(liveEvents)
       await sendGroupedEmail({
         content: composeGroupedEmail(liveEvents),
-        senderId: groupSenderId,
+        senderId: sender?.senderId ?? (senderId ??= await resolveSenderId(copilot)),
+        senderType: sender?.senderType,
+        senderCompanyId: sender?.senderCompanyId,
         recipientInternalUserId: group.recipientIuId,
         copilot,
       })
