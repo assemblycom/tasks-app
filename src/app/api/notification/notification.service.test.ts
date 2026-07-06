@@ -372,29 +372,33 @@ describe('guard: IU wiring boundaries', () => {
 })
 
 describe('guard: IU completion emails', () => {
-  it.each([NotificationTaskActions.CompletedByIU, NotificationTaskActions.CompletedForCompanyByIU])(
-    'buffers a %s email as a COMPLETED IU event and keeps the in-product notification immediate',
-    async (action) => {
-      await buildService().create(action, makeTask({ assigneeType: AssigneeType.internalUser, clientId: null }))
+  // Every completion action routes to an IU; create() must buffer them as IU rows regardless of
+  // which one is passed, so the guard stays consistent with groupedEventTypeFor.
+  it.each([
+    NotificationTaskActions.CompletedByIU,
+    NotificationTaskActions.CompletedForCompanyByIU,
+    NotificationTaskActions.Completed,
+    NotificationTaskActions.CompletedByCompanyMember,
+  ])('buffers a %s email as a COMPLETED IU event and keeps the in-product notification immediate', async (action) => {
+    await buildService().create(action, makeTask({ assigneeType: AssigneeType.internalUser, clientId: null }))
 
-      expect(mockGroupedCreateMany).toHaveBeenCalledTimes(1)
-      const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
-      expect(row).toMatchObject({
-        recipientIuId: '33333333-3333-3333-3333-333333333333',
-        recipientClientId: null,
-        recipientCompanyId: null,
-        eventType: GroupedEmailEventType.COMPLETED,
-      })
-      expect(row.individualEmail.recipientInternalUserId).toBe('33333333-3333-3333-3333-333333333333')
+    expect(mockGroupedCreateMany).toHaveBeenCalledTimes(1)
+    const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
+    expect(row).toMatchObject({
+      recipientIuId: '33333333-3333-3333-3333-333333333333',
+      recipientClientId: null,
+      recipientCompanyId: null,
+      eventType: GroupedEmailEventType.COMPLETED,
+    })
+    expect(row.individualEmail.recipientInternalUserId).toBe('33333333-3333-3333-3333-333333333333')
 
-      expect(mockCreateNotification).toHaveBeenCalledTimes(1)
-      const sent = mockCreateNotification.mock.calls[0][0]
-      expect(sent.recipientInternalUserId).toBe('33333333-3333-3333-3333-333333333333')
-      expect(sent.recipientClientId).toBeUndefined()
-      expect(deliveryTargetsOf(0).inProduct).toBeDefined()
-      expect(deliveryTargetsOf(0).email).toBeUndefined()
-    },
-  )
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    const sent = mockCreateNotification.mock.calls[0][0]
+    expect(sent.recipientInternalUserId).toBe('33333333-3333-3333-3333-333333333333')
+    expect(sent.recipientClientId).toBeUndefined()
+    expect(deliveryTargetsOf(0).inProduct).toBeDefined()
+    expect(deliveryTargetsOf(0).email).toBeUndefined()
+  })
 
   it('does not buffer and still routes the in-product CompletedByIU notification to the IU when email is disabled', async () => {
     const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })

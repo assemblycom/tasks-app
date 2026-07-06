@@ -39,11 +39,8 @@ export class NotificationService extends BaseService {
       const isAssignedToIu =
         task.assigneeType === AssigneeType.internalUser &&
         (action === NotificationTaskActions.Assigned || action === NotificationTaskActions.ReassignedToIU)
-      // Completion notifications go to the task creator, an IU
-      const isRecipientIu =
-        isAssignedToIu ||
-        action === NotificationTaskActions.CompletedByIU ||
-        action === NotificationTaskActions.CompletedForCompanyByIU
+      // Completion notifications always go to IUs (task creator, or IUs with access)
+      const isRecipientIu = isAssignedToIu || this.isCompletionAction(action)
 
       // 1. Check for existing notification. Skip if duplicate. This dedup is keyed on the client
       // assignee, so it must not gate IU-recipient notifications (e.g. CompletedByIU on a
@@ -616,7 +613,17 @@ export class NotificationService extends BaseService {
     })
   }
 
+  private isCompletionAction(action: NotificationTaskActions): boolean {
+    return (
+      action === NotificationTaskActions.Completed ||
+      action === NotificationTaskActions.CompletedByIU ||
+      action === NotificationTaskActions.CompletedByCompanyMember ||
+      action === NotificationTaskActions.CompletedForCompanyByIU
+    )
+  }
+
   private groupedEventTypeFor(action: NotificationTaskActions): GroupedEmailEventType | null {
+    if (this.isCompletionAction(action)) return GroupedEmailEventType.COMPLETED
     switch (action) {
       case NotificationTaskActions.Assigned:
       case NotificationTaskActions.AssignedToCompany:
@@ -627,11 +634,6 @@ export class NotificationService extends BaseService {
         return GroupedEmailEventType.SHARED
       case NotificationTaskActions.Commented:
         return GroupedEmailEventType.COMMENT
-      case NotificationTaskActions.Completed:
-      case NotificationTaskActions.CompletedByIU:
-      case NotificationTaskActions.CompletedByCompanyMember:
-      case NotificationTaskActions.CompletedForCompanyByIU:
-        return GroupedEmailEventType.COMPLETED
       default:
         return null
     }
