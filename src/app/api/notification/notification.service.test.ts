@@ -15,6 +15,7 @@ const mockGroupedCreateMany = jest.fn()
 const mockGetWorkspace = jest.fn()
 const mockMe = jest.fn()
 const mockCreateNotification = jest.fn()
+const mockGetNotificationSettings = jest.fn()
 
 jest.mock('@/jobs/notifications/flush-grouped-email', () => ({
   enqueueGroupedEmailFlush: (...args: unknown[]) => mockEnqueueFlush(...args),
@@ -42,10 +43,12 @@ jest.mock('@/utils/CopilotAPI', () => ({
     getWorkspace: (...args: unknown[]) => mockGetWorkspace(...args),
     me: (...args: unknown[]) => mockMe(...args),
     createNotification: (...args: unknown[]) => mockCreateNotification(...args),
+    getNotificationSettings: (...args: unknown[]) => mockGetNotificationSettings(...args),
   })),
 }))
 
 import { NotificationService } from './notification.service'
+import { __clearNotificationSettingCache } from './resolveNotificationSettingId'
 
 const user = {
   token: 'tok',
@@ -84,8 +87,12 @@ const buildService = () => {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  __clearNotificationSettingCache()
   mockGetWorkspace.mockResolvedValue({ labels: {} })
   mockMe.mockResolvedValue({ id: 'creator_1', givenName: 'Jane', familyName: 'IU' })
+  mockGetNotificationSettings.mockResolvedValue({
+    notifications: [{ id: 'setting_tasks', label: 'New task assigned', surfaces: ['product', 'email'] }],
+  })
   mockFindFirst.mockResolvedValue(null)
   mockFindMany.mockResolvedValue([])
   mockQueryRaw.mockResolvedValue([])
@@ -509,5 +516,38 @@ describe('guard: IU completion emails', () => {
     expect(mockCreateNotification).toHaveBeenCalledTimes(1)
     expect(deliveryTargetsOf(0).email).toBeUndefined()
     expect(mockCreateNotification.mock.calls[0][0].recipientInternalUserId).toBe('iu_a')
+  })
+})
+
+describe('guard: IU notification setting (OUT-3929)', () => {
+  const iuTask = () => makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+
+  it('stamps the resolved notificationSettingId on the buffered IU email', async () => {
+    await buildService().create(NotificationTaskActions.Assigned, iuTask(), { disableEmail: false })
+
+    expect(mockGroupedCreateMany.mock.calls[0][0].data[0].individualEmail.notificationSettingId).toBe('setting_tasks')
+  })
+
+  it('omits notificationSettingId (and still buffers/sends) when the app declares no setting', async () => {
+    mockGetNotificationSettings.mockResolvedValue({ notifications: [] })
+
+    await buildService().create(NotificationTaskActions.Assigned, iuTask(), { disableEmail: false })
+
+    expect(mockGroupedCreateMany).toHaveBeenCalledTimes(1)
+    expect(mockGroupedCreateMany.mock.calls[0][0].data[0].individualEmail.notificationSettingId).toBeUndefined()
+  })
+
+  it('never resolves or stamps a setting id for CU emails', async () => {
+    await buildService().create(NotificationTaskActions.Assigned, makeTask(), { disableEmail: false })
+
+    expect(mockGetNotificationSettings).not.toHaveBeenCalled()
+    expect(mockGroupedCreateMany.mock.calls[0][0].data[0].individualEmail.notificationSettingId).toBeUndefined()
+  })
+
+  it('does not stamp the setting id on the immediate in-product dispatch (only the buffered email)', async () => {
+    await buildService().create(NotificationTaskActions.Assigned, iuTask(), { disableEmail: false })
+
+    // in-product notification fires now; suppressing it would break the notification center
+    expect(mockCreateNotification.mock.calls[0][0].notificationSettingId).toBeUndefined()
   })
 })

@@ -14,6 +14,7 @@ import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
 import { getEmailDetails, getInProductNotificationDetails, mergeEmailOverride } from '@api/notification/notification.helpers'
+import { resolveTasksNotificationSettingId } from '@api/notification/resolveNotificationSettingId'
 import { AssigneeType, ClientNotification, GroupedEmailEventType, Prisma, Task } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { enqueueGroupedEmailFlush } from '@/jobs/notifications/flush-grouped-email'
@@ -75,6 +76,12 @@ export class NotificationService extends BaseService {
       const groupedType = email && recipientId ? this.groupedEventTypeFor(action) : null
       if (groupedType) {
         const association = AssociationsSchema.parse(task.associations)?.[0]
+        // IU emails carry the Tasks notification setting so the platform enforces the IU's
+        // per-surface preference. Stored on the buffered email, so both the grouped summary and
+        // the single-event replay dispatch it.
+        const notificationSettingId = isRecipientIu
+          ? await resolveTasksNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId })
+          : undefined
         await this.bufferGroupedEmailEvent({
           task,
           recipientId,
@@ -89,6 +96,7 @@ export class NotificationService extends BaseService {
             { email },
             senderCompanyId,
             isRecipientIu,
+            notificationSettingId,
           ),
         })
       }
@@ -197,6 +205,12 @@ export class NotificationService extends BaseService {
       // Non-null only when these emails should be diverted into the grouped buffer.
       const groupedType = email ? this.groupedEventTypeFor(action) : null
       const isRecipientIu = opts.isRecipientIu
+      // Resolve once per batch (not per recipient): IU emails carry the Tasks notification setting
+      // so the platform enforces each IU's per-surface preference.
+      const notificationSettingId =
+        isRecipientIu && groupedType
+          ? await resolveTasksNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId })
+          : undefined
 
       // NOTE: The reason we are skipping using NotificationService#create and implementing notification dispatch + save manually is because
       // we can just do one `createMany` DB call instead of one per notification, saving a ton of DB calls
@@ -227,6 +241,7 @@ export class NotificationService extends BaseService {
                 { email },
                 opts?.senderCompanyId,
                 isRecipientIu,
+                notificationSettingId,
               ),
             })
             if (!inProduct) continue
@@ -715,6 +730,10 @@ export class NotificationService extends BaseService {
     deliveryTargets: NotificationRequestBody['deliveryTargets'],
     senderCompanyId?: string,
     isRecipientIu?: boolean,
+    // Set only for IU email payloads: the platform gates each surface against the IU's preference.
+    // Intentionally omitted on the immediate in-product dispatch so notification-center delivery
+    // (and our InternalUserNotification tracking) is never suppressed.
+    notificationSettingId?: string,
   ): NotificationRequestBody {
     const associations = AssociationsSchema.parse(task.associations)
     const association = associations?.[0]
@@ -730,6 +749,7 @@ export class NotificationService extends BaseService {
       delete notificationDetails.recipientCompanyId
       delete notificationDetails.recipientClientId
       notificationDetails.recipientInternalUserId = recipientId
+      if (notificationSettingId) notificationDetails.notificationSettingId = notificationSettingId
     }
     return notificationDetails
   }

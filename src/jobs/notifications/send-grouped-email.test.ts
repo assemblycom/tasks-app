@@ -108,6 +108,20 @@ describe('sendGroupedEmail', () => {
     })
   })
 
+  it('forwards notificationSettingId so the platform can suppress per the IU preference', async () => {
+    const createNotification = jest.fn().mockResolvedValue({ id: 'notif_5', createdAt: '2026-06-09T00:00:00Z' })
+
+    await sendGroupedEmail({
+      content,
+      senderId: 'iu_1',
+      recipientInternalUserId: 'iu_2',
+      notificationSettingId: 'setting_tasks',
+      copilot: buildCopilotMock(createNotification),
+    })
+
+    expect(createNotification.mock.calls[0][0].notificationSettingId).toBe('setting_tasks')
+  })
+
   it('retries without senderCompanyId when Copilot rejects it (single-company workspace)', async () => {
     const createNotification = jest
       .fn()

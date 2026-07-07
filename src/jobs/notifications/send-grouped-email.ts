@@ -16,6 +16,9 @@ export type SendGroupedEmailArgs = {
   recipientClientId?: string | null
   recipientCompanyId?: string | null
   recipientInternalUserId?: string | null
+  // Carries the recipient IU's Tasks notification setting so the platform can suppress this
+  // summary per the IU's email preference (IU recipients only).
+  notificationSettingId?: string
   copilot: CopilotAPI
 }
 
@@ -27,6 +30,7 @@ export const sendGroupedEmail = async ({
   recipientClientId,
   recipientCompanyId,
   recipientInternalUserId,
+  notificationSettingId,
   copilot,
 }: SendGroupedEmailArgs): Promise<string> => {
   const email = renderGroupedEmail(content)
@@ -38,6 +42,7 @@ export const sendGroupedEmail = async ({
     recipientClientId: recipientClientId ?? undefined,
     recipientCompanyId: recipientCompanyId ?? undefined,
     recipientInternalUserId: recipientInternalUserId ?? undefined,
+    notificationSettingId,
     deliveryTargets: {
       email: {
         subject: email.subject,

@@ -53,7 +53,9 @@ export const assemblyApiDomain = z.string().url().parse(process.env.NEXT_PUBLIC_
 // Substring stripped from the task title when building the reminder email subject for
 // subject-override workspaces, and the value it's replaced with. Configured via env so the
 // workspace-specific phrasing isn't hardcoded (OUT-3919).
-// Bypasses the platform preference check while OUT-3929 is pending. Set true in dev/staging.
+// App-side rollout kill switch for IU emails. When on, IU notifications are sent with a
+// notificationSettingId so the platform enforces each IU's per-surface preference (OUT-3929);
+// when off, IU emails aren't sent at all. Lets us enable per-environment / roll back instantly.
 export const iuEmailAlwaysEnabled = process.env.IU_EMAIL_ALWAYS_ENABLED === 'true'
 
 export const reminderSubjectSearch = process.env.REMINDER_SUBJECT_SEARCH || ''
