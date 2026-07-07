@@ -238,7 +238,7 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
         senderCompanyId: sender?.senderCompanyId,
         recipientInternalUserId: group.recipientIuId,
         // All IU rows in a window share the single Tasks setting; read it off any buffered email.
-        notificationSettingId: liveEvents.map((e) => e.individualEmail?.notificationSettingId).find(Boolean) ?? undefined,
+        notificationSettingId: liveEvents.map((e) => e.individualEmail?.notificationSettingId).find(Boolean),
         copilot,
       })
       sent += 1

@@ -1,4 +1,5 @@
 import { CopilotAPI } from '@/utils/CopilotAPI'
+import { serializeError } from '@/utils/serializeError'
 
 // The Tasks app declares a single notification setting for now, so every IU notification shares
 // the sole declared setting's id. When we split into per-category settings (task assigned vs
@@ -22,10 +23,18 @@ export const resolveTasksNotificationSettingId = async ({
   const cached = cache.get(workspaceId)
   if (cached && cached.expiresAt > Date.now()) return cached.id
 
-  const { notifications } = await copilot.getNotificationSettings()
-  const id = notifications[0]?.id
-  cache.set(workspaceId, { id, expiresAt: Date.now() + CACHE_TTL_MS })
-  return id
+  try {
+    const { notifications } = await copilot.getNotificationSettings()
+    const id = notifications[0]?.id
+    cache.set(workspaceId, { id, expiresAt: Date.now() + CACHE_TTL_MS })
+    return id
+  } catch (e) {
+    // Never let settings resolution block delivery: fall back to no suppression (pre-OUT-3929
+    // behavior — email is sent, just not gated by preference). Don't cache the failure so the next
+    // send retries rather than staying degraded for the whole TTL.
+    console.error('resolveTasksNotificationSettingId | failed to resolve; sending without suppression', serializeError(e))
+    return undefined
+  }
 }
 
 // Test seam: clear the per-workspace cache between cases.

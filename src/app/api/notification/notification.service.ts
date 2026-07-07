@@ -74,14 +74,16 @@ export class NotificationService extends BaseService {
       const email = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts.emailOverride }) : baseEmail
 
       const groupedType = email && recipientId ? this.groupedEventTypeFor(action) : null
-      if (groupedType) {
-        const association = AssociationsSchema.parse(task.associations)?.[0]
-        // IU emails carry the Tasks notification setting so the platform enforces the IU's
-        // per-surface preference. Stored on the buffered email, so both the grouped summary and
-        // the single-event replay dispatch it.
-        const notificationSettingId = isRecipientIu
+      // IU notifications carry the Tasks notification setting so the platform gates BOTH the
+      // in-product and email surfaces against the IU's preference. Resolved once and attached to the
+      // buffered email (also drives the grouped summary + single-event replay) and the immediate
+      // in-product dispatch below.
+      const notificationSettingId =
+        isRecipientIu && email
           ? await resolveTasksNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId })
           : undefined
+      if (groupedType) {
+        const association = AssociationsSchema.parse(task.associations)?.[0]
         await this.bufferGroupedEmailEvent({
           task,
           recipientId,
@@ -110,6 +112,7 @@ export class NotificationService extends BaseService {
         { inProduct, email },
         senderCompanyId,
         isRecipientIu,
+        notificationSettingId,
       )
       if (groupedType) notificationDetails.deliveryTargets = { inProduct }
       if (!inProduct && !notificationDetails.deliveryTargets?.email) return
@@ -256,6 +259,7 @@ export class NotificationService extends BaseService {
             { inProduct, email },
             opts?.senderCompanyId,
             isRecipientIu,
+            notificationSettingId,
           )
           if (groupedType) notificationDetails.deliveryTargets = { inProduct }
 
@@ -730,9 +734,8 @@ export class NotificationService extends BaseService {
     deliveryTargets: NotificationRequestBody['deliveryTargets'],
     senderCompanyId?: string,
     isRecipientIu?: boolean,
-    // Set only for IU email payloads: the platform gates each surface against the IU's preference.
-    // Intentionally omitted on the immediate in-product dispatch so notification-center delivery
-    // (and our InternalUserNotification tracking) is never suppressed.
+    // Set for IU payloads so the platform gates each requested surface (in-product and email)
+    // against the IU's preference. Suppression is enforced platform-side; we just pass the id.
     notificationSettingId?: string,
   ): NotificationRequestBody {
     const associations = AssociationsSchema.parse(task.associations)

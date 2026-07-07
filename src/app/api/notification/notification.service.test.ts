@@ -544,10 +544,13 @@ describe('guard: IU notification setting (OUT-3929)', () => {
     expect(mockGroupedCreateMany.mock.calls[0][0].data[0].individualEmail.notificationSettingId).toBeUndefined()
   })
 
-  it('does not stamp the setting id on the immediate in-product dispatch (only the buffered email)', async () => {
+  it('also stamps the setting id on the immediate in-product dispatch so the platform gates in-product', async () => {
     await buildService().create(NotificationTaskActions.Assigned, iuTask(), { disableEmail: false })
 
-    // in-product notification fires now; suppressing it would break the notification center
-    expect(mockCreateNotification.mock.calls[0][0].notificationSettingId).toBeUndefined()
+    const sent = mockCreateNotification.mock.calls[0][0]
+    expect(sent.notificationSettingId).toBe('setting_tasks')
+    // email diverted to the buffer; the immediate dispatch is in-product only, now gated by the setting
+    expect(sent.deliveryTargets.inProduct).toBeDefined()
+    expect(sent.deliveryTargets.email).toBeUndefined()
   })
 })

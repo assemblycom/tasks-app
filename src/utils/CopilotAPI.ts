@@ -352,6 +352,7 @@ export class CopilotAPI {
   // (installs aren't in the token, so match by appId) then fetches its settings. Returns an empty
   // list when the app has no install/settings, so callers safely fall back to no suppression.
   async _getNotificationSettings(): Promise<NotificationSettingsResponse> {
+    console.info('CopilotAPI#_getNotificationSettings', this.token)
     const appId = z.string({ message: 'Missing AppID in environment' }).parse(APP_ID)
     const installs = await this.copilot.listAppInstalls()
     const install = installs.find((entry) => entry.appId === appId)

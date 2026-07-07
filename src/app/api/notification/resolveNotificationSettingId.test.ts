@@ -42,6 +42,20 @@ describe('resolveTasksNotificationSettingId', () => {
     expect(getNotificationSettings).toHaveBeenCalledTimes(1)
   })
 
+  it('falls back to undefined when the settings fetch fails, without caching the failure', async () => {
+    const getNotificationSettings = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('copilot 5xx'))
+      .mockResolvedValueOnce({ notifications: [{ id: 'setting_tasks', label: 'x', surfaces: ['email'] }] })
+    const copilot = buildCopilot(getNotificationSettings)
+
+    // first call fails to resolve → no suppression, and the failure is not cached
+    expect(await resolveTasksNotificationSettingId({ copilot, workspaceId: 'ws_1' })).toBeUndefined()
+    // next call retries and succeeds
+    expect(await resolveTasksNotificationSettingId({ copilot, workspaceId: 'ws_1' })).toBe('setting_tasks')
+    expect(getNotificationSettings).toHaveBeenCalledTimes(2)
+  })
+
   it('caches per workspace independently', async () => {
     const getNotificationSettings = jest.fn().mockResolvedValue({
       notifications: [{ id: 'setting_tasks', label: 'New task assigned', surfaces: ['email'] }],
