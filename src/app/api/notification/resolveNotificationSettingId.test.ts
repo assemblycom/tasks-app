@@ -1,6 +1,6 @@
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { GroupedEmailEventType } from '@prisma/client'
-import { __clearNotificationSettingCache, resolveIuNotificationSetting } from './resolveNotificationSettingId'
+import { __clearNotificationSettingCache, resolveIuNotificationSettingId } from './resolveNotificationSettingId'
 
 const buildCopilot = (getNotificationSettings: jest.Mock) => ({ getNotificationSettings }) as unknown as CopilotAPI
 
@@ -12,26 +12,19 @@ const settings = [
 
 beforeEach(() => __clearNotificationSettingCache())
 
-describe('resolveIuNotificationSetting', () => {
-  it('maps each category to its declared setting by label, with email enabled', async () => {
+describe('resolveIuNotificationSettingId', () => {
+  it('maps each category to its declared setting id by label', async () => {
     const copilot = buildCopilot(jest.fn().mockResolvedValue({ notifications: settings }))
 
     expect(
-      await resolveIuNotificationSetting({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED }),
-    ).toEqual({ id: 'setting_assigned', emailEnabled: true })
+      await resolveIuNotificationSettingId({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED }),
+    ).toBe('setting_assigned')
     expect(
-      await resolveIuNotificationSetting({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.COMMENT }),
-    ).toEqual({ id: 'setting_comment', emailEnabled: true })
-  })
-
-  it('reports emailEnabled=false when the declared setting omits the email surface', async () => {
-    const copilot = buildCopilot(
-      jest.fn().mockResolvedValue({ notifications: [{ id: 'x', label: 'New task assigned', surfaces: ['product'] }] }),
-    )
-
+      await resolveIuNotificationSettingId({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.COMMENT }),
+    ).toBe('setting_comment')
     expect(
-      await resolveIuNotificationSetting({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED }),
-    ).toEqual({ id: 'x', emailEnabled: false })
+      await resolveIuNotificationSettingId({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.COMPLETED }),
+    ).toBe('setting_completed')
   })
 
   it('matches labels case-insensitively and ignoring surrounding whitespace', async () => {
@@ -40,37 +33,37 @@ describe('resolveIuNotificationSetting', () => {
     )
 
     expect(
-      await resolveIuNotificationSetting({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED }),
-    ).toEqual({ id: 'x', emailEnabled: true })
+      await resolveIuNotificationSettingId({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED }),
+    ).toBe('x')
   })
 
-  it('returns id undefined and emailEnabled false when the category is not declared', async () => {
+  it('returns undefined when the category is not declared', async () => {
     const copilot = buildCopilot(jest.fn().mockResolvedValue({ notifications: [settings[0]] }))
 
     expect(
-      await resolveIuNotificationSetting({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.COMMENT }),
-    ).toEqual({ id: undefined, emailEnabled: false })
+      await resolveIuNotificationSettingId({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.COMMENT }),
+    ).toBeUndefined()
   })
 
-  it('returns emailEnabled false for SHARED (no IU setting declared)', async () => {
+  it('returns undefined for SHARED (no IU setting declared)', async () => {
     const copilot = buildCopilot(jest.fn().mockResolvedValue({ notifications: settings }))
 
     expect(
-      await resolveIuNotificationSetting({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.SHARED }),
-    ).toEqual({ id: undefined, emailEnabled: false })
+      await resolveIuNotificationSettingId({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.SHARED }),
+    ).toBeUndefined()
   })
 
-  it('caches the settings per workspace and does not refetch within the TTL', async () => {
+  it('caches the label map per workspace and does not refetch within the TTL', async () => {
     const getNotificationSettings = jest.fn().mockResolvedValue({ notifications: settings })
     const copilot = buildCopilot(getNotificationSettings)
 
-    await resolveIuNotificationSetting({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED })
-    await resolveIuNotificationSetting({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.COMMENT })
+    await resolveIuNotificationSettingId({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED })
+    await resolveIuNotificationSettingId({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.COMMENT })
 
     expect(getNotificationSettings).toHaveBeenCalledTimes(1)
   })
 
-  it('fails closed (no id, emailEnabled false) when the fetch fails, without caching the failure', async () => {
+  it('returns undefined when the fetch fails, without caching the failure', async () => {
     const getNotificationSettings = jest
       .fn()
       .mockRejectedValueOnce(new Error('copilot 5xx'))
@@ -78,11 +71,11 @@ describe('resolveIuNotificationSetting', () => {
     const copilot = buildCopilot(getNotificationSettings)
 
     expect(
-      await resolveIuNotificationSetting({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED }),
-    ).toEqual({ id: undefined, emailEnabled: false })
+      await resolveIuNotificationSettingId({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED }),
+    ).toBeUndefined()
     expect(
-      await resolveIuNotificationSetting({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED }),
-    ).toEqual({ id: 'setting_assigned', emailEnabled: true })
+      await resolveIuNotificationSettingId({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED }),
+    ).toBe('setting_assigned')
     expect(getNotificationSettings).toHaveBeenCalledTimes(2)
   })
 
@@ -90,8 +83,8 @@ describe('resolveIuNotificationSetting', () => {
     const getNotificationSettings = jest.fn().mockResolvedValue({ notifications: settings })
     const copilot = buildCopilot(getNotificationSettings)
 
-    await resolveIuNotificationSetting({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED })
-    await resolveIuNotificationSetting({ copilot, workspaceId: 'ws_2', category: GroupedEmailEventType.ASSIGNED })
+    await resolveIuNotificationSettingId({ copilot, workspaceId: 'ws_1', category: GroupedEmailEventType.ASSIGNED })
+    await resolveIuNotificationSettingId({ copilot, workspaceId: 'ws_2', category: GroupedEmailEventType.ASSIGNED })
 
     expect(getNotificationSettings).toHaveBeenCalledTimes(2)
   })

@@ -5,7 +5,8 @@ import { CopilotAPI } from '@/utils/CopilotAPI'
 import { isMessagableError } from '@/utils/copilotError'
 import { CommentRepository } from '@/app/api/comments/comment.repository'
 import { CommentService } from '@/app/api/comments/comment.service'
-import { resolveIuNotificationSetting } from '@/app/api/notification/resolveNotificationSettingId'
+import { NotificationService } from '@/app/api/notification/notification.service'
+import { resolveIuNotificationSettingId } from '@/app/api/notification/resolveNotificationSettingId'
 import User from '@api/core/models/User.model'
 import { TasksService } from '@api/tasks/tasks.service'
 import { Comment, CommentInitiator, GroupedEmailEventType, Task } from '@prisma/client'
@@ -36,6 +37,7 @@ export const sendReplyCreateNotifications = task({
 
     const commentsRepo = new CommentRepository(user)
     const copilot = new CopilotAPI(user.token)
+    const notificationService = new NotificationService(user)
 
     const senderId = z
       .string()
@@ -47,18 +49,35 @@ export const sendReplyCreateNotifications = task({
 
     const deliveryTargets = await getNotificationDetails(copilot, user, comment)
 
-    // Replies are the COMMENT category. IU sends carry this setting id so the platform gates both
-    // surfaces against the recipient IU's preference (this job dispatches directly, no grouping, so
-    // the platform handles the email surface too — no app-side surfaces check needed here).
-    const { id: notificationSettingId } = await resolveIuNotificationSetting({
+    // Replies are the COMMENT category. Reply emails are buffered as COMMENT grouped events (like
+    // top-level comments), and IU sends carry this setting id so the platform gates each surface per
+    // the recipient IU's preference.
+    const notificationSettingId = await resolveIuNotificationSettingId({
       copilot,
       workspaceId: user.workspaceId,
       category: GroupedEmailEventType.COMMENT,
     })
 
     const notificationPromises: Promise<unknown>[] = []
-    const queueNotificationPromise = <T>(promise: Promise<T>): void => {
+    const queueNotificationPromise = (promise: Promise<unknown>): void => {
       notificationPromises.push(copilotBottleneck.schedule(() => promise))
+    }
+
+    const shared = {
+      copilot,
+      notificationService,
+      task: payload.task,
+      senderId,
+      senderType,
+      senderCompanyId,
+      deliveryTargets,
+      commentId: comment.id,
+      // NOTE: We are sending payload.task.companyId here. This might sound silly, i agree.
+      // However, it is very safe to assume that client users can ONLY reply to comments in tasks
+      // assigned to their company, or to them. In both cases, payload.task.companyId works
+      // For IU tasks, this will be undefined
+      initiatorCompanyId: payload.task.companyId || undefined,
+      notificationSettingId,
     }
 
     // Get all initiators involved in thread except the current user
@@ -68,20 +87,7 @@ export const sendReplyCreateNotifications = task({
 
     // Queue notifications to every unique reply initiator
     for (let initiator of threadInitiators) {
-      const promise = getInitiatorNotificationPromises({
-        copilot,
-        initiator,
-        senderId,
-        senderType,
-        senderCompanyId,
-        deliveryTargets,
-        // NOTE: We are sending payload.task.companyId here. This might sound silly, i agree.
-        // However, it is very safe to assume that client users can ONLY reply to comments in tasks
-        // assigned to their company, or to them. In both cases, payload.task.companyId works
-        // For IU tasks, this will be undefined
-        initiatorCompanyId: payload.task.companyId || undefined,
-        notificationSettingId,
-      })
+      const promise = getInitiatorNotificationPromises({ ...shared, initiator })
       promise && queueNotificationPromise(promise) // It's certain we will get a promise here
     }
 
@@ -98,29 +104,9 @@ export const sendReplyCreateNotifications = task({
         (initiator) => initiator.initiatorId === parentComment.initiatorId,
       )
       if (!isParentCommentDeleted && !parentInitiatorIsCurrentUser && !isNotificationAlreadySent) {
-        const typedPromise = getInitiatorNotificationPromises({
-          copilot,
-          initiator: parentComment,
-          senderId,
-          senderType,
-          senderCompanyId,
-          deliveryTargets,
-          initiatorCompanyId: payload.task.companyId || undefined,
-          notificationSettingId,
-        })
+        const typedPromise = getInitiatorNotificationPromises({ ...shared, initiator: parentComment })
         // If there is no "initiatorType" for parentComment we have to be slightly creative (coughhackycough)
-        const promise =
-          typedPromise ??
-          getNotificationToUntypedInitiator(
-            copilot,
-            parentComment,
-            payload.task,
-            senderId,
-            senderType,
-            senderCompanyId,
-            deliveryTargets,
-            notificationSettingId,
-          )
+        const promise = typedPromise ?? getNotificationToUntypedInitiator({ ...shared, parentComment })
         queueNotificationPromise(promise)
       }
     }
@@ -161,53 +147,81 @@ const getNotificationDetails = async (copilot: CopilotAPI, user: User, comment: 
   return deliveryTargets
 }
 
-const getInitiatorNotificationPromises = ({
-  copilot,
-  // Initiator in this context means previous initiators that were active in the thread, NOT the currently commenting user
-  initiator,
-  senderId,
-  senderType,
-  senderCompanyId,
-  deliveryTargets,
-  initiatorCompanyId,
-  // Forces recipient branch when initiator.initiatorType is unset (legacy comments)
-  assume,
-  notificationSettingId,
-}: {
+type ReplyDispatchArgs = {
   copilot: CopilotAPI
+  notificationService: NotificationService
+  task: Task
+  // Initiator in this context means previous initiators that were active in the thread, NOT the currently commenting user
   initiator: { initiatorId: string; initiatorType: CommentInitiator | null }
   senderId: string
   senderType: NotificationSender
   senderCompanyId: string | undefined
   deliveryTargets: { inProduct: Record<'title', any>; email: object }
   initiatorCompanyId?: string
+  commentId: string
+  // Forces recipient branch when initiator.initiatorType is unset (legacy comments)
   assume?: CommentInitiator
   notificationSettingId?: string
-}) => {
+}
+
+const getInitiatorNotificationPromises = ({
+  copilot,
+  notificationService,
+  task: parentTask,
+  initiator,
+  senderId,
+  senderType,
+  senderCompanyId,
+  deliveryTargets,
+  initiatorCompanyId,
+  commentId,
+  assume,
+  notificationSettingId,
+}: ReplyDispatchArgs) => {
   const base = { senderId, senderType, senderCompanyId }
-  let body: NotificationRequestBody
-  if (initiator.initiatorType === CommentInitiator.internalUser || assume === CommentInitiator.internalUser) {
-    body = {
+  const isIu = initiator.initiatorType === CommentInitiator.internalUser || assume === CommentInitiator.internalUser
+  const isClient = initiator.initiatorType === CommentInitiator.client || assume === CommentInitiator.client
+  if (!isIu && !isClient) return null
+
+  if (isIu) {
+    // IU: fire the in-product notification now (the platform gates it per the IU's preference via the
+    // setting id) and buffer the email as a COMMENT event so it groups + gates like top-level comments.
+    const iuBase = {
       ...base,
       recipientInternalUserId: initiator.initiatorId,
-      // Both surfaces are always requested; the platform gates them per the IU's preference.
       ...(notificationSettingId ? { notificationSettingId } : {}),
-      deliveryTargets: {
-        inProduct: deliveryTargets.inProduct,
-        email: deliveryTargets.email,
-      },
     }
-  } else if (initiator.initiatorType === CommentInitiator.client || assume === CommentInitiator.client) {
-    body = {
-      ...base,
-      recipientClientId: initiator.initiatorId,
-      recipientCompanyId: initiatorCompanyId,
-      deliveryTargets: { email: deliveryTargets.email },
-    }
-  } else {
-    return null
+    const inProductBody: NotificationRequestBody = { ...iuBase, deliveryTargets: { inProduct: deliveryTargets.inProduct } }
+    const emailBody: NotificationRequestBody = { ...iuBase, deliveryTargets: { email: deliveryTargets.email } }
+    return Promise.all([
+      createNotificationWithCompanyFallback(copilot, inProductBody),
+      notificationService.bufferGroupedEmailEvent({
+        task: parentTask,
+        recipientId: initiator.initiatorId,
+        isRecipientIu: true,
+        eventType: GroupedEmailEventType.COMMENT,
+        commentId,
+        individualEmail: emailBody,
+      }),
+    ])
   }
-  return createNotificationWithCompanyFallback(copilot, body)
+
+  // Client: buffer the reply email only (clients get no in-product reply notification today).
+  const clientEmailBody: NotificationRequestBody = {
+    ...base,
+    recipientClientId: initiator.initiatorId,
+    recipientCompanyId: initiatorCompanyId,
+    deliveryTargets: { email: deliveryTargets.email },
+  }
+  return notificationService.bufferGroupedEmailEvent({
+    task: parentTask,
+    recipientId: initiator.initiatorId,
+    companyId: initiatorCompanyId,
+    isRecipientIu: false,
+    eventType: GroupedEmailEventType.COMMENT,
+    commentId,
+    individualEmail: clientEmailBody,
+  })
 }
 
 // Single-company workspaces reject senderCompanyId; retry without it on that specific error.
@@ -223,35 +237,20 @@ const createNotificationWithCompanyFallback = async (copilot: CopilotAPI, body: 
   }
 }
 
-const getNotificationToUntypedInitiator = async (
-  copilot: CopilotAPI,
-  parentComment: Comment,
-  task: Task,
-  senderId: string,
-  senderType: NotificationSender,
-  senderCompanyId: string | undefined,
-  deliveryTargets: { inProduct: Record<'title', any>; email: object },
-  notificationSettingId?: string,
-) => {
-  const shared = {
-    copilot,
-    initiator: parentComment,
-    senderId,
-    senderType,
-    senderCompanyId,
-    deliveryTargets,
-    initiatorCompanyId: task.companyId || undefined,
-    notificationSettingId,
-  }
+const getNotificationToUntypedInitiator = async ({
+  parentComment,
+  ...shared
+}: Omit<ReplyDispatchArgs, 'initiator' | 'assume'> & { parentComment: Comment }) => {
+  const withInitiator = { ...shared, initiator: parentComment }
   try {
-    await copilot.getInternalUser(parentComment.initiatorId)
+    await shared.copilot.getInternalUser(parentComment.initiatorId)
     // `assume` guarantees a non-null promise
-    return getInitiatorNotificationPromises({ ...shared, assume: CommentInitiator.internalUser })!
+    return getInitiatorNotificationPromises({ ...withInitiator, assume: CommentInitiator.internalUser })!
   } catch (e) {
     console.error(e)
   }
 
-  return getInitiatorNotificationPromises({ ...shared, assume: CommentInitiator.client })!.catch((e) => {
+  return getInitiatorNotificationPromises({ ...withInitiator, assume: CommentInitiator.client })!.catch((e) => {
     console.error(e)
     return undefined
   })

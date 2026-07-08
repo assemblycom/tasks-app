@@ -14,7 +14,7 @@ import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
 import { getEmailDetails, getInProductNotificationDetails, mergeEmailOverride } from '@api/notification/notification.helpers'
-import { resolveIuNotificationSetting } from '@api/notification/resolveNotificationSettingId'
+import { resolveIuNotificationSettingId } from '@api/notification/resolveNotificationSettingId'
 import { AssigneeType, ClientNotification, GroupedEmailEventType, Prisma, Task } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { enqueueGroupedEmailFlush } from '@/jobs/notifications/flush-grouped-email'
@@ -71,19 +71,16 @@ export class NotificationService extends BaseService {
       const baseEmail = opts.disableEmail
         ? undefined
         : getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
-      const mergedEmail = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts.emailOverride }) : baseEmail
+      const email = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts.emailOverride }) : baseEmail
 
       const category = this.groupedEventTypeFor(action)
-      // IU sends carry the category's setting id so the platform gates the in-product surface per the
-      // IU's preference. The email surface is gated app-side: a grouped summary is cross-category and
-      // can't carry a per-category id, so an IU email is only buffered when the category's declared
-      // setting enables the email surface.
-      const iuSetting =
+      // IU sends carry the category's setting id. It gates the in-product surface per the IU's
+      // preference immediately, and rides along on the buffered email so a single-category grouped
+      // flush can gate the email too (see flush-grouped-email).
+      const notificationSettingId =
         isRecipientIu && category
-          ? await resolveIuNotificationSetting({ copilot: this.copilot, workspaceId: task.workspaceId, category })
+          ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category })
           : undefined
-      const notificationSettingId = iuSetting?.id
-      const email = isRecipientIu && iuSetting && !iuSetting.emailEnabled ? undefined : mergedEmail
 
       const groupedType = email && recipientId ? category : null
       if (groupedType) {
@@ -192,7 +189,7 @@ export class NotificationService extends BaseService {
       const baseEmail = opts?.email
         ? getEmailDetails(workspace, actionUserName, task, { commentId: opts?.commentId })[action]
         : undefined
-      const mergedEmail = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts?.emailOverride }) : baseEmail
+      const email = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts?.emailOverride }) : baseEmail
 
       // Get a list of all notifications dispatched for these taskId, clientId, companyId combinations
       // This will be used to filter out any duplicate notifications during creation
@@ -211,14 +208,12 @@ export class NotificationService extends BaseService {
       const association = AssociationsSchema.parse(task.associations)?.[0]
       const category = this.groupedEventTypeFor(action)
       const isRecipientIu = opts.isRecipientIu
-      // Resolve once per batch (not per recipient). IU sends carry the setting id so the platform
-      // gates the in-product surface; the email surface is gated app-side (see create()).
-      const iuSetting =
+      // Resolve once per batch (not per recipient). The id gates the in-product surface per IU and
+      // rides along on the buffered email for the flush-time single-category gate (see create()).
+      const notificationSettingId =
         isRecipientIu && category
-          ? await resolveIuNotificationSetting({ copilot: this.copilot, workspaceId: task.workspaceId, category })
+          ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category })
           : undefined
-      const notificationSettingId = iuSetting?.id
-      const email = isRecipientIu && iuSetting && !iuSetting.emailEnabled ? undefined : mergedEmail
       // Non-null only when these emails should be diverted into the grouped buffer.
       const groupedType = email ? category : null
 
@@ -663,7 +658,7 @@ export class NotificationService extends BaseService {
     }
   }
 
-  private async bufferGroupedEmailEvent(args: {
+  async bufferGroupedEmailEvent(args: {
     task: Task
     recipientId: string
     companyId?: string

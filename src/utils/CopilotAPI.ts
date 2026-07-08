@@ -350,7 +350,7 @@ export class CopilotAPI {
 
   // Declared notification settings for this app in the current workspace.
   async _getNotificationSettings(): Promise<NotificationSettingsResponse> {
-    console.info('CopilotAPI#_getNotificationSettings', this.token)
+    console.info('CopilotAPI#_getNotificationSettings')
     const appId = z.string({ message: 'Missing AppID in environment' }).parse(APP_ID)
     const installs = await this.copilot.listAppInstalls()
     const install = installs.find((entry) => entry.appId === appId)

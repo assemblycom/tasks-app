@@ -132,6 +132,35 @@ describe('flushGroupedEmailRun', () => {
     expect(result).toMatchObject({ recipients: 1, sent: 1, sentGrouped: 1 })
   })
 
+  const iuRow = (settingId?: string) =>
+    row({
+      recipientClientId: null,
+      recipientCompanyId: null,
+      recipientIuId: 'iu_recipient',
+      individualEmail: {
+        senderId: 'actor_1',
+        recipientInternalUserId: 'iu_recipient',
+        notificationSettingId: settingId,
+        deliveryTargets: { email: { subject: 'A task' } },
+      },
+    })
+
+  it('gates an IU grouped summary with the setting id when the whole window is one category', async () => {
+    mockQueryRaw.mockResolvedValue([iuRow('setting_comment'), iuRow('setting_comment')])
+
+    await flushGroupedEmailRun(payload)
+
+    expect(mockSendGroupedEmail.mock.calls[0][0]).toMatchObject({ notificationSettingId: 'setting_comment' })
+  })
+
+  it('sends an IU grouped summary without an id when the window mixes categories', async () => {
+    mockQueryRaw.mockResolvedValue([iuRow('setting_assigned'), iuRow('setting_comment')])
+
+    await flushGroupedEmailRun(payload)
+
+    expect(mockSendGroupedEmail.mock.calls[0][0].notificationSettingId).toBeUndefined()
+  })
+
   it('replays the original individual email when the window has a single live event', async () => {
     mockQueryRaw.mockResolvedValue([row()])
 

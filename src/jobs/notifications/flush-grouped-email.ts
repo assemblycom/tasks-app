@@ -87,6 +87,21 @@ const senderFromEvents = (events: WindowEvent[]): EventSender | undefined => {
   return { senderId: email.senderId, senderType: email.senderType, senderCompanyId: email.senderCompanyId }
 }
 
+// Seam for per-IU category filtering. Today it's a pass-through: the platform can't gate a mixed
+// grouped summary, and there's no API to read an IU's per-setting preferences. Once Assembly exposes
+// that endpoint, fetch the recipient IU's prefs here and drop events for disabled categories so the
+// summary only carries allowed ones (an all-disabled recipient then sends nothing).
+// TODO(OUT-3929): implement per-IU filtering when the read endpoint lands.
+const filterEventsForIuPreferences = (events: WindowEvent[]): WindowEvent[] => events
+
+// The platform can only gate a send that carries one setting id. A grouped summary gets an id only
+// when every live event shares the same one (i.e. a single-category window); a mixed window sends
+// without an id and is not gated per-IU until the filter seam above is implemented.
+const singleCategorySettingId = (events: WindowEvent[]): string | undefined => {
+  const ids = events.map((e) => e.individualEmail?.notificationSettingId)
+  return ids.every((id) => id && id === ids[0]) ? (ids[0] ?? undefined) : undefined
+}
+
 const sendIndividualEmail = async (copilot: CopilotAPI, payload: NotificationRequestBody): Promise<void> => {
   try {
     await copilot.createNotification(payload)
@@ -216,7 +231,8 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
   }
 
   for (const group of iuGroups) {
-    const liveEvents = group.events.filter((e) => liveTaskIds.has(e.taskId))
+    const liveEvents = filterEventsForIuPreferences(group.events.filter((e) => liveTaskIds.has(e.taskId)))
+    // A single event replays its buffered email verbatim (it already carries its own setting id).
     const singleEmail = liveEvents.length === 1 ? liveEvents[0].individualEmail : null
 
     Sentry.addBreadcrumb({
@@ -237,6 +253,8 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
         senderType: sender?.senderType,
         senderCompanyId: sender?.senderCompanyId,
         recipientInternalUserId: group.recipientIuId,
+        // Gate the summary per-IU only when the whole window is one category.
+        notificationSettingId: singleCategorySettingId(liveEvents),
         copilot,
       })
       sent += 1
