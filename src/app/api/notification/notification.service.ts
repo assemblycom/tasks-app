@@ -601,6 +601,7 @@ export class NotificationService extends BaseService {
             )
             .map((iu) => iu.id)
         }
+        break
       default:
         const userInfo = await this.copilot.me()
         senderId = z.string().parse(userInfo?.id)
