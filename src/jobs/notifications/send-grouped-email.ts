@@ -33,7 +33,7 @@ export const sendGroupedEmail = async ({
   recipientInternalUserId,
   notificationSettingId,
   copilot,
-}: SendGroupedEmailArgs): Promise<string> => {
+}: SendGroupedEmailArgs): Promise<string | undefined> => {
   const email = renderGroupedEmail(content)
 
   const payload: NotificationRequestBody = {
@@ -57,12 +57,12 @@ export const sendGroupedEmail = async ({
   logger.log('flush-grouped-email: createNotification payload (grouped summary)', { payload })
   try {
     const notification = await copilot.createNotification(payload)
-    return notification.id
+    return notification?.id
   } catch (e: unknown) {
     // Account for workspaces without multi-companies, which reject senderCompanyId (mirrors NotificationService).
     if (isMessagableError(e) && e.body?.message === 'sender company ID is invalid based on sender') {
       const notification = await copilot.createNotification({ ...payload, senderCompanyId: undefined })
-      return notification.id
+      return notification?.id
     }
     throw e
   }

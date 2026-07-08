@@ -64,5 +64,7 @@ export const sendReminderEmail = async ({
   }
 
   const notification = await copilot.createNotification(payload)
+  // Reminder emails never pass a notificationSettingId, so the platform can't suppress them.
+  if (!notification) throw new Error('sendReminderEmail: notification was unexpectedly suppressed')
   return notification.id
 }

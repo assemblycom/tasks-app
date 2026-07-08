@@ -119,7 +119,7 @@ export class NotificationService extends BaseService {
       if (!inProduct && !notificationDetails.deliveryTargets?.email) return
       console.info('NotificationService#create | Creating single notification:', notificationDetails)
 
-      let notification: NotificationCreatedResponse
+      let notification: NotificationCreatedResponse | null
       try {
         notification = await this.copilot.createNotification(notificationDetails)
       } catch (e: unknown) {
@@ -127,6 +127,8 @@ export class NotificationService extends BaseService {
       }
 
       console.info('NotificationService#create | Created single notification:', notification)
+      // Suppressed by the recipient IU's preference — nothing was created, so there's nothing to save.
+      if (!notification) return
 
       // 3. Save notification to ClientNotification or InternalUserNotification table. Check for notification.recipientClientId too
       if (task.assigneeType === AssigneeType.client && !!notification.recipientClientId && !opts.disableInProduct) {
@@ -266,7 +268,7 @@ export class NotificationService extends BaseService {
           if (groupedType) notificationDetails.deliveryTargets = { inProduct }
 
           console.info('NotificationService#bulkCreate | Creating single notification:', notificationDetails)
-          let notification: NotificationCreatedResponse
+          let notification: NotificationCreatedResponse | null
           try {
             notification = await this.copilot.createNotification(notificationDetails)
           } catch (e: unknown) {

@@ -465,6 +465,17 @@ describe('guard: IU notification setting gating', () => {
     expect(mockCreateNotification.mock.calls[0][0].notificationSettingId).toBeUndefined()
     expect(deliveryTargetsOf(0).inProduct).toBeDefined()
   })
+
+  it('treats a suppressed (null) createNotification response as a no-op — no throw, no save', async () => {
+    // Platform dropped the only requested surface for this IU (preference off) → no created object.
+    mockCreateNotification.mockResolvedValue(null)
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+
+    const result = await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(result).toBeUndefined()
+  })
 })
 
 describe('guard: IU completion emails', () => {

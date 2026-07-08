@@ -230,7 +230,7 @@ export class CopilotAPI {
     return InternalUsersSchema.parse(await this.copilot.retrieveInternalUser({ id }))
   }
 
-  async _createNotification(requestBody: NotificationRequestBody): Promise<NotificationCreatedResponse> {
+  async _createNotification(requestBody: NotificationRequestBody): Promise<NotificationCreatedResponse | null> {
     console.info('CopilotAPI#_createNotification', this.token)
     // Direct REST call instead of the SDK: the SDK request type omits `deliveryTargets.email.htmlBody`,
     // so HTML email bodies only reach Copilot when we post the request body ourselves.
@@ -246,6 +246,13 @@ export class CopilotAPI {
       method: 'POST',
       body: requestBody,
     })
+    // When a notificationSettingId is supplied and the recipient IU has every requested surface
+    // turned off, the platform suppresses the notification: the call succeeds (2xx) but returns no
+    // created object. Treat that as a no-op rather than failing the schema parse.
+    if (!notification?.id) {
+      console.info('CopilotAPI#_createNotification | no notification created (suppressed by recipient preference)')
+      return null
+    }
     return NotificationCreatedResponseSchema.parse(notification)
   }
 

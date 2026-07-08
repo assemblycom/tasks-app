@@ -121,9 +121,11 @@ class WebhookService extends BaseService {
     const insertPromises = []
     const notificationService = new NotificationService(this.user)
     for (let i = 0; i < notifications.length; i++) {
+      const notification = notifications[i]
+      if (!notification) continue
       insertPromises.push(
         // This is assuming a 1:1 map for tasks and notifications
-        dbBottleneck.schedule(() => notificationService.addToClientNotifications(tasks[i], notifications[i])),
+        dbBottleneck.schedule(() => notificationService.addToClientNotifications(tasks[i], notification)),
       )
     }
     await Promise.all(insertPromises)
