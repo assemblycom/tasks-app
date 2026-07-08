@@ -1,5 +1,5 @@
-import { RealTimeTaskResponse } from '@/hoc/RealTime'
-import { RealTimeTemplateResponse } from '@/hoc/RealtimeTemplates'
+import type { RealTimeTaskResponse } from '@/hoc/RealTime'
+import type { RealTimeTemplateResponse } from '@/hoc/RealtimeTemplates'
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 const taskRealtimeFields = [
@@ -71,8 +71,8 @@ const areRealtimeValuesEqual = (newValue: unknown, oldValue: unknown): boolean =
 export function isTaskPayloadEqual(
   payload: RealtimePostgresChangesPayload<RealTimeTaskResponse | RealTimeTemplateResponse>,
 ): boolean {
-  const newPayload = payload.new
-  const oldPayload = payload.old
+  const newPayload = isRecord(payload.new) ? payload.new : undefined
+  const oldPayload = isRecord(payload.old) ? payload.old : undefined
   if (!newPayload || !oldPayload) return true
   return taskRealtimeFields.every((field) => areRealtimeValuesEqual(newPayload[field], oldPayload[field]))
 }

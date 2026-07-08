@@ -1,4 +1,4 @@
-import { RealTimeTaskResponse } from '@/hoc/RealTime'
+import type { RealTimeTaskResponse } from '@/hoc/RealTime'
 import { isTaskPayloadEqual } from '@/utils/isRealtimePayloadEqual'
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
@@ -11,13 +11,13 @@ const buildTaskPayload = ({
 }): RealtimePostgresChangesPayload<RealTimeTaskResponse> =>
   ({
     commit_timestamp: '2026-07-08T12:00:00.000Z',
-    errors: null,
+    errors: [],
     eventType: 'UPDATE',
     new: newPayload,
     old: oldPayload,
     schema: 'public',
     table: 'Tasks',
-  }) as RealtimePostgresChangesPayload<RealTimeTaskResponse>
+  }) as unknown as RealtimePostgresChangesPayload<RealTimeTaskResponse>
 
 describe('isTaskPayloadEqual', () => {
   it('ignores no-op updates for task fields', () => {
