@@ -13,6 +13,7 @@ import { Token } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { CreateComment } from '@/types/dto/comment.dto'
 import { fetcher } from '@/utils/fetcher'
+import { getCommentActivityId, isPendingCommentId } from '@/utils/commentActivity'
 import { generateRandomString } from '@/utils/generateRandomString'
 import { checkOptimisticStableId, getOptimisticData, getTempLog } from '@/utils/optimisticCommentUtils'
 import { LogResponse } from '@api/activity-logs/schemas/LogResponseSchema'
@@ -22,7 +23,6 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useSelector } from 'react-redux'
 import { TransitionGroup } from 'react-transition-group'
 import useSWR, { useSWRConfig } from 'swr'
-import { z } from 'zod'
 
 interface OptimisticUpdate {
   tempId: string
@@ -127,7 +127,25 @@ export const ActivityWrapper = ({
   }
 
   // Handle comment deletion
-  const handleDeleteComment = async (commentId: string, logId: string, replyId?: string, softDelete?: boolean) => {
+  const resolveCommentIdToDelete = async (commentId: string): Promise<string | undefined> => {
+    if (!isPendingCommentId(commentId)) return commentId
+
+    const attempts = Array.from({ length: 6 })
+    for (const _attempt of attempts) {
+      const matchedUpdate = optimisticUpdates.find((update) => update.tempId === commentId)
+      if (matchedUpdate?.serverId) return matchedUpdate.serverId
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+
+    return undefined
+  }
+
+  const handleDeleteComment = async (
+    commentId: string | undefined,
+    logId: string,
+    replyId?: string,
+    softDelete?: boolean,
+  ) => {
     let optimisticData
     if (replyId) {
       optimisticData = activities
@@ -173,24 +191,14 @@ export const ActivityWrapper = ({
         cacheKey,
         async () => {
           shouldRefetchRef.current = false
-          let commentIdToDelete = commentId
-          if (commentIdToDelete.includes('temp-comment')) {
-            const maxAttempts = 6
-            for (let attempt = 0; attempt < maxAttempts; attempt++) {
-              const matchedUpdate = optimisticUpdates.find((update) => update.tempId === commentIdToDelete)
-              if (matchedUpdate?.serverId) {
-                commentIdToDelete = matchedUpdate.serverId
-                break
-              }
-              await new Promise((resolve) => setTimeout(resolve, 500))
-            }
-            if (commentIdToDelete.includes('temp-comment')) {
-              console.warn('Comment is still pending server sync. Try again later.')
-              return activities
-            }
-          } //Due to optimistic updates on comment creation applied in our ui, some deleted comments might have tempId which are yet to be replaced by the server id. Although the usecase frequency for this is very very minimal, we are waiting for serverId to replace tempId if the deleted comment has tempId by polling method.
+          const commentIdToDelete = getCommentActivityId({ id: commentId })
+          const resolvedCommentId = commentIdToDelete ? await resolveCommentIdToDelete(commentIdToDelete) : undefined
+          if (!resolvedCommentId) {
+            console.warn('Comment is missing a server id. Try again later.')
+            return activities
+          }
 
-          await deleteComment(token, commentIdToDelete)
+          await deleteComment(token, resolvedCommentId)
           return await fetcher(cacheKey)
         },
         {
@@ -217,32 +225,35 @@ export const ActivityWrapper = ({
         ) : (
           <Stack direction="column" alignItems="left" rowGap={2}>
             <TransitionGroup>
-              {activities?.data?.map((item: LogResponse, index: number) => (
-                <Collapse key={checkOptimisticStableId(item, optimisticUpdates)}>
-                  <Box
-                    key={index}
-                    sx={{
-                      height: 'auto',
-                    }}
-                  >
-                    {item.type === ActivityType.COMMENT_ADDED ? (
-                      <Comments
-                        token={token}
-                        comment={item}
-                        createComment={handleCreateComment}
-                        deleteComment={(commentId, replyId, softDelete) =>
-                          handleDeleteComment(commentId, item.id, replyId, softDelete)
-                        }
-                        task_id={task_id}
-                        stableId={z.string().parse(item.details.id) ?? item.id}
-                        optimisticUpdates={optimisticUpdates}
-                      />
-                    ) : Object.keys(item).length === 0 ? null : (
-                      <ActivityLog log={item} />
-                    )}
-                  </Box>
-                </Collapse>
-              ))}
+              {activities?.data?.map((item: LogResponse, index: number) => {
+                const commentActivityId = getCommentActivityId(item.details)
+                return (
+                  <Collapse key={checkOptimisticStableId(item, optimisticUpdates)}>
+                    <Box
+                      key={index}
+                      sx={{
+                        height: 'auto',
+                      }}
+                    >
+                      {item.type === ActivityType.COMMENT_ADDED ? (
+                        <Comments
+                          token={token}
+                          comment={item}
+                          createComment={handleCreateComment}
+                          deleteComment={(commentId, replyId, softDelete) =>
+                            handleDeleteComment(commentId, item.id, replyId, softDelete)
+                          }
+                          task_id={task_id}
+                          stableId={commentActivityId ?? item.id}
+                          optimisticUpdates={optimisticUpdates}
+                        />
+                      ) : Object.keys(item).length === 0 ? null : (
+                        <ActivityLog log={item} />
+                      )}
+                    </Box>
+                  </Collapse>
+                )
+              })}
             </TransitionGroup>
             <CommentInput createComment={handleCreateComment} task_id={task_id} token={token} />
           </Stack>
