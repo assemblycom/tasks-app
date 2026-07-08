@@ -32,6 +32,8 @@ import {
   NotificationRequestBody,
   NotificationResponseSchema,
   NotificationResponseType,
+  NotificationSettingsResponse,
+  NotificationSettingsResponseSchema,
   Token,
   TokenSchema,
   WorkspaceResponse,
@@ -346,6 +348,21 @@ export class CopilotAPI {
       })
   }
 
+  // Declared notification settings for this app in the current workspace.
+  async _getNotificationSettings(): Promise<NotificationSettingsResponse> {
+    console.info('CopilotAPI#_getNotificationSettings', this.token)
+    const appId = z.string({ message: 'Missing AppID in environment' }).parse(APP_ID)
+    const installs = await this.copilot.listAppInstalls()
+    const install = installs.find((entry) => entry.appId === appId)
+    if (!install?.id) {
+      console.info('CopilotAPI#_getNotificationSettings | No matching app install in workspace; no settings')
+      return { notifications: [] }
+    }
+    const workspaceId = await this._resolveWorkspaceId()
+    const response = await this._manualFetch(`installs/${install.id}/notification-settings`, undefined, workspaceId)
+    return NotificationSettingsResponseSchema.parse(response)
+  }
+
   async dispatchWebhook(
     eventName: DISPATCHABLE_EVENT,
     {
@@ -410,6 +427,7 @@ export class CopilotAPI {
   bulkDeleteNotifications = this.wrapWithRetry(this._bulkDeleteNotifications)
   manualFetch = this.wrapWithRetry(this._manualFetch)
   getIUNotification = this.wrapWithRetry(this._getIUNotification)
+  getNotificationSettings = this.wrapWithRetry(this._getNotificationSettings)
 }
 
 const cachedFetchInternalUser = cache(

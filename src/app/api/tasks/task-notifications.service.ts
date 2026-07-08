@@ -6,7 +6,6 @@ import { CopilotAPI } from '@/utils/CopilotAPI'
 import User from '@api/core/models/User.model'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
-import { isIuEmailEnabled } from '@api/notification/isIuEmailEnabled'
 import { NotificationService } from '@api/notification/notification.service'
 import { AssigneeType, StateType, Task, WorkflowState } from '@prisma/client'
 import { z } from 'zod'
@@ -289,13 +288,13 @@ export class TaskNotificationsService extends BaseService {
       // Don't do this in parallel since this can cause rate-limits, each of them has their own bottlenecks for avoiding ratelimits
       shouldCreateNotification &&
         (await this.notificationService.create(NotificationTaskActions.CompletedForCompanyByIU, updatedTask, {
-          disableEmail: !isIuEmailEnabled(),
+          disableEmail: false,
         }))
       await this.notificationService.markAsReadForAllRecipients(updatedTask)
     } else if (updatedTask.assigneeType === AssigneeType.client) {
       shouldCreateNotification &&
         (await this.notificationService.create(NotificationTaskActions.CompletedByIU, updatedTask, {
-          disableEmail: !isIuEmailEnabled(),
+          disableEmail: false,
         }))
       try {
         await this.notificationService.markClientNotificationAsRead(updatedTask)
@@ -306,7 +305,7 @@ export class TaskNotificationsService extends BaseService {
     } else if (updatedTask.assigneeType === AssigneeType.internalUser) {
       shouldCreateNotification &&
         (await this.notificationService.create(NotificationTaskActions.CompletedByIU, updatedTask, {
-          disableEmail: !isIuEmailEnabled(),
+          disableEmail: false,
         }))
     }
   }
@@ -372,7 +371,7 @@ export class TaskNotificationsService extends BaseService {
         NotificationTaskActions.CompletedByCompanyMember,
         updatedTask,
         recipientIds,
-        { senderCompanyId, email: isIuEmailEnabled(), isRecipientIu: true },
+        { senderCompanyId, email: true, isRecipientIu: true },
       )
       await this.notificationService.markAsReadForAllRecipients(updatedTask)
     } else {
@@ -383,7 +382,7 @@ export class TaskNotificationsService extends BaseService {
       )
       await this.notificationService.createBulkNotification(NotificationTaskActions.Completed, updatedTask, recipientIds, {
         senderCompanyId,
-        email: isIuEmailEnabled(),
+        email: true,
         isRecipientIu: true,
       })
       await this.notificationService.markClientNotificationAsRead(updatedTask)
@@ -492,7 +491,7 @@ export class TaskNotificationsService extends BaseService {
       // In future when reassignment is supported, change this logic to support reassigned to client as well
       notificationType,
       task,
-      { disableEmail: task.assigneeType === AssigneeType.internalUser && !isIuEmailEnabled(), emailOverride },
+      { disableEmail: false, emailOverride },
     )
     // Create a new entry in ClientNotifications table so we can mark as read on
     // behalf of client later

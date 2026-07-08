@@ -14,6 +14,7 @@ import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
 import { getEmailDetails, getInProductNotificationDetails, mergeEmailOverride } from '@api/notification/notification.helpers'
+import { resolveIuNotificationSetting } from '@api/notification/resolveNotificationSettingId'
 import { AssigneeType, ClientNotification, GroupedEmailEventType, Prisma, Task } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { enqueueGroupedEmailFlush } from '@/jobs/notifications/flush-grouped-email'
@@ -70,9 +71,21 @@ export class NotificationService extends BaseService {
       const baseEmail = opts.disableEmail
         ? undefined
         : getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
-      const email = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts.emailOverride }) : baseEmail
+      const mergedEmail = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts.emailOverride }) : baseEmail
 
-      const groupedType = email && recipientId ? this.groupedEventTypeFor(action) : null
+      const category = this.groupedEventTypeFor(action)
+      // IU sends carry the category's setting id so the platform gates the in-product surface per the
+      // IU's preference. The email surface is gated app-side: a grouped summary is cross-category and
+      // can't carry a per-category id, so an IU email is only buffered when the category's declared
+      // setting enables the email surface.
+      const iuSetting =
+        isRecipientIu && category
+          ? await resolveIuNotificationSetting({ copilot: this.copilot, workspaceId: task.workspaceId, category })
+          : undefined
+      const notificationSettingId = iuSetting?.id
+      const email = isRecipientIu && iuSetting && !iuSetting.emailEnabled ? undefined : mergedEmail
+
+      const groupedType = email && recipientId ? category : null
       if (groupedType) {
         const association = AssociationsSchema.parse(task.associations)?.[0]
         await this.bufferGroupedEmailEvent({
@@ -89,6 +102,7 @@ export class NotificationService extends BaseService {
             { email },
             senderCompanyId,
             isRecipientIu,
+            notificationSettingId,
           ),
         })
       }
@@ -102,6 +116,7 @@ export class NotificationService extends BaseService {
         { inProduct, email },
         senderCompanyId,
         isRecipientIu,
+        notificationSettingId,
       )
       if (groupedType) notificationDetails.deliveryTargets = { inProduct }
       if (!inProduct && !notificationDetails.deliveryTargets?.email) return
@@ -177,7 +192,7 @@ export class NotificationService extends BaseService {
       const baseEmail = opts?.email
         ? getEmailDetails(workspace, actionUserName, task, { commentId: opts?.commentId })[action]
         : undefined
-      const email = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts?.emailOverride }) : baseEmail
+      const mergedEmail = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts?.emailOverride }) : baseEmail
 
       // Get a list of all notifications dispatched for these taskId, clientId, companyId combinations
       // This will be used to filter out any duplicate notifications during creation
@@ -194,9 +209,18 @@ export class NotificationService extends BaseService {
       const iuNotifications = []
 
       const association = AssociationsSchema.parse(task.associations)?.[0]
-      // Non-null only when these emails should be diverted into the grouped buffer.
-      const groupedType = email ? this.groupedEventTypeFor(action) : null
+      const category = this.groupedEventTypeFor(action)
       const isRecipientIu = opts.isRecipientIu
+      // Resolve once per batch (not per recipient). IU sends carry the setting id so the platform
+      // gates the in-product surface; the email surface is gated app-side (see create()).
+      const iuSetting =
+        isRecipientIu && category
+          ? await resolveIuNotificationSetting({ copilot: this.copilot, workspaceId: task.workspaceId, category })
+          : undefined
+      const notificationSettingId = iuSetting?.id
+      const email = isRecipientIu && iuSetting && !iuSetting.emailEnabled ? undefined : mergedEmail
+      // Non-null only when these emails should be diverted into the grouped buffer.
+      const groupedType = email ? category : null
 
       // NOTE: The reason we are skipping using NotificationService#create and implementing notification dispatch + save manually is because
       // we can just do one `createMany` DB call instead of one per notification, saving a ton of DB calls
@@ -227,6 +251,7 @@ export class NotificationService extends BaseService {
                 { email },
                 opts?.senderCompanyId,
                 isRecipientIu,
+                notificationSettingId,
               ),
             })
             if (!inProduct) continue
@@ -241,6 +266,7 @@ export class NotificationService extends BaseService {
             { inProduct, email },
             opts?.senderCompanyId,
             isRecipientIu,
+            notificationSettingId,
           )
           if (groupedType) notificationDetails.deliveryTargets = { inProduct }
 
@@ -715,6 +741,9 @@ export class NotificationService extends BaseService {
     deliveryTargets: NotificationRequestBody['deliveryTargets'],
     senderCompanyId?: string,
     isRecipientIu?: boolean,
+    // Set for IU payloads so the platform gates each requested surface (in-product and email)
+    // against the IU's per-category preference. Suppression is enforced platform-side.
+    notificationSettingId?: string,
   ): NotificationRequestBody {
     const associations = AssociationsSchema.parse(task.associations)
     const association = associations?.[0]
@@ -730,6 +759,7 @@ export class NotificationService extends BaseService {
       delete notificationDetails.recipientCompanyId
       delete notificationDetails.recipientClientId
       notificationDetails.recipientInternalUserId = recipientId
+      if (notificationSettingId) notificationDetails.notificationSettingId = notificationSettingId
     }
     return notificationDetails
   }
