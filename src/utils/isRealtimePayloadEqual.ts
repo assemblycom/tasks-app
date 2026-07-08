@@ -41,6 +41,8 @@ const taskRealtimeFields = [
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
+const toRecord = (value: unknown): Record<string, unknown> | undefined => (isRecord(value) ? value : undefined)
+
 const arePrimitiveRecordValuesEqual = (newValue: Record<string, unknown>, oldValue: Record<string, unknown>): boolean => {
   const keys = [...new Set([...Object.keys(newValue), ...Object.keys(oldValue)])]
   return keys.every((key) => Object.is(newValue[key], oldValue[key]))
@@ -71,8 +73,8 @@ const areRealtimeValuesEqual = (newValue: unknown, oldValue: unknown): boolean =
 export function isTaskPayloadEqual(
   payload: RealtimePostgresChangesPayload<RealTimeTaskResponse | RealTimeTemplateResponse>,
 ): boolean {
-  const newPayload = isRecord(payload.new) ? payload.new : undefined
-  const oldPayload = isRecord(payload.old) ? payload.old : undefined
+  const newPayload = toRecord(payload.new)
+  const oldPayload = toRecord(payload.old)
   if (!newPayload || !oldPayload) return true
   return taskRealtimeFields.every((field) => areRealtimeValuesEqual(newPayload[field], oldPayload[field]))
 }
