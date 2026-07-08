@@ -1,4 +1,4 @@
-import User from '@api/core/models/User.model'
+import type User from '@api/core/models/User.model'
 import { loadSubtaskStatus, loadTask, loadTaskPath } from '@/app/detail/[task_id]/[user_type]/loaders'
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library'
 import { z } from 'zod'
@@ -17,6 +17,12 @@ jest.mock('@api/tasks/tasks.service', () => ({
 jest.mock('@api/tasks/subtasks.service', () => ({
   SubtaskService: jest.fn().mockImplementation(() => ({
     getSubtaskStatus: mockGetSubtaskStatus,
+  })),
+}))
+
+jest.mock('@api/view-settings/viewSettings.service', () => ({
+  ViewSettingsService: jest.fn().mockImplementation(() => ({
+    getViewSettingsForUser: jest.fn(),
   })),
 }))
 
