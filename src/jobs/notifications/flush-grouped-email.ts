@@ -103,6 +103,7 @@ const singleCategorySettingId = (events: WindowEvent[]): string | undefined => {
 }
 
 const sendIndividualEmail = async (copilot: CopilotAPI, payload: NotificationRequestBody): Promise<void> => {
+  logger.log('flush-grouped-email: createNotification payload (individual replay)', { payload })
   try {
     await copilot.createNotification(payload)
   } catch (e: unknown) {

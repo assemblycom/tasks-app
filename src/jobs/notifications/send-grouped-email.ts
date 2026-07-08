@@ -5,6 +5,7 @@ import { renderGroupedEmail } from '@/app/api/notification/groupedEmail.renderer
 import { NotificationRequestBody, NotificationSender } from '@/types/common'
 import { isMessagableError } from '@/utils/copilotError'
 import { CopilotAPI } from '@/utils/CopilotAPI'
+import { logger } from '@trigger.dev/sdk/v3'
 
 export type SendGroupedEmailArgs = {
   content: GroupedEmailContent
@@ -53,6 +54,7 @@ export const sendGroupedEmail = async ({
     },
   }
 
+  logger.log('flush-grouped-email: createNotification payload (grouped summary)', { payload })
   try {
     const notification = await copilot.createNotification(payload)
     return notification.id
