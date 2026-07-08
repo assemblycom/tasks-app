@@ -59,7 +59,7 @@ export const ReplyInput = ({
       setDetail('')
       setPendingReplies((prev) => [...prev, { content, taskId: task_id }])
     }
-  }, [comment, detail, task_id])
+  }, [detail, task_id])
 
   useEffect(() => {
     if (pendingReplies.length === 0 || !commentId || isPendingCommentId(commentId)) return
