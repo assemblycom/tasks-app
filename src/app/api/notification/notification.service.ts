@@ -14,7 +14,7 @@ import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
 import { getEmailDetails, getInProductNotificationDetails, mergeEmailOverride } from '@api/notification/notification.helpers'
-import { resolveIuNotificationSettingId } from '@api/notification/resolveNotificationSettingId'
+// import { resolveIuNotificationSettingId } from '@api/notification/resolveNotificationSettingId'
 import { AssigneeType, ClientNotification, GroupedEmailEventType, Prisma, Task } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { enqueueGroupedEmailFlush } from '@/jobs/notifications/flush-grouped-email'
@@ -74,13 +74,9 @@ export class NotificationService extends BaseService {
       const email = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts.emailOverride }) : baseEmail
 
       const category = this.groupedEventTypeFor(action)
-      // IU sends carry the category's setting id. It gates the in-product surface per the IU's
-      // preference immediately, and rides along on the buffered email so a single-category grouped
-      // flush can gate the email too (see flush-grouped-email).
-      const notificationSettingId =
-        isRecipientIu && category
-          ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category })
-          : undefined
+      // Gating disabled until Copilot exposes a per-IU preference read endpoint — ship IUs ungated.
+      const notificationSettingId = undefined
+      // const notificationSettingId = isRecipientIu && category ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category }) : undefined
 
       const groupedType = email && recipientId ? category : null
       if (groupedType) {
@@ -210,12 +206,9 @@ export class NotificationService extends BaseService {
       const association = AssociationsSchema.parse(task.associations)?.[0]
       const category = this.groupedEventTypeFor(action)
       const isRecipientIu = opts.isRecipientIu
-      // Resolve once per batch (not per recipient). The id gates the in-product surface per IU and
-      // rides along on the buffered email for the flush-time single-category gate (see create()).
-      const notificationSettingId =
-        isRecipientIu && category
-          ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category })
-          : undefined
+      // Gating disabled until Copilot exposes a per-IU preference read endpoint — ship IUs ungated.
+      const notificationSettingId = undefined
+      // const notificationSettingId = isRecipientIu && category ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category }) : undefined
       // Non-null only when these emails should be diverted into the grouped buffer.
       const groupedType = email ? category : null
 

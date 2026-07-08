@@ -6,7 +6,7 @@ import { isMessagableError } from '@/utils/copilotError'
 import { CommentRepository } from '@/app/api/comments/comment.repository'
 import { CommentService } from '@/app/api/comments/comment.service'
 import { NotificationService } from '@/app/api/notification/notification.service'
-import { resolveIuNotificationSettingId } from '@/app/api/notification/resolveNotificationSettingId'
+// import { resolveIuNotificationSettingId } from '@/app/api/notification/resolveNotificationSettingId'
 import User from '@api/core/models/User.model'
 import { TasksService } from '@api/tasks/tasks.service'
 import { Comment, CommentInitiator, GroupedEmailEventType, Task } from '@prisma/client'
@@ -49,14 +49,10 @@ export const sendReplyCreateNotifications = task({
 
     const deliveryTargets = await getNotificationDetails(copilot, user, comment)
 
-    // Replies are the COMMENT category. Reply emails are buffered as COMMENT grouped events (like
-    // top-level comments), and IU sends carry this setting id so the platform gates each surface per
-    // the recipient IU's preference.
-    const notificationSettingId = await resolveIuNotificationSettingId({
-      copilot,
-      workspaceId: user.workspaceId,
-      category: GroupedEmailEventType.COMMENT,
-    })
+    // Replies are buffered as COMMENT grouped events like top-level comments.
+    // Gating disabled until Copilot exposes a per-IU preference read endpoint — ship IUs ungated.
+    const notificationSettingId = undefined
+    // const notificationSettingId = await resolveIuNotificationSettingId({ copilot, workspaceId: user.workspaceId, category: GroupedEmailEventType.COMMENT })
 
     const notificationPromises: Promise<unknown>[] = []
     const queueNotificationPromise = (promise: Promise<unknown>): void => {
