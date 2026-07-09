@@ -15,7 +15,8 @@ const content: GroupedEmailContent = {
   ],
 }
 
-const buildCopilotMock = (createNotification: jest.Mock) => ({ createNotification }) as unknown as CopilotAPI
+const buildCopilotMock = (createNotification: jest.Mock, getClient = jest.fn()) =>
+  ({ createNotification, getClient }) as unknown as CopilotAPI
 
 describe('sendGroupedEmail', () => {
   it('returns the Copilot notification id', async () => {
@@ -60,18 +61,20 @@ describe('sendGroupedEmail', () => {
     expect(payload.deliveryTargets.inProduct).toBeUndefined()
   })
 
-  it('omits recipientCompanyId when null', async () => {
+  it('resolves recipientCompanyId when missing', async () => {
     const createNotification = jest.fn().mockResolvedValue({ id: 'notif_2', createdAt: '2026-06-09T00:00:00Z' })
+    const getClient = jest.fn().mockResolvedValue({ companyId: 'company_resolved' })
 
     await sendGroupedEmail({
       content,
       senderId: 'iu_1',
       recipientClientId: 'client_1',
       recipientCompanyId: null,
-      copilot: buildCopilotMock(createNotification),
+      copilot: buildCopilotMock(createNotification, getClient),
     })
 
-    expect(createNotification.mock.calls[0][0].recipientCompanyId).toBeUndefined()
+    expect(getClient).toHaveBeenCalledWith('client_1')
+    expect(createNotification.mock.calls[0][0].recipientCompanyId).toBe('company_resolved')
   })
 
   it('propagates errors from Copilot', async () => {

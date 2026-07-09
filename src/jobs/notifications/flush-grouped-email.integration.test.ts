@@ -244,6 +244,10 @@ describe('flush-grouped-email idempotency (real DB)', () => {
 
     // Only the live task appears in the grouped email (1 event); individual snapshot path.
     expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(mockCreateNotification.mock.calls[0][0]).toMatchObject({
+      recipientClientId: CLIENT_A,
+      recipientCompanyId: COMPANY,
+    })
     expect(result).toMatchObject({ sentGrouped: 0, sentIndividual: 1 })
     expect(await totalCount(window)).toBe(0)
   })

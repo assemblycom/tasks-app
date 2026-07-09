@@ -22,7 +22,8 @@ const workspace: WorkspaceResponse = {
 
 const task = { id: 'task_1', title: 'Submit timesheet', createdById: 'iu_1' }
 
-const buildCopilotMock = (createNotification: jest.Mock) => ({ createNotification }) as unknown as CopilotAPI
+const buildCopilotMock = (createNotification: jest.Mock, getClient = jest.fn()) =>
+  ({ createNotification, getClient }) as unknown as CopilotAPI
 
 describe('sendReminderEmail', () => {
   it('returns the Copilot notification id', async () => {
@@ -89,8 +90,9 @@ describe('sendReminderEmail', () => {
     expect(payload.deliveryTargets.email.subject).toBe('[Due Soon] Task due today')
   })
 
-  it('omits recipientCompanyId when null', async () => {
+  it('resolves recipientCompanyId when null', async () => {
     const createNotification = jest.fn().mockResolvedValue({ id: 'notif_3', createdAt: '2026-05-25T00:00:00Z' })
+    const getClient = jest.fn().mockResolvedValue({ companyId: 'company_resolved' })
 
     await sendReminderEmail({
       task,
@@ -99,11 +101,12 @@ describe('sendReminderEmail', () => {
       reminderType: TaskReminderType.NO_DUE_DATE_3D,
       isCompanyRecipient: false,
       workspace,
-      copilot: buildCopilotMock(createNotification),
+      copilot: buildCopilotMock(createNotification, getClient),
     })
 
     const payload = createNotification.mock.calls[0][0]
-    expect(payload.recipientCompanyId).toBeUndefined()
+    expect(getClient).toHaveBeenCalledWith('client_1')
+    expect(payload.recipientCompanyId).toBe('company_resolved')
   })
 
   it('propagates errors from Copilot (no ledger compensation here)', async () => {
