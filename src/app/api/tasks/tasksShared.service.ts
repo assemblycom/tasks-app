@@ -18,7 +18,7 @@ import { SupabaseActions } from '@/utils/SupabaseActions'
 import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { UserRole } from '@api/core/types/user'
-import { AssigneeType, Prisma, StateType, Task } from '@prisma/client'
+import { AssigneeType, Prisma, PrismaClient, StateType, Task } from '@prisma/client'
 import httpStatus from 'http-status'
 import z from 'zod'
 import { AttachmentsService } from '@api/attachments/attachments.service'
@@ -622,13 +622,27 @@ export abstract class TasksSharedService extends BaseService {
 
       await this.createTask(createTaskPayload, { disableSubtaskTemplates: true, manualTimestamp })
     } catch (e) {
-      // A failed subtask must never delete or abort the already-created parent task
-      // (previously caused templated tasks to vanish). Skip it; the rest still get created.
-      console.error('TasksSharedService#createSubtasksFromTemplate | Skipping subtask that failed to create', {
+      // All-or-nothing: if any subtask fails to apply, roll back the parent task
+      // rather than leaving a partially-applied template, and surface the error.
+      const deleteTask = this.db.task.delete({ where: { id: parentId } })
+      const deleteActivityLogs = this.db.activityLog.deleteMany({ where: { taskId: parentId } })
+
+      await this.db.$transaction(async (tx) => {
+        this.setTransaction(tx as PrismaClient)
+        await deleteTask
+        await deleteActivityLogs
+        this.unsetTransaction()
+      })
+
+      console.error('TasksSharedService#createSubtasksFromTemplate | Rolling back task creation', {
         parentId,
         subTemplateId,
         e,
       })
+      throw new APIError(
+        httpStatus.INTERNAL_SERVER_ERROR,
+        'Failed to create subtask from template, new task was not created.',
+      )
     }
   }
 
