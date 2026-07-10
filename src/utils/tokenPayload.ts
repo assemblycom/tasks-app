@@ -6,6 +6,11 @@ type GetSafeTokenPayloadArgs = {
   token: string
 }
 
+const COPILOT_TOKEN_PATTERN = /^[0-9a-f]+$/i
+
+const isPotentialCopilotLaunchToken = (token: string): boolean =>
+  token.length >= 64 && token.length % 32 === 0 && COPILOT_TOKEN_PATTERN.test(token)
+
 const getErrorStatus = (error: unknown): number | null => {
   if (!error || typeof error !== 'object') return null
 
@@ -24,6 +29,8 @@ const isTokenAuthorizationError = (error: unknown): boolean => {
 }
 
 export async function getSafeTokenPayload({ token }: GetSafeTokenPayloadArgs): Promise<Token | null> {
+  if (!isPotentialCopilotLaunchToken(token)) return null
+
   try {
     const payload = await new CopilotAPI(token).getTokenPayload()
     const parsedPayload = TokenSchema.safeParse(payload)
