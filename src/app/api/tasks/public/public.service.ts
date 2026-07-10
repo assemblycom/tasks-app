@@ -1,4 +1,6 @@
+import { subtaskTemplateBatchSize } from '@/constants/tasks'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
+import { runInBatches } from '@/utils/array'
 import { deleteTaskNotifications, sendTaskCreateNotifications, sendTaskUpdateNotifications } from '@/jobs/notifications'
 import { CreateTaskRequest, UpdateTaskRequest, Associations, AssociationsSchema } from '@/types/dto/tasks.dto'
 import { DISPATCHABLE_EVENT } from '@/types/webhook'
@@ -270,13 +272,15 @@ export class PublicTasksService extends TasksSharedService {
       }
 
       if (template.subTaskTemplates.length) {
-        await Promise.all(
-          template.subTaskTemplates.map(async (sub, index) => {
-            const updatedSubTemplate = await templateService.getAppliedTemplateDescription(sub.id)
-            const manualTimeStamp = new Date(template.createdAt.getTime() + (template.subTaskTemplates.length - index) * 10) //maintain the order of subtasks in tasks with respect to subtasks in templates
-            await this.createSubtasksFromTemplate(updatedSubTemplate, newTask, manualTimeStamp)
-          }),
-        )
+        await runInBatches(template.subTaskTemplates, subtaskTemplateBatchSize, async (sub, index) => {
+          const manualTimestamp = new Date(template.createdAt.getTime() + (template.subTaskTemplates.length - index) * 10) //maintain the order of subtasks in tasks with respect to subtasks in templates
+          await this.createSubtasksFromTemplate({
+            subTemplateId: sub.id,
+            parentTask: newTask,
+            manualTimestamp,
+            templateService,
+          })
+        })
       }
     }
 
