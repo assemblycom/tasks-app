@@ -4,6 +4,8 @@ import { ClientResponse, CompanyResponse, InternalUsers } from '@/types/common'
 import { TaskWithWorkflowState } from '@/types/db'
 import { AncestorTaskResponse, CreateTaskRequest, UpdateTaskRequest, Associations } from '@/types/dto/tasks.dto'
 import { DISPATCHABLE_EVENT } from '@/types/webhook'
+import { runInBatches } from '@/utils/array'
+import { subtaskTemplateBatchSize } from '@/constants/tasks'
 import { UserIdsType } from '@/utils/assignee'
 import { isPastDateString } from '@/utils/dateHelper'
 import { getIdsFromLtreePath } from '@/utils/ltree'
@@ -251,13 +253,11 @@ export class TasksService extends TasksSharedService {
       }
 
       if (template.subTaskTemplates.length) {
-        await Promise.all(
-          template.subTaskTemplates.map(async (sub, index) => {
-            const updatedSubTemplate = await templateService.getAppliedTemplateDescription(sub.id)
-            const manualTimeStamp = new Date(template.createdAt.getTime() + (template.subTaskTemplates.length - index) * 10) //maintain the order of subtasks in tasks with respect to subtasks in templates
-            await this.createSubtasksFromTemplate(updatedSubTemplate, newTask, manualTimeStamp)
-          }),
-        )
+        await runInBatches(template.subTaskTemplates, subtaskTemplateBatchSize, async (sub, index) => {
+          const updatedSubTemplate = await templateService.getAppliedTemplateDescription(sub.id)
+          const manualTimeStamp = new Date(template.createdAt.getTime() + (template.subTaskTemplates.length - index) * 10) //maintain the order of subtasks in tasks with respect to subtasks in templates
+          await this.createSubtasksFromTemplate(updatedSubTemplate, newTask, manualTimeStamp)
+        })
       }
     }
 
