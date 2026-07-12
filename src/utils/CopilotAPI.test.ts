@@ -13,6 +13,10 @@ jest.mock('copilot-node-sdk', () => ({
   copilotApi: (...args: unknown[]) => mockCopilotApi(...args),
 }))
 
+jest.mock('@/app/api/core/utils/withRetry', () => ({
+  withRetry: <T>(fn: (...args: unknown[]) => Promise<T>, args: unknown[]) => fn(...args),
+}))
+
 import { CopilotAPI } from './CopilotAPI'
 
 const buildCompany = (id: string) => ({
