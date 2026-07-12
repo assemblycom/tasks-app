@@ -10,7 +10,7 @@ jest.mock('@/config', () => ({
 }))
 
 jest.mock('copilot-node-sdk', () => ({
-  copilotApi: (...args: unknown[]) => mockCopilotApi(...args),
+  copilotApi: (args: unknown) => mockCopilotApi(args),
 }))
 
 jest.mock('@/app/api/core/utils/withRetry', () => ({
