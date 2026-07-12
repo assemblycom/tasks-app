@@ -1,6 +1,11 @@
+import { mockCopilotAPI } from '@api/tests/__mocks__/CopilotAPI.mock'
 import { GET } from '@api/activity-logs/[id]/route'
 import { buildNextRequest } from '@api/tests/__utils__/testUtils'
 import httpStatus from 'http-status'
+
+jest.mock('@/utils/CopilotAPI', () => ({
+  CopilotAPI: jest.fn().mockImplementation((token: string) => mockCopilotAPI(token)),
+}))
 
 describe('activity log route', () => {
   beforeEach(() => {
