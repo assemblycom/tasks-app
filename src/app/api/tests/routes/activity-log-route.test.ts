@@ -16,9 +16,7 @@ describe('activity log route', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     jest.spyOn(console, 'error').mockImplementation()
-    jest
-      .mocked(authenticate)
-      .mockRejectedValue(new APIError(httpStatus.UNAUTHORIZED, 'Please provide a valid token'))
+    jest.mocked(authenticate).mockRejectedValue(new APIError(httpStatus.UNAUTHORIZED, 'Please provide a valid token'))
   })
 
   afterEach(() => {
