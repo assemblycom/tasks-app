@@ -1,16 +1,24 @@
-import { mockCopilotAPI } from '@api/tests/__mocks__/CopilotAPI.mock'
 import { GET } from '@api/activity-logs/[id]/route'
+import APIError from '@api/core/exceptions/api'
+import authenticate from '@api/core/utils/authenticate'
 import { buildNextRequest } from '@api/tests/__utils__/testUtils'
 import httpStatus from 'http-status'
 
-jest.mock('@/utils/CopilotAPI', () => ({
-  CopilotAPI: jest.fn().mockImplementation((token: string) => mockCopilotAPI(token)),
+jest.mock('@api/activity-logs/services/activity-log.service', () => ({
+  ActivityLogService: jest.fn().mockImplementation(() => ({
+    get: jest.fn(),
+  })),
 }))
+
+jest.mock('@api/core/utils/authenticate', () => jest.fn())
 
 describe('activity log route', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     jest.spyOn(console, 'error').mockImplementation()
+    jest
+      .mocked(authenticate)
+      .mockRejectedValue(new APIError(httpStatus.UNAUTHORIZED, 'Please provide a valid token'))
   })
 
   afterEach(() => {
