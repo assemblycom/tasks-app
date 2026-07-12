@@ -2,7 +2,7 @@ import APIError from '@/app/api/core/exceptions/api'
 import httpStatus from 'http-status'
 import { withRetry } from '@/app/api/core/utils/withRetry'
 import { copilotAPIKey as apiKey, APP_ID, assemblyApiDomain } from '@/config'
-import { MAX_LIMIT_CLIENT_COUNT } from '@/constants/users'
+import { MAX_LIMIT_CLIENT_COUNT, MAX_LIMIT_COMPANY_COUNT } from '@/constants/users'
 import {
   AssemblyMetadata,
   ClientRequest,
@@ -43,6 +43,8 @@ import type { CopilotAPI as SDK } from 'copilot-node-sdk'
 import { copilotApi } from 'copilot-node-sdk'
 import { cache } from 'react'
 import { z } from 'zod'
+
+const CopilotPaginationResponseSchema = z.object({ nextToken: z.string().optional() })
 
 export class CopilotAPI {
   copilot: SDK
@@ -204,7 +206,38 @@ export class CopilotAPI {
 
   async _getCompanies(args: CopilotListArgs & { isPlaceholder?: boolean } = {}): Promise<CompaniesResponse> {
     console.info('CopilotAPI#_getCompanies', this.token)
-    return CompaniesResponseSchema.parse(await this.copilot.listCompanies(args))
+    const maxLimit = MAX_LIMIT_COMPANY_COUNT
+    const requestedLimit = args.limit || maxLimit
+
+    if (requestedLimit <= maxLimit) {
+      return CompaniesResponseSchema.parse(await this.copilot.listCompanies(args))
+    }
+
+    const fetchCompanies = async ({
+      nextToken,
+      companies,
+    }: {
+      nextToken?: string
+      companies: CompanyResponse[]
+    }): Promise<CompanyResponse[]> => {
+      const remaining = requestedLimit - companies.length
+      if (remaining <= 0) return companies
+
+      const response = await this.copilot.listCompanies({
+        ...args,
+        limit: Math.min(maxLimit, remaining),
+        nextToken,
+      })
+      const parsedResponse = CompaniesResponseSchema.parse(response)
+      const updatedCompanies = [...companies, ...(parsedResponse.data ?? [])]
+      const responseNextToken = CopilotPaginationResponseSchema.parse(response).nextToken
+
+      if (!responseNextToken || updatedCompanies.length >= requestedLimit) return updatedCompanies
+
+      return fetchCompanies({ nextToken: responseNextToken, companies: updatedCompanies })
+    }
+
+    return CompaniesResponseSchema.parse({ data: await fetchCompanies({ companies: [] }) })
   }
 
   async _getCompanyClients(companyId: string): Promise<ClientResponse[]> {
