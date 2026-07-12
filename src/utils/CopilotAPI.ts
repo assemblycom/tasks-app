@@ -2,7 +2,7 @@ import APIError from '@/app/api/core/exceptions/api'
 import httpStatus from 'http-status'
 import { withRetry } from '@/app/api/core/utils/withRetry'
 import { copilotAPIKey as apiKey, APP_ID, assemblyApiDomain } from '@/config'
-import { MAX_LIMIT_CLIENT_COUNT } from '@/constants/users'
+import { MAX_LIMIT_CLIENT_COUNT, MAX_LIMIT_INTERNAL_USER_COUNT } from '@/constants/users'
 import {
   AssemblyMetadata,
   ClientRequest,
@@ -220,7 +220,37 @@ export class CopilotAPI {
 
   async _getInternalUsers(args: CopilotListArgs = {}): Promise<InternalUsersResponse> {
     console.info('CopilotAPI#_getInternalUsers', this.token)
-    return InternalUsersResponseSchema.parse(await this.copilot.listInternalUsers(args))
+    const maxLimit = MAX_LIMIT_INTERNAL_USER_COUNT
+    const requestedLimit = args.limit || maxLimit
+
+    if (requestedLimit <= maxLimit) {
+      return InternalUsersResponseSchema.parse(await this.copilot.listInternalUsers(args))
+    }
+
+    const fetchPages = async ({
+      users,
+      nextToken,
+    }: {
+      users: InternalUsers[]
+      nextToken?: string
+    }): Promise<InternalUsers[]> => {
+      if (users.length >= requestedLimit) return users.slice(0, requestedLimit)
+
+      const remaining = requestedLimit - users.length
+      const response = await this.copilot.listInternalUsers({
+        ...args,
+        limit: Math.min(maxLimit, remaining),
+        nextToken,
+      })
+      const parsedResponse = InternalUsersResponseSchema.parse(response)
+      const nextUsers = [...users, ...parsedResponse.data]
+
+      if (!response?.nextToken) return nextUsers
+
+      return fetchPages({ users: nextUsers, nextToken: response.nextToken })
+    }
+
+    return InternalUsersResponseSchema.parse({ data: await fetchPages({ users: [], nextToken: args.nextToken }) })
   }
 
   async _getInternalUser(id: string): Promise<InternalUsers> {
