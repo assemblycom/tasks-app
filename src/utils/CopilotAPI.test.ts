@@ -1,5 +1,5 @@
 const mockListCompanies = jest.fn()
-const mockCopilotApi = jest.fn(() => ({
+const mockCopilotApi = jest.fn((_args: unknown) => ({
   listCompanies: mockListCompanies,
 }))
 
