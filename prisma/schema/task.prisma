@@ -58,6 +58,7 @@ model Task {
 
   taskUpdateBacklogs TaskUpdateBacklog[]
   taskReminderSents  TaskReminderSent[]
+  groupedEmailEvents GroupedEmailEvent[]
 
   associations       Json        @db.JsonB @default("[]")
   isShared           Boolean     @default(false)

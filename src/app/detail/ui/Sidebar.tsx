@@ -17,7 +17,7 @@ import { useOpenSubtaskCount } from '@/hooks/useSubtaskCount'
 import { optimisticallyCascadeSubtasks } from '@/utils/cascadeOptimistic'
 import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
-import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
+import { selectTaskBoard, setActiveTask } from '@/redux/features/taskBoardSlice'
 import { selectTaskDetails, setShowSidebar, toggleShowConfirmAssignModal } from '@/redux/features/taskDetailsSlice'
 import store from '@/redux/store'
 import { DateStringSchema } from '@/types/date'
@@ -227,6 +227,7 @@ export const Sidebar = ({
       return
     }
     updateStatusValue(next)
+    store.dispatch(setActiveTask({ ...activeTask, workflowStateId: next.id }))
     updateWorkflowState(next)
   }
 
@@ -236,6 +237,7 @@ export const Sidebar = ({
       optimisticallyCascadeSubtasks(activeTask.id, pendingCompleteState.id, accessibleTasks, workflowStates)
     }
     updateStatusValue(pendingCompleteState)
+    store.dispatch(setActiveTask({ ...activeTask, workflowStateId: pendingCompleteState.id }))
     updateWorkflowState(pendingCompleteState, skipSubtaskCascade)
     setPendingCompleteState(null)
   }

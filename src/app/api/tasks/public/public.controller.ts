@@ -76,7 +76,7 @@ export const createTaskPublic = async (req: NextRequest) => {
   console.info('Deserialized create payload:', createPayload)
 
   const tasksService = new PublicTasksService(user)
-  const newTask = await tasksService.createTask(createPayload)
+  const newTask = await tasksService.createTask(createPayload, { emailOverride: data.email })
   console.info('Created new public task:', newTask)
 
   return NextResponse.json(await PublicTaskSerializer.serialize(newTask))

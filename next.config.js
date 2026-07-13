@@ -11,6 +11,7 @@ const nextConfig = {
       },
     },
   },
+  allowedDevOrigins: ['*.ngrok-free.dev'],
   async redirects() {
     return [
       {

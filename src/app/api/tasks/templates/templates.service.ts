@@ -1,9 +1,6 @@
-import { SupabaseService } from '@/app/api/core/services/supabase.service'
-import { supabaseBucket } from '@/config'
-import { signedUrlTtl } from '@/constants/attachments'
 import { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { copyTemplateMediaToTask } from '@/utils/signedTemplateUrlReplacer'
-import { getFilePathFromUrl, replaceImageSrc } from '@/utils/signedUrlReplacer'
+import { extractMediaSrcMatches, replaceImageSrc } from '@/utils/signedUrlReplacer'
 import { getSignedUrl } from '@/utils/signUrl'
 import { sanitize } from '@/utils/sql'
 import { SupabaseActions } from '@/utils/SupabaseActions'
@@ -218,32 +215,11 @@ export class TemplatesService extends BaseService {
   }
 
   private async updateTaskIdOfAttachmentsAfterCreation(htmlString: string, template_id: string) {
-    const imgTagRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g //expression used to match all img srcs in provided HTML string.
-    const attachmentTagRegex = /<\s*[a-zA-Z]+\s+[^>]*data-type="attachment"[^>]*src="([^"]+)"[^>]*>/g //expression used to match all attachment srcs in provided HTML string.
-    let match
     const replacements: { originalSrc: string; newUrl: string }[] = []
 
     const newFilePaths: { originalSrc: string; newFilePath: string }[] = []
     const copyAttachmentPromises: Promise<void>[] = []
-    const matches: { originalSrc: string; filePath: string; fileName: string }[] = []
-
-    while ((match = imgTagRegex.exec(htmlString)) !== null) {
-      const originalSrc = match[1]
-      const filePath = getFilePathFromUrl(originalSrc)
-      const fileName = filePath?.split('/').pop()
-      if (filePath && fileName) {
-        matches.push({ originalSrc, filePath, fileName })
-      }
-    }
-
-    while ((match = attachmentTagRegex.exec(htmlString)) !== null) {
-      const originalSrc = match[1]
-      const filePath = getFilePathFromUrl(originalSrc)
-      const fileName = filePath?.split('/').pop()
-      if (filePath && fileName) {
-        matches.push({ originalSrc, filePath, fileName })
-      }
-    }
+    const matches = extractMediaSrcMatches(htmlString)
 
     for (const { originalSrc, filePath, fileName } of matches) {
       const newFilePath = `${this.user.workspaceId}/templates/${template_id}/${fileName}`
@@ -255,7 +231,7 @@ export class TemplatesService extends BaseService {
     await Promise.all(copyAttachmentPromises)
 
     const signedUrlPromises = newFilePaths.map(async ({ originalSrc, newFilePath }) => {
-      const newUrl = await this.getSignedUrl(newFilePath)
+      const newUrl = await getSignedUrl(newFilePath)
       if (newUrl) {
         replacements.push({ originalSrc, newUrl })
       }
@@ -279,15 +255,6 @@ export class TemplatesService extends BaseService {
     })
     return htmlString
   }
-
-  private async getSignedUrl(filePath: string) {
-    const supabase = new SupabaseService()
-    const { data } = await supabase.supabase.storage.from(supabaseBucket).createSignedUrl(filePath, signedUrlTtl)
-
-    const url = data?.signedUrl
-
-    return url
-  } // used to replace urls for images in template body
 
   async hasMoreTemplatesAfterCursor(id: string): Promise<boolean> {
     const nextTemplate = await this.db.taskTemplate.findFirst({

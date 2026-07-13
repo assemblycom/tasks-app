@@ -1,15 +1,15 @@
 export const fetchCache = 'force-no-store'
 
 import { apiUrl } from '@/config'
+import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { ITemplate, PropsWithToken } from '@/types/interfaces'
 import { PropsWithChildren } from 'react'
 
 const getAllTemplates = async (token: string): Promise<ITemplate[]> => {
-  const res = await fetch(`${apiUrl}/api/tasks/templates?token=${token}`, {
+  const { data } = await fetchWithErrorHandler<{ data: ITemplate[] }>(`${apiUrl}/api/tasks/templates?token=${token}`, {
     next: { tags: ['getAllTemplates'] },
   })
-  const { data } = await res.json()
   return data
 }
 

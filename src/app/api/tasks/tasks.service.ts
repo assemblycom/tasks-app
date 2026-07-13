@@ -2,19 +2,14 @@ import { deleteTaskNotifications, sendTaskCreateNotifications, sendTaskUpdateNot
 import { sendClientUpdateTaskNotifications } from '@/jobs/notifications/send-client-task-update-notifications'
 import { ClientResponse, CompanyResponse, InternalUsers } from '@/types/common'
 import { TaskWithWorkflowState } from '@/types/db'
-import {
-  AncestorTaskResponse,
-  CreateTaskRequest,
-  UpdateTaskRequest,
-  Associations,
-  AssociationsSchema,
-} from '@/types/dto/tasks.dto'
+import { AncestorTaskResponse, CreateTaskRequest, UpdateTaskRequest, Associations } from '@/types/dto/tasks.dto'
 import { DISPATCHABLE_EVENT } from '@/types/webhook'
+import { runInBatches } from '@/utils/array'
+import { subtaskTemplateBatchSize } from '@/constants/tasks'
 import { UserIdsType } from '@/utils/assignee'
 import { isPastDateString } from '@/utils/dateHelper'
 import { getIdsFromLtreePath } from '@/utils/ltree'
-import { replaceImageSrc } from '@/utils/signedUrlReplacer'
-import { getSignedUrl } from '@/utils/signUrl'
+import { replaceMediaSources } from '@/utils/signedUrlReplacer'
 import APIError from '@api/core/exceptions/api'
 import { PoliciesService } from '@api/core/services/policies.service'
 import { Resource } from '@api/core/types/api'
@@ -258,13 +253,15 @@ export class TasksService extends TasksSharedService {
       }
 
       if (template.subTaskTemplates.length) {
-        await Promise.all(
-          template.subTaskTemplates.map(async (sub, index) => {
-            const updatedSubTemplate = await templateService.getAppliedTemplateDescription(sub.id)
-            const manualTimeStamp = new Date(template.createdAt.getTime() + (template.subTaskTemplates.length - index) * 10) //maintain the order of subtasks in tasks with respect to subtasks in templates
-            await this.createSubtasksFromTemplate(updatedSubTemplate, newTask, manualTimeStamp)
-          }),
-        )
+        await runInBatches(template.subTaskTemplates, subtaskTemplateBatchSize, async (sub, index) => {
+          const manualTimestamp = new Date(template.createdAt.getTime() + (template.subTaskTemplates.length - index) * 10) //maintain the order of subtasks in tasks with respect to subtasks in templates
+          await this.createSubtasksFromTemplate({
+            subTemplateId: sub.id,
+            parentTask: newTask,
+            manualTimestamp,
+            templateService,
+          })
+        })
       }
     }
 
@@ -292,7 +289,7 @@ export class TasksService extends TasksSharedService {
 
     const accessWhere = await this.getAccessFilterForTasks()
 
-    const newBody = task.body ? await replaceImageSrc(task.body, getSignedUrl) : task.body
+    const newBody = task.body ? await replaceMediaSources(task.body) : task.body
     const bodyChanged = newBody !== task.body
 
     const [accessibleSubtaskCount, assignee] = await Promise.all([

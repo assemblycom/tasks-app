@@ -33,6 +33,10 @@ export const advancedFeatureFlag = !!+(process.env.NEXT_PUBLIC_ADVANCED_FEATURES
 export const supabaseProjectUrl = process.env.NEXT_PUBLIC_SUPABASE_PROJECT_URL || ''
 export const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 export const supabaseBucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || ''
+// Assembly custom domain fronting Supabase storage (e.g. https://task-files.assembly.com). Storage
+// is served through it so downloads aren't blocked by clients that allowlist only Assembly domains
+// (OUT-3864). Empty falls back to the project URL, so behaviour is unchanged until it's configured.
+export const supabaseStorageDomain = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_DOMAIN || ''
 export const cronSecret = process.env.CRON_SECRET || ''
 export const APP_ID = process.env.COPILOT_APP_API_KEY
 
@@ -45,3 +49,18 @@ export const showQueries = (() => {
 })()
 
 export const assemblyApiDomain = z.string().url().parse(process.env.NEXT_PUBLIC_ASSEMBLY_API_DOMAIN)
+
+// Substring stripped from the task title when building the reminder email subject for
+// subject-override workspaces, and the value it's replaced with. Configured via env so the
+// workspace-specific phrasing isn't hardcoded (OUT-3919).
+export const reminderSubjectSearch = process.env.REMINDER_SUBJECT_SEARCH || ''
+export const reminderSubjectReplacement = process.env.REMINDER_SUBJECT_REPLACEMENT || ''
+
+// Workspaces whose single reminder emails use the task title as the subject, prefixed with the
+// escalating cadence tag (OUT-3861). Comma-separated workspace ids, e.g. C1: us-west-2_lg5zB-Utp.
+export const reminderSubjectOverrideWorkspaces = new Set(
+  (process.env.REMINDER_SUBJECT_OVERRIDE_WORKSPACES || '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean),
+)

@@ -12,16 +12,17 @@ import {
 import { getFileNameFromPath } from '@/utils/attachmentUtils'
 import { resolveDynamicFields, resolveAutofillTags } from '@/utils/dynamicFields'
 import { buildLtree, buildLtreeNodeString } from '@/utils/ltree'
-import { getFilePathFromUrl } from '@/utils/signedUrlReplacer'
+import { extractMediaSrcMatches } from '@/utils/signedUrlReplacer'
 import { getSignedUrl } from '@/utils/signUrl'
 import { SupabaseActions } from '@/utils/SupabaseActions'
 import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { UserRole } from '@api/core/types/user'
-import { AssigneeType, Prisma, PrismaClient, StateType, Task, TaskTemplate } from '@prisma/client'
+import { AssigneeType, Prisma, PrismaClient, StateType, Task } from '@prisma/client'
 import httpStatus from 'http-status'
 import z from 'zod'
 import { AttachmentsService } from '@api/attachments/attachments.service'
+import type { TemplatesService } from '@api/tasks/templates/templates.service'
 
 //Base class with shared permission logic and methods that both tasks.service.ts and public.service.ts could use
 export abstract class TasksSharedService extends BaseService {
@@ -250,15 +251,16 @@ export abstract class TasksSharedService extends BaseService {
                 },
                 {
                   // AND do not disjoint if parent is accessible to the client through association.
-                  // Uses `equals` (full-array exact match) to preserve the prior `hasSome` semantics
-                  // — tasks associated with a different client at the same company do not match.
+                  // An association only grants access when the task is shared (isShared), mirroring
+                  // getClientOrCompanyAssigneeFilter's CU-portal branch. Without the isShared guard,
+                  // a parent that is merely associated (but not shared) is wrongly treated as
+                  // accessible, dropping its assigned subtask from the disjoint (standalone) view.
+                  // Uses `equals` (full-array exact match) so associations to a different client at
+                  // the same company do not match.
                   NOT: {
+                    isShared: true,
                     OR: [
-                      {
-                        associations: {
-                          equals: [{ clientId: this.user.clientId, companyId: this.user.companyId }],
-                        },
-                      },
+                      { associations: { equals: [{ clientId: this.user.clientId, companyId: this.user.companyId }] } },
                       { associations: { equals: [{ companyId: this.user.companyId }] } },
                     ],
                   },
@@ -496,33 +498,12 @@ export abstract class TasksSharedService extends BaseService {
   }
 
   protected async updateTaskIdOfAttachmentsAfterCreation(htmlString: string, task_id: string) {
-    const imgTagRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g //expression used to match all img srcs in provided HTML string.
-    const attachmentTagRegex = /<\s*[a-zA-Z]+\s+[^>]*data-type="attachment"[^>]*src="([^"]+)"[^>]*>/g //expression used to match all attachment srcs in provided HTML string.
-    let match
     const replacements: { originalSrc: string; newUrl: string }[] = []
 
     const newFilePaths: { originalSrc: string; newFilePath: string }[] = []
     const copyAttachmentPromises: Promise<void>[] = []
     const createAttachmentPayloads = []
-    const matches: { originalSrc: string; filePath: string; fileName: string }[] = []
-
-    while ((match = imgTagRegex.exec(htmlString)) !== null) {
-      const originalSrc = match[1]
-      const filePath = getFilePathFromUrl(originalSrc)
-      const fileName = filePath?.split('/').pop()
-      if (filePath && fileName) {
-        matches.push({ originalSrc, filePath, fileName })
-      }
-    }
-
-    while ((match = attachmentTagRegex.exec(htmlString)) !== null) {
-      const originalSrc = match[1]
-      const filePath = getFilePathFromUrl(originalSrc)
-      const fileName = filePath?.split('/').pop()
-      if (filePath && fileName) {
-        matches.push({ originalSrc, filePath, fileName })
-      }
-    }
+    const matches = extractMediaSrcMatches(htmlString)
 
     for (const { originalSrc, filePath, fileName } of matches) {
       const newFilePath = `${this.user.workspaceId}/${task_id}/${fileName}`
@@ -609,11 +590,22 @@ export abstract class TasksSharedService extends BaseService {
     }
   }
 
-  protected async createSubtasksFromTemplate(data: TaskTemplate, parentTask: Task, manualTimestamp: Date) {
-    const { workspaceId, title, body, workflowStateId } = data
+  protected async createSubtasksFromTemplate({
+    subTemplateId,
+    parentTask,
+    manualTimestamp,
+    templateService,
+  }: {
+    subTemplateId: string
+    parentTask: Task
+    manualTimestamp: Date
+    templateService: TemplatesService
+  }) {
     const { id: parentId, internalUserId, clientId, companyId, associations, isShared } = parentTask
 
     try {
+      const { workspaceId, title, body, workflowStateId } =
+        await templateService.getAppliedTemplateDescription(subTemplateId)
       const createTaskPayload = CreateTaskRequestSchema.parse({
         title: resolveDynamicFields(title),
         body: body ? resolveAutofillTags(body) : body,
@@ -628,8 +620,10 @@ export abstract class TasksSharedService extends BaseService {
         isShared,
       })
 
-      await this.createTask(createTaskPayload, { disableSubtaskTemplates: true, manualTimestamp: manualTimestamp })
+      await this.createTask(createTaskPayload, { disableSubtaskTemplates: true, manualTimestamp })
     } catch (e) {
+      // All-or-nothing: if any subtask fails to apply, roll back the parent task
+      // rather than leaving a partially-applied template, and surface the error.
       const deleteTask = this.db.task.delete({ where: { id: parentId } })
       const deleteActivityLogs = this.db.activityLog.deleteMany({ where: { taskId: parentId } })
 
@@ -640,7 +634,11 @@ export abstract class TasksSharedService extends BaseService {
         this.unsetTransaction()
       })
 
-      console.error('TasksService#createTask | Rolling back task creation', e)
+      console.error('TasksSharedService#createSubtasksFromTemplate | Rolling back task creation', {
+        parentId,
+        subTemplateId,
+        e,
+      })
       throw new APIError(
         httpStatus.INTERNAL_SERVER_ERROR,
         'Failed to create subtask from template, new task was not created.',

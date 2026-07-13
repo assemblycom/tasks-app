@@ -13,7 +13,7 @@ import { rfc3339ToDateString, toRFC3339 } from '@/utils/dateHelper'
 import { resolveAutofillTags, resolveDynamicFields } from '@/utils/dynamicFields'
 import { sanitizeHtml } from '@/utils/santizeContents'
 import { copyTemplateMediaToTask } from '@/utils/signedTemplateUrlReplacer'
-import { replaceImageSrc } from '@/utils/signedUrlReplacer'
+import { replaceImageSrc, replaceMediaSources } from '@/utils/signedUrlReplacer'
 import { getSignedUrl } from '@/utils/signUrl'
 import { PublicTaskCreateDto, PublicTaskDto, PublicTaskDtoSchema, PublicTaskUpdateDto } from '@api/tasks/public/public.dto'
 import { Attachment, Task, WorkflowState } from '@prisma/client'
@@ -42,7 +42,7 @@ export class PublicTaskSerializer {
       id: task.id,
       object: 'task',
       name: task.title,
-      description: sanitizeHtml(task.body || ''),
+      description: sanitizeHtml(task.body ? await replaceMediaSources(task.body) : ''),
       parentTaskId: task.parentId,
       dueDate: toRFC3339(task.dueDate),
       label: task.label,
@@ -55,7 +55,7 @@ export class PublicTaskSerializer {
       isArchived: task.isArchived,
       archivedDate: toRFC3339(task.lastArchivedDate),
       archivedBy: task.archivedBy,
-      isDeleted: task.deletedAt ? true : false,
+      isDeleted: !!task.deletedAt,
       deletedDate: toRFC3339(task.deletedAt),
       source: task.source,
       deletedBy: task.deletedBy,

@@ -1,5 +1,50 @@
-import { getSignedUrl } from '@/utils/signUrl'
+import { createSignedUrls, getSignedUrl } from '@/utils/signUrl'
 import { Comment } from '@prisma/client'
+
+// Matches the src of every <img> and the data-src of every attachment tag (`data-type="attachment"`).
+const imgSrcRegex = () => /<img\s+[^>]*src="([^"]+)"[^>]*>/g
+const attachmentSrcRegex = () => /<\s*[a-zA-Z]+\s+[^>]*data-type="attachment"[^>]*src="([^"]+)"[^>]*>/g
+
+export function extractMediaSrcMatches(htmlString: string): { originalSrc: string; filePath: string; fileName: string }[] {
+  const matches: { originalSrc: string; filePath: string; fileName: string }[] = []
+  const seen = new Set<string>()
+  for (const regex of [imgSrcRegex(), attachmentSrcRegex()]) {
+    let match
+    while ((match = regex.exec(htmlString)) !== null) {
+      const originalSrc = match[1]
+      if (seen.has(originalSrc)) continue
+      const filePath = getFilePathFromUrl(originalSrc)
+      const fileName = filePath?.split('/').pop()
+      if (!filePath || !fileName) continue
+      seen.add(originalSrc)
+      matches.push({ originalSrc, filePath, fileName })
+    }
+  }
+  return matches
+}
+
+export async function replaceMediaSources(htmlString: string): Promise<string> {
+  const matches = extractMediaSrcMatches(htmlString)
+  if (!matches.length) return htmlString
+
+  // A storage-signing outage must not take down task reads. createSignedUrls throws on a
+  // top-level error, so degrade to the stored body (original URLs) instead of 500-ing the
+  // whole task/serializer. Per-item failures already fall through the `signedUrl` filter below.
+  const signed = await createSignedUrls(matches.map((m) => m.filePath)).catch((error) => {
+    console.error('replaceMediaSources: failed to sign media, returning original body', error)
+    return null
+  })
+  if (!signed) return htmlString
+
+  const urlByPath = new Map(signed.filter((item) => item.signedUrl).map((item) => [item.path, item.signedUrl as string]))
+
+  let result = htmlString
+  for (const { originalSrc, filePath } of matches) {
+    const newUrl = urlByPath.get(filePath)
+    if (newUrl) result = result.replaceAll(originalSrc, newUrl)
+  }
+  return result
+}
 
 export async function replaceImageSrc(htmlString: string, getSignedUrl: (filePath: string) => Promise<string | undefined>) {
   const imgTagRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g //expression used to match all img tags in provided HTML string.

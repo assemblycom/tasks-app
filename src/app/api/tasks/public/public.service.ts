@@ -1,4 +1,6 @@
+import { subtaskTemplateBatchSize } from '@/constants/tasks'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
+import { runInBatches } from '@/utils/array'
 import { deleteTaskNotifications, sendTaskCreateNotifications, sendTaskUpdateNotifications } from '@/jobs/notifications'
 import { CreateTaskRequest, UpdateTaskRequest, Associations, AssociationsSchema } from '@/types/dto/tasks.dto'
 import { DISPATCHABLE_EVENT } from '@/types/webhook'
@@ -25,6 +27,7 @@ import { TemplatesService } from '@api/tasks/templates/templates.service'
 import { PublicTaskSerializer, TaskWithWorkflowStateAndAttachments } from '@api/tasks/public/public.serializer'
 import { getBasicPaginationAttributes } from '@/utils/pagination'
 import { AttachmentsService } from '@/app/api/attachments/attachments.service'
+import { EmailNotificationDetails } from '@/types/common'
 
 export class PublicTasksService extends TasksSharedService {
   async getAllTasks(queryFilters: {
@@ -121,7 +124,10 @@ export class PublicTasksService extends TasksSharedService {
     return task
   }
 
-  async createTask(data: CreateTaskRequest, opts?: { disableSubtaskTemplates?: boolean; manualTimestamp?: Date }) {
+  async createTask(
+    data: CreateTaskRequest,
+    opts?: { disableSubtaskTemplates?: boolean; manualTimestamp?: Date; emailOverride?: EmailNotificationDetails },
+  ) {
     const policyGate = new PoliciesService(this.user)
     policyGate.authorize(UserAction.Create, Resource.Tasks)
     console.info('PublicTasksService#createTask | Creating task from public api with data:', data)
@@ -249,7 +255,7 @@ export class PublicTasksService extends TasksSharedService {
 
     // Send task created notifications to users + dispatch webhook
     await Promise.all([
-      sendTaskCreateNotifications.trigger({ user: this.user, task: newTask }),
+      sendTaskCreateNotifications.trigger({ user: this.user, task: newTask, emailOverride: opts?.emailOverride }),
       this.copilot.dispatchWebhook(DISPATCHABLE_EVENT.TaskCreated, {
         payload: await PublicTaskSerializer.serialize(newTask),
         workspaceId: this.user.workspaceId,
@@ -266,13 +272,15 @@ export class PublicTasksService extends TasksSharedService {
       }
 
       if (template.subTaskTemplates.length) {
-        await Promise.all(
-          template.subTaskTemplates.map(async (sub, index) => {
-            const updatedSubTemplate = await templateService.getAppliedTemplateDescription(sub.id)
-            const manualTimeStamp = new Date(template.createdAt.getTime() + (template.subTaskTemplates.length - index) * 10) //maintain the order of subtasks in tasks with respect to subtasks in templates
-            await this.createSubtasksFromTemplate(updatedSubTemplate, newTask, manualTimeStamp)
-          }),
-        )
+        await runInBatches(template.subTaskTemplates, subtaskTemplateBatchSize, async (sub, index) => {
+          const manualTimestamp = new Date(template.createdAt.getTime() + (template.subTaskTemplates.length - index) * 10) //maintain the order of subtasks in tasks with respect to subtasks in templates
+          await this.createSubtasksFromTemplate({
+            subTemplateId: sub.id,
+            parentTask: newTask,
+            manualTimestamp,
+            templateService,
+          })
+        })
       }
     }
 

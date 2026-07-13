@@ -5,7 +5,7 @@ import { emptyAssignee } from '@/utils/assignee'
 import { BaseService } from '@api/core/services/base.service'
 import { PoliciesService } from '@api/core/services/policies.service'
 import { Resource } from '@api/core/types/api'
-import { UserAction } from '@api/core/types/user'
+import { UserAction, UserRole } from '@api/core/types/user'
 import { ViewMode } from '@prisma/client'
 
 export class ViewSettingsService extends BaseService {
@@ -74,10 +74,11 @@ export class ViewSettingsService extends BaseService {
   }
 
   private async createInitialViewSettings(userIds: ViewSettingUserIdsType) {
+    const { viewMode, showSubtasks } = await this.resolveInitialDisplayDefaults()
     const data = {
       ...userIds,
       workspaceId: this.user.workspaceId,
-      viewMode: this.DEFAULT_VIEW_MODE,
+      viewMode,
       filterOptions: {
         [FilterOptions.ASSIGNEE]: emptyAssignee,
         [FilterOptions.ASSOCIATION]: emptyAssignee,
@@ -87,11 +88,33 @@ export class ViewSettingsService extends BaseService {
       },
       showUnarchived: true,
       showArchived: false,
-      showSubtasks: true, // If we DO need to default to false for IUs, we can add a condition here after confirmation
+      showSubtasks,
     }
 
     return await this.db.viewSetting.create({
       data,
     })
+  }
+
+  // Workspace-level client view settings seed a CU's first view setting row.
+  // IUs are unaffected and keep the hardcoded defaults. Unset (null) overrides
+  // fall back to those same defaults, so existing behavior is preserved.
+  private async resolveInitialDisplayDefaults(): Promise<{ viewMode: ViewMode; showSubtasks: boolean }> {
+    const fallback = { viewMode: this.DEFAULT_VIEW_MODE, showSubtasks: true }
+    if (this.user.role !== UserRole.Client) {
+      return fallback
+    }
+
+    const workspaceSetting = await this.db.workspaceSetting.findUnique({
+      where: { workspaceId: this.user.workspaceId },
+      select: { clientDefaultViewMode: true, clientHideSubtasks: true },
+    })
+
+    return {
+      viewMode: workspaceSetting?.clientDefaultViewMode ?? fallback.viewMode,
+      // clientHideSubtasks is the inverse of showSubtasks.
+      showSubtasks:
+        workspaceSetting?.clientHideSubtasks != null ? !workspaceSetting.clientHideSubtasks : fallback.showSubtasks,
+    }
   }
 }

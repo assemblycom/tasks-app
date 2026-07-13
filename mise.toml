@@ -9,3 +9,7 @@ run = "portless tasks bun -b next dev"
 [tasks."db:migrate"]
 description = "Migrate db"
 run = "bunx prisma migrate dev"
+
+[tasks."trigger:dev"]
+description = "Run Trigger.dev worker locally (pinned to the @trigger.dev/sdk version in package.json)"
+run = "bunx trigger.dev@4.3.1 dev"
