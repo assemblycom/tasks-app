@@ -4,6 +4,7 @@ import { GroupedEmailContent } from '@/app/api/notification/groupedEmail.compose
 import { renderGroupedEmail } from '@/app/api/notification/groupedEmail.renderer'
 import { NotificationRequestBody } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
+import { resolveRecipientCompanyId } from './resolve-recipient-company'
 
 export type SendGroupedEmailArgs = {
   content: GroupedEmailContent
@@ -21,12 +22,13 @@ export const sendGroupedEmail = async ({
   copilot,
 }: SendGroupedEmailArgs): Promise<string> => {
   const email = renderGroupedEmail(content)
+  const resolvedRecipientCompanyId = await resolveRecipientCompanyId({ copilot, recipientClientId, recipientCompanyId })
 
   const payload: NotificationRequestBody = {
     senderId,
     senderType: 'internalUser',
     recipientClientId,
-    recipientCompanyId: recipientCompanyId ?? undefined,
+    recipientCompanyId: resolvedRecipientCompanyId,
     deliveryTargets: {
       email: {
         subject: email.subject,

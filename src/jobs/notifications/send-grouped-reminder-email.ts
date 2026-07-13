@@ -3,6 +3,7 @@ import 'server-only'
 import { ReminderEntry, renderGroupedReminderEmail } from '@/app/api/notification/groupedReminderEmail.renderer'
 import { NotificationRequestBody } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
+import { resolveRecipientCompanyId } from './resolve-recipient-company'
 
 export type SendGroupedReminderEmailArgs = {
   entries: ReminderEntry[]
@@ -20,12 +21,13 @@ export const sendGroupedReminderEmail = async ({
   copilot,
 }: SendGroupedReminderEmailArgs): Promise<string> => {
   const email = renderGroupedReminderEmail(entries)
+  const resolvedRecipientCompanyId = await resolveRecipientCompanyId({ copilot, recipientClientId, recipientCompanyId })
 
   const payload: NotificationRequestBody = {
     senderId,
     senderType: 'internalUser',
     recipientClientId,
-    recipientCompanyId: recipientCompanyId ?? undefined,
+    recipientCompanyId: resolvedRecipientCompanyId,
     deliveryTargets: {
       email: {
         subject: email.subject,

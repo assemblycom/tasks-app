@@ -5,6 +5,7 @@ import { reminderSubjectOverrideWorkspaces, reminderSubjectReplacement, reminder
 import { NotificationRequestBody, WorkspaceResponse } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { Task, TaskReminderType } from '@prisma/client'
+import { resolveRecipientCompanyId } from './resolve-recipient-company'
 
 export type SendReminderEmailArgs = {
   task: Pick<Task, 'id' | 'title' | 'createdById'>
@@ -54,12 +55,13 @@ export const sendReminderEmail = async ({
         title: details.title,
         body: details.body,
       }
+  const resolvedRecipientCompanyId = await resolveRecipientCompanyId({ copilot, recipientClientId, recipientCompanyId })
 
   const payload: NotificationRequestBody = {
     senderId: task.createdById,
     senderType: 'internalUser',
     recipientClientId,
-    recipientCompanyId: recipientCompanyId ?? undefined,
+    recipientCompanyId: resolvedRecipientCompanyId,
     deliveryTargets: { email },
   }
 

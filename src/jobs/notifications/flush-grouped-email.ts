@@ -13,6 +13,7 @@ import { serializeError } from '@/utils/serializeError'
 import { logger, task, tasks } from '@trigger.dev/sdk/v3'
 
 import { sendGroupedEmail } from './send-grouped-email'
+import { resolveClientRecipient } from './resolve-recipient-company'
 
 export type FlushGroupedEmailPayload = {
   workspaceId: string
@@ -60,13 +61,22 @@ const resolveSenderId = async (copilot: CopilotAPI): Promise<string> => {
   return senderId
 }
 
-const sendIndividualEmail = async (copilot: CopilotAPI, payload: NotificationRequestBody): Promise<void> => {
+const sendIndividualEmail = async ({
+  copilot,
+  payload,
+  recipientCompanyId,
+}: {
+  copilot: CopilotAPI
+  payload: NotificationRequestBody
+  recipientCompanyId: string | null
+}): Promise<void> => {
+  const resolvedPayload = await resolveClientRecipient({ copilot, payload, recipientCompanyId })
   try {
-    await copilot.createNotification(payload)
+    await copilot.createNotification(resolvedPayload)
   } catch (e: unknown) {
     // Account for workspaces without multi-companies, which reject senderCompanyId (mirrors NotificationService).
     if (isMessagableError(e) && e.body?.message === 'sender company ID is invalid based on sender') {
-      await copilot.createNotification({ ...payload, senderCompanyId: undefined })
+      await copilot.createNotification({ ...resolvedPayload, senderCompanyId: undefined })
     } else {
       throw e
     }
@@ -146,7 +156,7 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
     })
 
     if (singleEmail) {
-      await sendIndividualEmail(copilot, singleEmail)
+      await sendIndividualEmail({ copilot, payload: singleEmail, recipientCompanyId: group.recipientCompanyId })
       sent += 1
       sentIndividual += 1
     } else if (liveEvents.length >= 1) {
