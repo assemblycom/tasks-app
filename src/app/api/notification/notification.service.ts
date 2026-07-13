@@ -29,12 +29,12 @@ export class NotificationService extends BaseService {
     action: NotificationTaskActions,
     task: Task,
     opts: {
-      disableEmail: boolean
+      disableEmail?: boolean
       disableInProduct?: boolean
       commentId?: string
       senderCompanyId?: string
       emailOverride?: EmailNotificationDetails
-    } = { disableEmail: false },
+    } = {},
   ) {
     try {
       const isAssignedToIu =
@@ -74,7 +74,7 @@ export class NotificationService extends BaseService {
       const email = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts.emailOverride }) : baseEmail
 
       const category = this.groupedEventTypeFor(action)
-      // Gating disabled until Copilot exposes a per-IU preference read endpoint — ship IUs ungated.
+      // TODO(OUT-3929): re-enable per-IU gating once Copilot exposes a preference-read endpoint — ship IUs ungated for now.
       const notificationSettingId = undefined
       // const notificationSettingId = isRecipientIu && category ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category }) : undefined
 
@@ -115,12 +115,7 @@ export class NotificationService extends BaseService {
       if (!inProduct && !notificationDetails.deliveryTargets?.email) return
       console.info('NotificationService#create | Creating single notification:', notificationDetails)
 
-      let notification: NotificationCreatedResponse | null
-      try {
-        notification = await this.copilot.createNotification(notificationDetails)
-      } catch (e: unknown) {
-        notification = await this.handleIfSenderCompanyIdError(e, notificationDetails)
-      }
+      const notification = await this.dispatchNotification(notificationDetails)
 
       console.info('NotificationService#create | Created single notification:', notification)
       // Suppressed by the recipient IU's preference — nothing was created, so there's nothing to save.
@@ -206,7 +201,7 @@ export class NotificationService extends BaseService {
       const association = AssociationsSchema.parse(task.associations)?.[0]
       const category = this.groupedEventTypeFor(action)
       const isRecipientIu = opts.isRecipientIu
-      // Gating disabled until Copilot exposes a per-IU preference read endpoint — ship IUs ungated.
+      // TODO(OUT-3929): re-enable per-IU gating once Copilot exposes a preference-read endpoint — ship IUs ungated for now.
       const notificationSettingId = undefined
       // const notificationSettingId = isRecipientIu && category ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category }) : undefined
       // Non-null only when these emails should be diverted into the grouped buffer.
@@ -261,12 +256,7 @@ export class NotificationService extends BaseService {
           if (groupedType) notificationDetails.deliveryTargets = { inProduct }
 
           console.info('NotificationService#bulkCreate | Creating single notification:', notificationDetails)
-          let notification: NotificationCreatedResponse | null
-          try {
-            notification = await this.copilot.createNotification(notificationDetails)
-          } catch (e: unknown) {
-            notification = await this.handleIfSenderCompanyIdError(e, notificationDetails)
-          }
+          const notification = await this.dispatchNotification(notificationDetails)
 
           console.info('NotificationService#bulkCreate | Created single notification:', notification)
           if (!notification) {
@@ -704,6 +694,16 @@ export class NotificationService extends BaseService {
 
     if (isNewWindow) {
       await enqueueGroupedEmailFlush({ workspaceId: task.workspaceId, windowKey })
+    }
+  }
+
+  private async dispatchNotification(
+    notificationDetails: NotificationRequestBody,
+  ): Promise<NotificationCreatedResponse | null> {
+    try {
+      return await this.copilot.createNotification(notificationDetails)
+    } catch (e: unknown) {
+      return await this.handleIfSenderCompanyIdError(e, notificationDetails)
     }
   }
 

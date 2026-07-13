@@ -287,15 +287,10 @@ export class TaskNotificationsService extends BaseService {
     else if (updatedTask.assigneeType === AssigneeType.company) {
       // Don't do this in parallel since this can cause rate-limits, each of them has their own bottlenecks for avoiding ratelimits
       shouldCreateNotification &&
-        (await this.notificationService.create(NotificationTaskActions.CompletedForCompanyByIU, updatedTask, {
-          disableEmail: false,
-        }))
+        (await this.notificationService.create(NotificationTaskActions.CompletedForCompanyByIU, updatedTask))
       await this.notificationService.markAsReadForAllRecipients(updatedTask)
     } else if (updatedTask.assigneeType === AssigneeType.client) {
-      shouldCreateNotification &&
-        (await this.notificationService.create(NotificationTaskActions.CompletedByIU, updatedTask, {
-          disableEmail: false,
-        }))
+      shouldCreateNotification && (await this.notificationService.create(NotificationTaskActions.CompletedByIU, updatedTask))
       try {
         await this.notificationService.markClientNotificationAsRead(updatedTask)
         return
@@ -303,10 +298,7 @@ export class TaskNotificationsService extends BaseService {
         console.error(`Failed to find ClientNotification for task ${updatedTask.id}`, e)
       }
     } else if (updatedTask.assigneeType === AssigneeType.internalUser) {
-      shouldCreateNotification &&
-        (await this.notificationService.create(NotificationTaskActions.CompletedByIU, updatedTask, {
-          disableEmail: false,
-        }))
+      shouldCreateNotification && (await this.notificationService.create(NotificationTaskActions.CompletedByIU, updatedTask))
     }
   }
 
@@ -406,7 +398,6 @@ export class TaskNotificationsService extends BaseService {
 
     const notification = await this.notificationService.create(notificationType, task, {
       disableInProduct: true,
-      disableEmail: false,
     })
     // Create a new entry in ClientNotifications table so we can mark as read on
     // behalf of client later
@@ -432,7 +423,6 @@ export class TaskNotificationsService extends BaseService {
   private sendUserTaskCompletedSharedNotification = async (task: Task) => {
     const notification = await this.notificationService.create(NotificationTaskActions.CompletedToSharedCU, task, {
       disableInProduct: true,
-      disableEmail: false,
     })
     if (!notification) {
       console.error('Completed-shared notification failed to trigger for task:', task)
@@ -491,7 +481,7 @@ export class TaskNotificationsService extends BaseService {
       // In future when reassignment is supported, change this logic to support reassigned to client as well
       notificationType,
       task,
-      { disableEmail: false, emailOverride },
+      { emailOverride },
     )
     // Create a new entry in ClientNotifications table so we can mark as read on
     // behalf of client later
