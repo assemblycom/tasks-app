@@ -14,6 +14,7 @@ import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
 import { getEmailDetails, getInProductNotificationDetails, mergeEmailOverride } from '@api/notification/notification.helpers'
+// import { resolveIuNotificationSettingId } from '@api/notification/resolveNotificationSettingId'
 import { AssigneeType, ClientNotification, GroupedEmailEventType, Prisma, Task } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { enqueueGroupedEmailFlush } from '@/jobs/notifications/flush-grouped-email'
@@ -28,12 +29,12 @@ export class NotificationService extends BaseService {
     action: NotificationTaskActions,
     task: Task,
     opts: {
-      disableEmail: boolean
+      disableEmail?: boolean
       disableInProduct?: boolean
       commentId?: string
       senderCompanyId?: string
       emailOverride?: EmailNotificationDetails
-    } = { disableEmail: false },
+    } = {},
   ) {
     try {
       const isAssignedToIu =
@@ -72,7 +73,12 @@ export class NotificationService extends BaseService {
         : getEmailDetails(workspace, actionUser, task, { commentId: opts?.commentId })[action]
       const email = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts.emailOverride }) : baseEmail
 
-      const groupedType = email && recipientId ? this.groupedEventTypeFor(action) : null
+      const category = this.groupedEventTypeFor(action)
+      // TODO(OUT-3929): re-enable per-IU gating once Copilot exposes a preference-read endpoint — ship IUs ungated for now.
+      const notificationSettingId = undefined
+      // const notificationSettingId = isRecipientIu && category ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category }) : undefined
+
+      const groupedType = email && recipientId ? category : null
       if (groupedType) {
         const association = AssociationsSchema.parse(task.associations)?.[0]
         await this.bufferGroupedEmailEvent({
@@ -89,6 +95,7 @@ export class NotificationService extends BaseService {
             { email },
             senderCompanyId,
             isRecipientIu,
+            notificationSettingId,
           ),
         })
       }
@@ -102,19 +109,17 @@ export class NotificationService extends BaseService {
         { inProduct, email },
         senderCompanyId,
         isRecipientIu,
+        notificationSettingId,
       )
       if (groupedType) notificationDetails.deliveryTargets = { inProduct }
       if (!inProduct && !notificationDetails.deliveryTargets?.email) return
       console.info('NotificationService#create | Creating single notification:', notificationDetails)
 
-      let notification: NotificationCreatedResponse
-      try {
-        notification = await this.copilot.createNotification(notificationDetails)
-      } catch (e: unknown) {
-        notification = await this.handleIfSenderCompanyIdError(e, notificationDetails)
-      }
+      const notification = await this.dispatchNotification(notificationDetails)
 
       console.info('NotificationService#create | Created single notification:', notification)
+      // Suppressed by the recipient IU's preference — nothing was created, so there's nothing to save.
+      if (!notification) return
 
       // 3. Save notification to ClientNotification or InternalUserNotification table. Check for notification.recipientClientId too
       if (task.assigneeType === AssigneeType.client && !!notification.recipientClientId && !opts.disableInProduct) {
@@ -194,9 +199,13 @@ export class NotificationService extends BaseService {
       const iuNotifications = []
 
       const association = AssociationsSchema.parse(task.associations)?.[0]
-      // Non-null only when these emails should be diverted into the grouped buffer.
-      const groupedType = email ? this.groupedEventTypeFor(action) : null
+      const category = this.groupedEventTypeFor(action)
       const isRecipientIu = opts.isRecipientIu
+      // TODO(OUT-3929): re-enable per-IU gating once Copilot exposes a preference-read endpoint — ship IUs ungated for now.
+      const notificationSettingId = undefined
+      // const notificationSettingId = isRecipientIu && category ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category }) : undefined
+      // Non-null only when these emails should be diverted into the grouped buffer.
+      const groupedType = email ? category : null
 
       // NOTE: The reason we are skipping using NotificationService#create and implementing notification dispatch + save manually is because
       // we can just do one `createMany` DB call instead of one per notification, saving a ton of DB calls
@@ -227,6 +236,7 @@ export class NotificationService extends BaseService {
                 { email },
                 opts?.senderCompanyId,
                 isRecipientIu,
+                notificationSettingId,
               ),
             })
             if (!inProduct) continue
@@ -241,16 +251,12 @@ export class NotificationService extends BaseService {
             { inProduct, email },
             opts?.senderCompanyId,
             isRecipientIu,
+            notificationSettingId,
           )
           if (groupedType) notificationDetails.deliveryTargets = { inProduct }
 
           console.info('NotificationService#bulkCreate | Creating single notification:', notificationDetails)
-          let notification: NotificationCreatedResponse
-          try {
-            notification = await this.copilot.createNotification(notificationDetails)
-          } catch (e: unknown) {
-            notification = await this.handleIfSenderCompanyIdError(e, notificationDetails)
-          }
+          const notification = await this.dispatchNotification(notificationDetails)
 
           console.info('NotificationService#bulkCreate | Created single notification:', notification)
           if (!notification) {
@@ -580,6 +586,7 @@ export class NotificationService extends BaseService {
             )
             .map((iu) => iu.id)
         }
+        break
       default:
         const userInfo = await this.copilot.me()
         senderId = z.string().parse(userInfo?.id)
@@ -637,7 +644,7 @@ export class NotificationService extends BaseService {
     }
   }
 
-  private async bufferGroupedEmailEvent(args: {
+  async bufferGroupedEmailEvent(args: {
     task: Task
     recipientId: string
     companyId?: string
@@ -690,6 +697,16 @@ export class NotificationService extends BaseService {
     }
   }
 
+  private async dispatchNotification(
+    notificationDetails: NotificationRequestBody,
+  ): Promise<NotificationCreatedResponse | null> {
+    try {
+      return await this.copilot.createNotification(notificationDetails)
+    } catch (e: unknown) {
+      return await this.handleIfSenderCompanyIdError(e, notificationDetails)
+    }
+  }
+
   private async handleIfSenderCompanyIdError(e: unknown, notificationDetails: NotificationRequestBody) {
     // Account for workspaces that don't have multi-companies enabled, thus don't support the senderCompanyId key
     // Yes, this is hacky. No, I don't have a choice (I can't find out if workspace has single/multi company at all from the Copilot API)
@@ -715,6 +732,9 @@ export class NotificationService extends BaseService {
     deliveryTargets: NotificationRequestBody['deliveryTargets'],
     senderCompanyId?: string,
     isRecipientIu?: boolean,
+    // Set for IU payloads so the platform gates each requested surface (in-product and email)
+    // against the IU's per-category preference. Suppression is enforced platform-side.
+    notificationSettingId?: string,
   ): NotificationRequestBody {
     const associations = AssociationsSchema.parse(task.associations)
     const association = associations?.[0]
@@ -730,6 +750,7 @@ export class NotificationService extends BaseService {
       delete notificationDetails.recipientCompanyId
       delete notificationDetails.recipientClientId
       notificationDetails.recipientInternalUserId = recipientId
+      if (notificationSettingId) notificationDetails.notificationSettingId = notificationSettingId
     }
     return notificationDetails
   }

@@ -15,6 +15,7 @@ const mockGroupedCreateMany = jest.fn()
 const mockGetWorkspace = jest.fn()
 const mockMe = jest.fn()
 const mockCreateNotification = jest.fn()
+const mockGetNotificationSettings = jest.fn()
 
 jest.mock('@/jobs/notifications/flush-grouped-email', () => ({
   enqueueGroupedEmailFlush: (...args: unknown[]) => mockEnqueueFlush(...args),
@@ -42,10 +43,12 @@ jest.mock('@/utils/CopilotAPI', () => ({
     getWorkspace: (...args: unknown[]) => mockGetWorkspace(...args),
     me: (...args: unknown[]) => mockMe(...args),
     createNotification: (...args: unknown[]) => mockCreateNotification(...args),
+    getNotificationSettings: (...args: unknown[]) => mockGetNotificationSettings(...args),
   })),
 }))
 
 import { NotificationService } from './notification.service'
+import { __clearNotificationSettingCache } from './resolveNotificationSettingId'
 
 const user = {
   token: 'tok',
@@ -84,6 +87,16 @@ const buildService = () => {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  __clearNotificationSettingCache()
+  // Default: all IU categories declared with the email surface enabled, so IU emails buffer and
+  // carry the resolved setting id. Individual cases override to exercise the email-surface gate.
+  mockGetNotificationSettings.mockResolvedValue({
+    notifications: [
+      { id: 'setting_assigned', label: 'New task assigned', surfaces: ['product', 'email'] },
+      { id: 'setting_comment', label: 'New comment on a task', surfaces: ['product', 'email'] },
+      { id: 'setting_completed', label: 'Task completed', surfaces: ['product', 'email'] },
+    ],
+  })
   mockGetWorkspace.mockResolvedValue({ labels: {} })
   mockMe.mockResolvedValue({ id: 'creator_1', givenName: 'Jane', familyName: 'IU' })
   mockFindFirst.mockResolvedValue(null)
@@ -416,6 +429,42 @@ describe('guard: IU wiring boundaries', () => {
 
     expect(mockGroupedCreateMany).not.toHaveBeenCalled()
     expect(mockEnqueueFlush).not.toHaveBeenCalled()
+  })
+})
+
+describe('guard: IU notifications ship ungated (settingId gating disabled)', () => {
+  it('does not attach notificationSettingId to the in-product dispatch or the buffered email', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockCreateNotification.mock.calls[0][0].notificationSettingId).toBeUndefined()
+    expect(mockGroupedCreateMany.mock.calls[0][0].data[0].individualEmail.notificationSettingId).toBeUndefined()
+  })
+
+  it('still buffers the IU email and fires the in-product notification', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockGroupedCreateMany).toHaveBeenCalledTimes(1)
+    expect(deliveryTargetsOf(0).inProduct).toBeDefined()
+  })
+
+  it('keeps IU grouped windows cross-category (window key is not scoped by event type)', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockGroupedCreateMany.mock.calls[0][0].data[0].windowKey).toMatch(new RegExp(`^${task.assigneeId}:iu:[^:]+$`))
+  })
+
+  it('treats a suppressed (null) createNotification response as a no-op — no throw, no save', async () => {
+    // Platform dropped the only requested surface for this IU (preference off) → no created object.
+    mockCreateNotification.mockResolvedValue(null)
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+
+    const result = await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(result).toBeUndefined()
   })
 })
 
