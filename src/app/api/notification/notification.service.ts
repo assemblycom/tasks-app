@@ -64,7 +64,7 @@ export class NotificationService extends BaseService {
       const email = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts.emailOverride }) : baseEmail
 
       // Non-null only when this CU email should be diverted into the grouped buffer.
-      const groupedType = email && recipientId ? this.groupedEventTypeFor(action) : null
+      const groupedType = email && recipientId && !opts.emailOverride ? this.groupedEventTypeFor(action) : null
       if (groupedType) {
         const association = AssociationsSchema.parse(task.associations)?.[0]
         await this.bufferGroupedEmailEvent({
@@ -178,7 +178,7 @@ export class NotificationService extends BaseService {
 
       const association = AssociationsSchema.parse(task.associations)?.[0]
       // Non-null only when these CU emails should be diverted into the grouped buffer.
-      const groupedType = email ? this.groupedEventTypeFor(action) : null
+      const groupedType = email && !opts?.emailOverride ? this.groupedEventTypeFor(action) : null
 
       // NOTE: The reason we are skipping using NotificationService#create and implementing notification dispatch + save manually is because
       // we can just do one `createMany` DB call instead of one per notification, saving a ton of DB calls

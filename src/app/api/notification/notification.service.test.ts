@@ -146,6 +146,28 @@ describe('NotificationService grouped-email interception', () => {
       expect(mockEnqueueFlush).not.toHaveBeenCalled()
     })
 
+    it('sends email overrides immediately so their task CTA is not grouped away', async () => {
+      const task = makeTask()
+
+      await buildService().create(NotificationTaskActions.Assigned, task, {
+        disableEmail: false,
+        emailOverride: {
+          subject: 'Action Required: Evaluation Ready',
+          title: 'Review evaluation',
+        },
+      })
+
+      expect(mockGroupedCreateMany).not.toHaveBeenCalled()
+      expect(mockEnqueueFlush).not.toHaveBeenCalled()
+      expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+      expect(deliveryTargetsOf(0).inProduct).toBeDefined()
+      expect(deliveryTargetsOf(0).email).toMatchObject({
+        subject: 'Action Required: Evaluation Ready',
+        title: 'Review evaluation',
+        ctaParams: { taskId: task.id },
+      })
+    })
+
     it('keys the window on (clientId, companyId) so a multi-company client does not get merged', async () => {
       const companyB = '99999999-9999-9999-9999-999999999999'
       await buildService().create(NotificationTaskActions.Assigned, makeTask({ companyId: companyB }))
@@ -249,6 +271,30 @@ describe('NotificationService grouped-email interception', () => {
       expect(mockGroupedCreateMany).toHaveBeenCalledTimes(3)
       const recipients = mockGroupedCreateMany.mock.calls.map((c) => c[0].data[0].recipientClientId)
       expect(recipients).toEqual(['cu_a', 'cu_b', 'cu_c'])
+    })
+
+    it('sends bulk email overrides immediately for every recipient', async () => {
+      const task = makeTask()
+      const recipients = ['33333333-3333-3333-3333-333333333333', '44444444-4444-4444-4444-444444444444']
+
+      await buildService().createBulkNotification(NotificationTaskActions.AssignedToCompany, task, recipients, {
+        email: true,
+        emailOverride: {
+          subject: 'Action Required: Evaluation Ready',
+          title: 'Review evaluation',
+        },
+      })
+
+      expect(mockGroupedCreateMany).not.toHaveBeenCalled()
+      expect(mockEnqueueFlush).not.toHaveBeenCalled()
+      expect(mockCreateNotification).toHaveBeenCalledTimes(2)
+      for (const call of mockCreateNotification.mock.calls) {
+        expect(call[0].deliveryTargets.email).toMatchObject({
+          subject: 'Action Required: Evaluation Ready',
+          title: 'Review evaluation',
+          ctaParams: { taskId: task.id },
+        })
+      }
     })
 
     it('falls back to the association company when the shared task has no companyId', async () => {

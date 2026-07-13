@@ -68,12 +68,6 @@ POST /api/tasks/public  (controller: email pulled off the parsed DTO)
 
 The merge (`{ ...default, ...override }`) is why omitted fields fall back to the default copy.
 
-The merged `email` is what gets buffered as `GroupedEmailEvent.individualEmail` during the
-5-minute grouping window, so the override is preserved through the grouped-email pipeline.
-
-## Known limitation
-
-Task-assignment emails are buffered for ~5 minutes and grouped per recipient (see the grouped
-email flow). The override is replayed **verbatim** only when the recipient has a **single**
-buffered event in that window. If multiple events group into one summary email, that summary
-uses the default grouped copy and the override is **not** applied.
+When an override is provided, the email bypasses the 5-minute grouped-email buffer and is sent
+as an individual task email. That keeps the custom copy and CTA tied to the task that was just
+created.
