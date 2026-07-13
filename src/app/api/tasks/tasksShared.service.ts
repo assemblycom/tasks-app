@@ -18,10 +18,11 @@ import { SupabaseActions } from '@/utils/SupabaseActions'
 import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { UserRole } from '@api/core/types/user'
-import { AssigneeType, Prisma, PrismaClient, StateType, Task, TaskTemplate } from '@prisma/client'
+import { AssigneeType, Prisma, PrismaClient, StateType, Task } from '@prisma/client'
 import httpStatus from 'http-status'
 import z from 'zod'
 import { AttachmentsService } from '@api/attachments/attachments.service'
+import type { TemplatesService } from '@api/tasks/templates/templates.service'
 
 //Base class with shared permission logic and methods that both tasks.service.ts and public.service.ts could use
 export abstract class TasksSharedService extends BaseService {
@@ -589,11 +590,22 @@ export abstract class TasksSharedService extends BaseService {
     }
   }
 
-  protected async createSubtasksFromTemplate(data: TaskTemplate, parentTask: Task, manualTimestamp: Date) {
-    const { workspaceId, title, body, workflowStateId } = data
+  protected async createSubtasksFromTemplate({
+    subTemplateId,
+    parentTask,
+    manualTimestamp,
+    templateService,
+  }: {
+    subTemplateId: string
+    parentTask: Task
+    manualTimestamp: Date
+    templateService: TemplatesService
+  }) {
     const { id: parentId, internalUserId, clientId, companyId, associations, isShared } = parentTask
 
     try {
+      const { workspaceId, title, body, workflowStateId } =
+        await templateService.getAppliedTemplateDescription(subTemplateId)
       const createTaskPayload = CreateTaskRequestSchema.parse({
         title: resolveDynamicFields(title),
         body: body ? resolveAutofillTags(body) : body,
@@ -608,8 +620,10 @@ export abstract class TasksSharedService extends BaseService {
         isShared,
       })
 
-      await this.createTask(createTaskPayload, { disableSubtaskTemplates: true, manualTimestamp: manualTimestamp })
+      await this.createTask(createTaskPayload, { disableSubtaskTemplates: true, manualTimestamp })
     } catch (e) {
+      // All-or-nothing: if any subtask fails to apply, roll back the parent task
+      // rather than leaving a partially-applied template, and surface the error.
       const deleteTask = this.db.task.delete({ where: { id: parentId } })
       const deleteActivityLogs = this.db.activityLog.deleteMany({ where: { taskId: parentId } })
 
@@ -620,7 +634,11 @@ export abstract class TasksSharedService extends BaseService {
         this.unsetTransaction()
       })
 
-      console.error('TasksService#createTask | Rolling back task creation', e)
+      console.error('TasksSharedService#createSubtasksFromTemplate | Rolling back task creation', {
+        parentId,
+        subTemplateId,
+        e,
+      })
       throw new APIError(
         httpStatus.INTERNAL_SERVER_ERROR,
         'Failed to create subtask from template, new task was not created.',
