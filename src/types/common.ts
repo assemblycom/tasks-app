@@ -206,6 +206,9 @@ export const NotificationRequestBodySchema = z
     recipientInternalUserId: z.string().optional(),
     recipientClientId: z.string().optional(),
     recipientCompanyId: z.string().optional(),
+    // When set, the platform resolves each requested surface against the recipient IU's preference
+    // for this setting and silently drops suppressed surfaces (IU recipients only).
+    notificationSettingId: z.string().optional(),
     deliveryTargets: z
       .object({
         inProduct: z
@@ -219,6 +222,20 @@ export const NotificationRequestBodySchema = z
       .optional(),
   })
   .superRefine(validateNotificationRecipient)
+
+// Declared notification settings for the app.
+export const NotificationSettingSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  surfaces: z.array(z.enum(['product', 'email'])),
+  default: z.object({ product: z.boolean().optional(), email: z.boolean().optional() }).optional(),
+})
+export type NotificationSetting = z.infer<typeof NotificationSettingSchema>
+
+export const NotificationSettingsResponseSchema = z.object({
+  notifications: z.array(NotificationSettingSchema).default([]),
+})
+export type NotificationSettingsResponse = z.infer<typeof NotificationSettingsResponseSchema>
 
 export const ScrapMediaRequestSchema = z.object({
   filePath: z.string(),

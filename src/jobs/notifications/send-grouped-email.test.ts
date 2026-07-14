@@ -87,4 +87,44 @@ describe('sendGroupedEmail', () => {
       }),
     ).rejects.toThrow('copilot 5xx')
   })
+
+  it('honors an explicit client sender type and company (client actor completing their own task)', async () => {
+    const createNotification = jest.fn().mockResolvedValue({ id: 'notif_3', createdAt: '2026-06-09T00:00:00Z' })
+
+    await sendGroupedEmail({
+      content,
+      senderId: 'client_actor',
+      senderType: 'client',
+      senderCompanyId: 'company_1',
+      recipientInternalUserId: 'iu_1',
+      copilot: buildCopilotMock(createNotification),
+    })
+
+    expect(createNotification.mock.calls[0][0]).toMatchObject({
+      senderId: 'client_actor',
+      senderType: 'client',
+      senderCompanyId: 'company_1',
+      recipientInternalUserId: 'iu_1',
+    })
+  })
+
+  it('retries without senderCompanyId when Copilot rejects it (single-company workspace)', async () => {
+    const createNotification = jest
+      .fn()
+      .mockRejectedValueOnce({ message: 'invalid', body: { message: 'sender company ID is invalid based on sender' } })
+      .mockResolvedValueOnce({ id: 'notif_4', createdAt: '2026-06-09T00:00:00Z' })
+
+    const id = await sendGroupedEmail({
+      content,
+      senderId: 'client_actor',
+      senderType: 'client',
+      senderCompanyId: 'company_1',
+      recipientInternalUserId: 'iu_1',
+      copilot: buildCopilotMock(createNotification),
+    })
+
+    expect(id).toBe('notif_4')
+    expect(createNotification).toHaveBeenCalledTimes(2)
+    expect(createNotification.mock.calls[1][0].senderCompanyId).toBeUndefined()
+  })
 })

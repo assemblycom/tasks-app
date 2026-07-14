@@ -171,8 +171,10 @@ export class ValidateCountService extends NotificationService {
     // Now track those to ClientNotifications table
     const newClientNotificationData = []
     for (const i in newNotifications) {
+      const notification = newNotifications[i]
+      if (!notification) continue
       newClientNotificationData.push({
-        notificationId: newNotifications[i].id,
+        notificationId: notification.id,
         taskId: tasksWithoutNotifications[i].id,
         clientId,
         companyId: tasksWithoutNotifications[i].companyId,
