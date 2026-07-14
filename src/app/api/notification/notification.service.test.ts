@@ -8,12 +8,14 @@ const mockFindFirst = jest.fn()
 const mockFindMany = jest.fn()
 const mockClientNotifCreate = jest.fn()
 const mockClientNotifCreateMany = jest.fn()
+const mockInternalUserNotifCreate = jest.fn()
 const mockQueryRaw = jest.fn()
 const mockGroupedCreateMany = jest.fn()
 
 const mockGetWorkspace = jest.fn()
 const mockMe = jest.fn()
 const mockCreateNotification = jest.fn()
+const mockGetNotificationSettings = jest.fn()
 
 jest.mock('@/jobs/notifications/flush-grouped-email', () => ({
   enqueueGroupedEmailFlush: (...args: unknown[]) => mockEnqueueFlush(...args),
@@ -30,6 +32,7 @@ jest.mock('@/lib/db', () => ({
         createMany: (...args: unknown[]) => mockClientNotifCreateMany(...args),
       },
       groupedEmailEvent: { createMany: (...args: unknown[]) => mockGroupedCreateMany(...args) },
+      internalUserNotification: { create: (...args: unknown[]) => mockInternalUserNotifCreate(...args) },
       $queryRaw: (...args: unknown[]) => mockQueryRaw(...args),
     }),
   },
@@ -40,10 +43,12 @@ jest.mock('@/utils/CopilotAPI', () => ({
     getWorkspace: (...args: unknown[]) => mockGetWorkspace(...args),
     me: (...args: unknown[]) => mockMe(...args),
     createNotification: (...args: unknown[]) => mockCreateNotification(...args),
+    getNotificationSettings: (...args: unknown[]) => mockGetNotificationSettings(...args),
   })),
 }))
 
 import { NotificationService } from './notification.service'
+import { __clearNotificationSettingCache } from './resolveNotificationSettingId'
 
 const user = {
   token: 'tok',
@@ -82,6 +87,16 @@ const buildService = () => {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  __clearNotificationSettingCache()
+  // Default: all IU categories declared with the email surface enabled, so IU emails buffer and
+  // carry the resolved setting id. Individual cases override to exercise the email-surface gate.
+  mockGetNotificationSettings.mockResolvedValue({
+    notifications: [
+      { id: 'setting_assigned', label: 'New task assigned', surfaces: ['product', 'email'] },
+      { id: 'setting_comment', label: 'New comment on a task', surfaces: ['product', 'email'] },
+      { id: 'setting_completed', label: 'Task completed', surfaces: ['product', 'email'] },
+    ],
+  })
   mockGetWorkspace.mockResolvedValue({ labels: {} })
   mockMe.mockResolvedValue({ id: 'creator_1', givenName: 'Jane', familyName: 'IU' })
   mockFindFirst.mockResolvedValue(null)
@@ -90,6 +105,7 @@ beforeEach(() => {
   mockGroupedCreateMany.mockResolvedValue({ count: 1 })
   mockClientNotifCreate.mockResolvedValue({})
   mockClientNotifCreateMany.mockResolvedValue({ count: 1 })
+  mockInternalUserNotifCreate.mockResolvedValue({})
   mockCreateNotification.mockResolvedValue({
     id: 'notif_1',
     createdAt: '2026-06-15T10:00:00.000Z',
@@ -98,6 +114,8 @@ beforeEach(() => {
 })
 
 const deliveryTargetsOf = (call: number) => mockCreateNotification.mock.calls[call][0].deliveryTargets
+const queryRawParamsOf = (call: number) =>
+  mockQueryRaw.mock.calls[call].flatMap((arg: { values?: unknown[] }) => arg?.values ?? arg)
 
 describe('NotificationService grouped-email interception', () => {
   describe('create()', () => {
@@ -118,7 +136,7 @@ describe('NotificationService grouped-email interception', () => {
       })
       // window is scoped to the (clientId, companyId) pair, not the client alone
       expect(row.windowKey).toMatch(new RegExp(`^${task.assigneeId}:${task.companyId}:`))
-      expect(mockQueryRaw.mock.calls[0]).toContain(task.companyId)
+      expect(queryRawParamsOf(0)).toContain(task.companyId)
       expect(mockEnqueueFlush).toHaveBeenCalledWith({ workspaceId: 'ws_1', windowKey: row.windowKey })
 
       // the row snapshots the exact individual email to replay for a single-event window
@@ -153,7 +171,7 @@ describe('NotificationService grouped-email interception', () => {
       const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
       expect(row.recipientCompanyId).toBe(companyB)
       expect(row.windowKey).toMatch(new RegExp(`^33333333-3333-3333-3333-333333333333:${companyB}:`))
-      expect(mockQueryRaw.mock.calls[0]).toContain(companyB)
+      expect(queryRawParamsOf(0)).toContain(companyB)
     })
 
     it('does not buffer or strip email for a non-target action (byte-for-byte)', async () => {
@@ -223,6 +241,7 @@ describe('NotificationService grouped-email interception', () => {
         email: true,
         disableInProduct: true,
         commentId: '44444444-4444-4444-4444-444444444444',
+        isRecipientIu: false,
       })
 
       expect(mockGroupedCreateMany).toHaveBeenCalledTimes(2)
@@ -243,6 +262,7 @@ describe('NotificationService grouped-email interception', () => {
         ['cu_a', 'cu_b', 'cu_c'],
         {
           email: true,
+          isRecipientIu: false,
         },
       )
 
@@ -258,7 +278,10 @@ describe('NotificationService grouped-email interception', () => {
         associations: [{ companyId: assocCompany }] as unknown as Task['associations'],
       })
 
-      await buildService().createBulkNotification(NotificationTaskActions.SharedToCompany, task, ['cu_a'], { email: true })
+      await buildService().createBulkNotification(NotificationTaskActions.SharedToCompany, task, ['cu_a'], {
+        email: true,
+        isRecipientIu: false,
+      })
 
       expect(mockGroupedCreateMany.mock.calls[0][0].data[0].recipientCompanyId).toBe(assocCompany)
     })
@@ -268,36 +291,89 @@ describe('NotificationService grouped-email interception', () => {
         email: false,
         disableInProduct: false,
         commentId: '44444444-4444-4444-4444-444444444444',
+        isRecipientIu: false,
       })
 
       expect(mockGroupedCreateMany).not.toHaveBeenCalled()
       expect(mockCreateNotification).toHaveBeenCalledTimes(1)
     })
+
+    it('buffers a Commented IU email as an IU row and dispatches the in-product notification to the IU', async () => {
+      await buildService().createBulkNotification(NotificationTaskActions.Commented, makeTask(), ['iu_a', 'iu_b'], {
+        email: true,
+        disableInProduct: false,
+        commentId: '44444444-4444-4444-4444-444444444444',
+        isRecipientIu: true,
+      })
+
+      expect(mockGroupedCreateMany).toHaveBeenCalledTimes(2)
+      const rows = mockGroupedCreateMany.mock.calls.map((c) => c[0].data[0])
+      expect(rows.map((r) => r.recipientIuId)).toEqual(['iu_a', 'iu_b'])
+      for (const row of rows) {
+        expect(row.eventType).toBe(GroupedEmailEventType.COMMENT)
+        expect(row.recipientClientId).toBeNull()
+        expect(row.individualEmail.recipientInternalUserId).toBeDefined()
+        expect(row.individualEmail.recipientClientId).toBeUndefined()
+      }
+
+      // in-product still fires immediately, routed to the IU with the email stripped
+      const sent = mockCreateNotification.mock.calls.map((c) => c[0])
+      expect(sent.map((s) => s.recipientInternalUserId)).toEqual(['iu_a', 'iu_b'])
+      for (const s of sent) {
+        expect(s.recipientClientId).toBeUndefined()
+        expect(s.deliveryTargets.email).toBeUndefined()
+      }
+    })
+
+    it('routes an email-enabled Commented email to the client when isRecipientIu is false (no email-absence inference)', async () => {
+      await buildService().createBulkNotification(NotificationTaskActions.Commented, makeTask(), ['cu_a'], {
+        email: true,
+        disableInProduct: true,
+        commentId: '44444444-4444-4444-4444-444444444444',
+        isRecipientIu: false,
+      })
+
+      const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
+      expect(row.recipientClientId).toBe('cu_a')
+      expect(row.recipientIuId).toBeNull()
+      expect(row.individualEmail.recipientClientId).toBe('cu_a')
+      expect(row.individualEmail.recipientInternalUserId).toBeUndefined()
+    })
   })
 })
 
 describe('guard: CU wiring boundaries', () => {
-  it('maps every CU-targeted action to the correct GroupedEmailEventType', () => {
+  it('maps every buffered action to the correct GroupedEmailEventType', () => {
     const svc = buildService() as unknown as {
       groupedEventTypeFor: (a: NotificationTaskActions) => GroupedEmailEventType | null
     }
     expect(svc.groupedEventTypeFor(NotificationTaskActions.Assigned)).toBe(GroupedEmailEventType.ASSIGNED)
     expect(svc.groupedEventTypeFor(NotificationTaskActions.AssignedToCompany)).toBe(GroupedEmailEventType.ASSIGNED)
+    expect(svc.groupedEventTypeFor(NotificationTaskActions.ReassignedToIU)).toBe(GroupedEmailEventType.ASSIGNED)
     expect(svc.groupedEventTypeFor(NotificationTaskActions.Shared)).toBe(GroupedEmailEventType.SHARED)
     expect(svc.groupedEventTypeFor(NotificationTaskActions.SharedToCompany)).toBe(GroupedEmailEventType.SHARED)
     expect(svc.groupedEventTypeFor(NotificationTaskActions.Commented)).toBe(GroupedEmailEventType.COMMENT)
+    expect(svc.groupedEventTypeFor(NotificationTaskActions.Completed)).toBe(GroupedEmailEventType.COMPLETED)
+    expect(svc.groupedEventTypeFor(NotificationTaskActions.CompletedByIU)).toBe(GroupedEmailEventType.COMPLETED)
+    expect(svc.groupedEventTypeFor(NotificationTaskActions.CompletedByCompanyMember)).toBe(GroupedEmailEventType.COMPLETED)
+    expect(svc.groupedEventTypeFor(NotificationTaskActions.CompletedForCompanyByIU)).toBe(GroupedEmailEventType.COMPLETED)
   })
 
-  it('returns null for every action that must not be buffered', () => {
+  it('returns null for every action that must not be buffered (incl. shared-CU completion emails)', () => {
     const svc = buildService() as unknown as {
       groupedEventTypeFor: (a: NotificationTaskActions) => GroupedEmailEventType | null
     }
     const mapped = [
       NotificationTaskActions.Assigned,
       NotificationTaskActions.AssignedToCompany,
+      NotificationTaskActions.ReassignedToIU,
       NotificationTaskActions.Shared,
       NotificationTaskActions.SharedToCompany,
       NotificationTaskActions.Commented,
+      NotificationTaskActions.Completed,
+      NotificationTaskActions.CompletedByIU,
+      NotificationTaskActions.CompletedByCompanyMember,
+      NotificationTaskActions.CompletedForCompanyByIU,
     ]
     const unmapped = Object.values(NotificationTaskActions).filter((a) => !mapped.includes(a))
     for (const action of unmapped) {
@@ -305,19 +381,182 @@ describe('guard: CU wiring boundaries', () => {
     }
   })
 
-  it('never returns COMPLETED — that type is reserved for the deferred IU milestone', () => {
-    const svc = buildService() as unknown as {
-      groupedEventTypeFor: (a: NotificationTaskActions) => GroupedEmailEventType | null
-    }
-    const allActions = Object.values(NotificationTaskActions)
-    for (const action of allActions) {
-      expect(svc.groupedEventTypeFor(action)).not.toBe(GroupedEmailEventType.COMPLETED)
-    }
-  })
-
   it('never writes recipientIuId in a CU grouped event row', async () => {
     await buildService().create(NotificationTaskActions.Assigned, makeTask())
     const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
-    expect(row.recipientIuId).toBeUndefined()
+    expect(row.recipientIuId).toBeNull()
+  })
+})
+
+describe('guard: IU wiring boundaries', () => {
+  it('buffers an Assigned IU email with recipientIuId set and all client fields null', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockGroupedCreateMany).toHaveBeenCalledTimes(1)
+    const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
+    expect(row).toMatchObject({
+      workspaceId: 'ws_1',
+      recipientIuId: task.assigneeId,
+      recipientClientId: null,
+      recipientCompanyId: null,
+      eventType: GroupedEmailEventType.ASSIGNED,
+      taskId: task.id,
+    })
+    expect(row.windowKey).toMatch(/^33333333-3333-3333-3333-333333333333:iu:/)
+    expect(mockEnqueueFlush).toHaveBeenCalledWith({ workspaceId: 'ws_1', windowKey: row.windowKey })
+
+    // individual email snapshot routes to the IU, not a client
+    expect(row.individualEmail.recipientInternalUserId).toBe(task.assigneeId)
+    expect(row.individualEmail.recipientClientId).toBeUndefined()
+  })
+
+  it('sends the in-product notification to recipientInternalUserId and strips the email target', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    const sent = mockCreateNotification.mock.calls[0][0]
+    expect(sent.recipientInternalUserId).toBe(task.assigneeId)
+    expect(sent.recipientClientId).toBeUndefined()
+    expect(deliveryTargetsOf(0).inProduct).toBeDefined()
+    expect(deliveryTargetsOf(0).email).toBeUndefined()
+  })
+
+  it('does not buffer when disableEmail is true for an IU task', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: true })
+
+    expect(mockGroupedCreateMany).not.toHaveBeenCalled()
+    expect(mockEnqueueFlush).not.toHaveBeenCalled()
+  })
+})
+
+describe('guard: IU notifications ship ungated (settingId gating disabled)', () => {
+  it('does not attach notificationSettingId to the in-product dispatch or the buffered email', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockCreateNotification.mock.calls[0][0].notificationSettingId).toBeUndefined()
+    expect(mockGroupedCreateMany.mock.calls[0][0].data[0].individualEmail.notificationSettingId).toBeUndefined()
+  })
+
+  it('still buffers the IU email and fires the in-product notification', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockGroupedCreateMany).toHaveBeenCalledTimes(1)
+    expect(deliveryTargetsOf(0).inProduct).toBeDefined()
+  })
+
+  it('keeps IU grouped windows cross-category (window key is not scoped by event type)', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockGroupedCreateMany.mock.calls[0][0].data[0].windowKey).toMatch(new RegExp(`^${task.assigneeId}:iu:[^:]+$`))
+  })
+
+  it('treats a suppressed (null) createNotification response as a no-op — no throw, no save', async () => {
+    // Platform dropped the only requested surface for this IU (preference off) → no created object.
+    mockCreateNotification.mockResolvedValue(null)
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+
+    const result = await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(result).toBeUndefined()
+  })
+})
+
+describe('guard: IU completion emails', () => {
+  // Every completion action routes to an IU; create() must buffer them as IU rows regardless of
+  // which one is passed, so the guard stays consistent with groupedEventTypeFor.
+  it.each([
+    NotificationTaskActions.CompletedByIU,
+    NotificationTaskActions.CompletedForCompanyByIU,
+    NotificationTaskActions.Completed,
+    NotificationTaskActions.CompletedByCompanyMember,
+  ])('buffers a %s email as a COMPLETED IU event and keeps the in-product notification immediate', async (action) => {
+    await buildService().create(action, makeTask({ assigneeType: AssigneeType.internalUser, clientId: null }))
+
+    expect(mockGroupedCreateMany).toHaveBeenCalledTimes(1)
+    const row = mockGroupedCreateMany.mock.calls[0][0].data[0]
+    expect(row).toMatchObject({
+      recipientIuId: '33333333-3333-3333-3333-333333333333',
+      recipientClientId: null,
+      recipientCompanyId: null,
+      eventType: GroupedEmailEventType.COMPLETED,
+    })
+    expect(row.individualEmail.recipientInternalUserId).toBe('33333333-3333-3333-3333-333333333333')
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    const sent = mockCreateNotification.mock.calls[0][0]
+    expect(sent.recipientInternalUserId).toBe('33333333-3333-3333-3333-333333333333')
+    expect(sent.recipientClientId).toBeUndefined()
+    expect(deliveryTargetsOf(0).inProduct).toBeDefined()
+    expect(deliveryTargetsOf(0).email).toBeUndefined()
+  })
+
+  it('does not buffer and still routes the in-product CompletedByIU notification to the IU when email is disabled', async () => {
+    const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
+    await buildService().create(NotificationTaskActions.CompletedByIU, task, { disableEmail: true })
+
+    expect(mockGroupedCreateMany).not.toHaveBeenCalled()
+    const sent = mockCreateNotification.mock.calls[0][0]
+    expect(sent.recipientInternalUserId).toBe('33333333-3333-3333-3333-333333333333')
+    expect(sent.recipientClientId).toBeUndefined()
+    expect(deliveryTargetsOf(0).email).toBeUndefined()
+  })
+
+  it('is not blocked by the client-notification dedup guard on a client-assigned task', async () => {
+    // A client-assigned task still has an unread ClientNotification from its assignment when the
+    // IU completes it; the CompletedByIU recipient is the creator IU, so the guard must not fire.
+    mockFindFirst.mockResolvedValue({ id: 'existing-client-notif' })
+    const task = makeTask({ assigneeType: AssigneeType.client, clientId: '33333333-3333-3333-3333-333333333333' })
+
+    await buildService().create(NotificationTaskActions.CompletedByIU, task, { disableEmail: false })
+
+    // guard skipped: the completion email buffers and the IU notification dispatches
+    expect(mockFindFirst).not.toHaveBeenCalled()
+    expect(mockGroupedCreateMany).toHaveBeenCalledTimes(1)
+    expect(mockGroupedCreateMany.mock.calls[0][0].data[0].recipientIuId).toBe('33333333-3333-3333-3333-333333333333')
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(mockCreateNotification.mock.calls[0][0].recipientInternalUserId).toBe('33333333-3333-3333-3333-333333333333')
+  })
+
+  it('bulk Completed buffers one COMPLETED IU row per recipient and strips the email from dispatch', async () => {
+    await buildService().createBulkNotification(NotificationTaskActions.Completed, makeTask(), ['iu_a', 'iu_b'], {
+      email: true,
+      isRecipientIu: true,
+    })
+
+    expect(mockGroupedCreateMany).toHaveBeenCalledTimes(2)
+    const rows = mockGroupedCreateMany.mock.calls.map((c) => c[0].data[0])
+    expect(rows.map((r) => r.recipientIuId)).toEqual(['iu_a', 'iu_b'])
+    for (const row of rows) {
+      expect(row.eventType).toBe(GroupedEmailEventType.COMPLETED)
+      expect(row.recipientClientId).toBeNull()
+      expect(row.individualEmail.recipientInternalUserId).toBeDefined()
+    }
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(2)
+    const sent = mockCreateNotification.mock.calls.map((c) => c[0])
+    expect(sent.map((s) => s.recipientInternalUserId)).toEqual(['iu_a', 'iu_b'])
+    for (const s of sent) {
+      expect(s.recipientClientId).toBeUndefined()
+      expect(s.deliveryTargets.email).toBeUndefined()
+    }
+  })
+
+  it('bulk CompletedByCompanyMember neither buffers nor emails when the flag is off (email opt falsy)', async () => {
+    await buildService().createBulkNotification(NotificationTaskActions.CompletedByCompanyMember, makeTask(), ['iu_a'], {
+      email: false,
+      isRecipientIu: true,
+    })
+
+    expect(mockGroupedCreateMany).not.toHaveBeenCalled()
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(deliveryTargetsOf(0).email).toBeUndefined()
+    expect(mockCreateNotification.mock.calls[0][0].recipientInternalUserId).toBe('iu_a')
   })
 })

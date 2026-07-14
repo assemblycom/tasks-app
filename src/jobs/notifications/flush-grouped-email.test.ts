@@ -100,11 +100,65 @@ describe('flushGroupedEmailRun', () => {
 
     expect(mockSendGroupedEmail).toHaveBeenCalledTimes(1)
     const args = mockSendGroupedEmail.mock.calls[0][0]
-    expect(args).toMatchObject({ senderId: 'iu_1', recipientClientId: 'client_1', recipientCompanyId: 'company_1' })
+    // Sender is the real actor from the buffered event, not an arbitrary workspace IU.
+    expect(args).toMatchObject({ senderId: 'actor_1', recipientClientId: 'client_1', recipientCompanyId: 'company_1' })
+    expect(mockGetInternalUsers).not.toHaveBeenCalled()
     expect(args.content.totalEventCount).toBe(2)
     expect(mockCreateNotification).not.toHaveBeenCalled()
     expect(mockExecuteRaw).toHaveBeenCalledTimes(2) // markRecipientSent + deleteWindowRows
     expect(result).toMatchObject({ recipients: 1, sent: 1, sentGrouped: 1, sentIndividual: 0 })
+  })
+
+  it('sends an IU grouped summary from the real actor, not an arbitrary workspace IU', async () => {
+    const iuRow = () =>
+      row({
+        recipientClientId: null,
+        recipientCompanyId: null,
+        recipientIuId: 'iu_recipient',
+        individualEmail: {
+          senderId: 'actor_1',
+          recipientInternalUserId: 'iu_recipient',
+          deliveryTargets: { email: { subject: 'A task' } },
+        },
+      })
+    mockQueryRaw.mockResolvedValue([iuRow(), iuRow()])
+
+    const result = await flushGroupedEmailRun(payload)
+
+    expect(mockSendGroupedEmail).toHaveBeenCalledTimes(1)
+    const args = mockSendGroupedEmail.mock.calls[0][0]
+    expect(args).toMatchObject({ senderId: 'actor_1', recipientInternalUserId: 'iu_recipient' })
+    expect(mockGetInternalUsers).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ recipients: 1, sent: 1, sentGrouped: 1 })
+  })
+
+  const iuRow = (settingId?: string) =>
+    row({
+      recipientClientId: null,
+      recipientCompanyId: null,
+      recipientIuId: 'iu_recipient',
+      individualEmail: {
+        senderId: 'actor_1',
+        recipientInternalUserId: 'iu_recipient',
+        notificationSettingId: settingId,
+        deliveryTargets: { email: { subject: 'A task' } },
+      },
+    })
+
+  it('gates an IU grouped summary with the setting id when the whole window is one category', async () => {
+    mockQueryRaw.mockResolvedValue([iuRow('setting_comment'), iuRow('setting_comment')])
+
+    await flushGroupedEmailRun(payload)
+
+    expect(mockSendGroupedEmail.mock.calls[0][0]).toMatchObject({ notificationSettingId: 'setting_comment' })
+  })
+
+  it('sends an IU grouped summary without an id when the window mixes categories', async () => {
+    mockQueryRaw.mockResolvedValue([iuRow('setting_assigned'), iuRow('setting_comment')])
+
+    await flushGroupedEmailRun(payload)
+
+    expect(mockSendGroupedEmail.mock.calls[0][0].notificationSettingId).toBeUndefined()
   })
 
   it('replays the original individual email when the window has a single live event', async () => {
@@ -202,8 +256,9 @@ describe('flushGroupedEmailRun', () => {
     expect(mockExecuteRaw).not.toHaveBeenCalled()
   })
 
-  it('throws when a grouped window has no internal user to send as', async () => {
-    mockQueryRaw.mockResolvedValue([row(), row()])
+  it('throws when a grouped window has no buffered sender and no workspace internal user', async () => {
+    // Pre-migration rows carry no individualEmail, so the sender falls back to a workspace IU.
+    mockQueryRaw.mockResolvedValue([row({ individualEmail: null }), row({ individualEmail: null })])
     mockGetInternalUsers.mockResolvedValue({ data: [] })
 
     await expect(flushGroupedEmailRun(payload)).rejects.toThrow('no internal user')

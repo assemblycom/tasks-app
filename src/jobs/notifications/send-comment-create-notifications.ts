@@ -40,6 +40,7 @@ export const sendCommentCreateNotifications = task({
       email: true,
       disableInProduct: true,
       commentId: comment.id,
+      isRecipientIu: false,
     })
 
     const { recipientIds: iuRecipientIds, senderCompanyId } = await commentNotificationService.getNotificationParties(
@@ -50,10 +51,11 @@ export const sendCommentCreateNotifications = task({
     const filteredIUIds = iuRecipientIds.filter((id: string) => id !== comment.initiatorId)
     console.info('creating notifications for IUs', filteredIUIds)
     await commentNotificationService.createBulkNotification(NotificationTaskActions.Commented, task, filteredIUIds, {
-      email: false,
+      email: true,
       disableInProduct: false,
       commentId: comment.id,
       senderCompanyId,
+      isRecipientIu: true,
     })
   },
 })

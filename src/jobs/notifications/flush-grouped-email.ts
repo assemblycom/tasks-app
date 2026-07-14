@@ -24,11 +24,17 @@ type WindowEvent = GroupedEmailEventInput & { individualEmail: NotificationReque
 type BufferedRow = WindowEvent & {
   recipientClientId: string | null
   recipientCompanyId: string | null
+  recipientIuId: string | null
 }
 
-type RecipientGroup = {
+type CuRecipientGroup = {
   recipientClientId: string
   recipientCompanyId: string | null
+  events: WindowEvent[]
+}
+
+type IuRecipientGroup = {
+  recipientIuId: string
   events: WindowEvent[]
 }
 
@@ -36,14 +42,14 @@ const TASK_ID = 'flush-grouped-email'
 
 const readUnsentWindowEvents = (db: ReturnType<typeof DBClient.getInstance>, windowKey: string) =>
   db.$queryRaw<BufferedRow[]>`
-    SELECT "eventType", "taskId", "taskTitleSnapshot", "createdAt", "recipientClientId", "recipientCompanyId", "individualEmail"
+    SELECT "eventType", "taskId", "taskTitleSnapshot", "createdAt", "recipientClientId", "recipientCompanyId", "recipientIuId", "individualEmail"
     FROM "GroupedEmailEvents"
     WHERE "windowKey" = ${windowKey} AND "sentAt" IS NULL`
 
 const deleteWindowRows = (db: ReturnType<typeof DBClient.getInstance>, windowKey: string) =>
   db.$executeRaw`DELETE FROM "GroupedEmailEvents" WHERE "windowKey" = ${windowKey} AND "sentAt" IS NOT NULL`
 
-const markRecipientSent = (
+const markCuRecipientSent = (
   db: ReturnType<typeof DBClient.getInstance>,
   windowKey: string,
   recipientClientId: string,
@@ -53,6 +59,16 @@ const markRecipientSent = (
     UPDATE "GroupedEmailEvents" SET "sentAt" = now(), "batchId" = ${batchId}::uuid
     WHERE "windowKey" = ${windowKey} AND "recipientClientId" = ${recipientClientId}::uuid AND "sentAt" IS NULL`
 
+const markIuRecipientSent = (
+  db: ReturnType<typeof DBClient.getInstance>,
+  windowKey: string,
+  recipientIuId: string,
+  batchId: string,
+) =>
+  db.$executeRaw`
+    UPDATE "GroupedEmailEvents" SET "sentAt" = now(), "batchId" = ${batchId}::uuid
+    WHERE "windowKey" = ${windowKey} AND "recipientIuId" = ${recipientIuId}::uuid AND "sentAt" IS NULL`
+
 const resolveSenderId = async (copilot: CopilotAPI): Promise<string> => {
   const { data } = await copilot.getInternalUsers({ limit: 1 })
   const senderId = data[0]?.id
@@ -60,7 +76,34 @@ const resolveSenderId = async (copilot: CopilotAPI): Promise<string> => {
   return senderId
 }
 
+// Copilot only emails an IU recipient when the sender is a real participant, so attribute the
+// grouped summary to the actual actor from the buffered events, not an arbitrary workspace IU.
+// The full sender context (type + company) must ride along, or a client actor produces a
+// senderId/senderType mismatch that Copilot rejects (or silently drops).
+type EventSender = Pick<NotificationRequestBody, 'senderId' | 'senderType' | 'senderCompanyId'>
+const senderFromEvents = (events: WindowEvent[]): EventSender | undefined => {
+  const email = events.map((e) => e.individualEmail).find((e): e is NotificationRequestBody => Boolean(e?.senderId))
+  if (!email) return undefined
+  return { senderId: email.senderId, senderType: email.senderType, senderCompanyId: email.senderCompanyId }
+}
+
+// Seam for per-IU category filtering. Today it's a pass-through: the platform can't gate a mixed
+// grouped summary, and there's no API to read an IU's per-setting preferences. Once Assembly exposes
+// that endpoint, fetch the recipient IU's prefs here and drop events for disabled categories so the
+// summary only carries allowed ones (an all-disabled recipient then sends nothing).
+// TODO(OUT-3929): implement per-IU filtering when the read endpoint lands.
+const filterEventsForIuPreferences = (events: WindowEvent[]): WindowEvent[] => events
+
+// The platform can only gate a send that carries one setting id. A grouped summary gets an id only
+// when every live event shares the same one (i.e. a single-category window); a mixed window sends
+// without an id and is not gated per-IU until the filter seam above is implemented.
+const singleCategorySettingId = (events: WindowEvent[]): string | undefined => {
+  const ids = events.map((e) => e.individualEmail?.notificationSettingId)
+  return ids.every((id) => id && id === ids[0]) ? (ids[0] ?? undefined) : undefined
+}
+
 const sendIndividualEmail = async (copilot: CopilotAPI, payload: NotificationRequestBody): Promise<void> => {
+  logger.log('flush-grouped-email: createNotification payload (individual replay)', { payload })
   try {
     await copilot.createNotification(payload)
   } catch (e: unknown) {
@@ -81,25 +124,37 @@ const getLiveTaskIds = async (db: ReturnType<typeof DBClient.getInstance>, taskI
   return new Set(live.map((t) => t.id))
 }
 
-const groupByRecipient = (rows: BufferedRow[]): RecipientGroup[] => {
-  const groups = new Map<string, RecipientGroup>()
+const toWindowEvent = (row: BufferedRow): WindowEvent => ({
+  eventType: row.eventType,
+  taskId: row.taskId,
+  taskTitleSnapshot: row.taskTitleSnapshot,
+  createdAt: row.createdAt,
+  individualEmail: row.individualEmail,
+})
+
+const groupCuRecipients = (rows: BufferedRow[]): CuRecipientGroup[] => {
+  const groups = new Map<string, CuRecipientGroup>()
   for (const row of rows) {
     if (!row.recipientClientId) continue
     const group = groups.get(row.recipientClientId)
-    const event: WindowEvent = {
-      eventType: row.eventType,
-      taskId: row.taskId,
-      taskTitleSnapshot: row.taskTitleSnapshot,
-      createdAt: row.createdAt,
-      individualEmail: row.individualEmail,
-    }
-    if (group) group.events.push(event)
+    if (group) group.events.push(toWindowEvent(row))
     else
       groups.set(row.recipientClientId, {
         recipientClientId: row.recipientClientId,
         recipientCompanyId: row.recipientCompanyId,
-        events: [event],
+        events: [toWindowEvent(row)],
       })
+  }
+  return [...groups.values()]
+}
+
+const groupIuRecipients = (rows: BufferedRow[]): IuRecipientGroup[] => {
+  const groups = new Map<string, IuRecipientGroup>()
+  for (const row of rows) {
+    if (!row.recipientIuId) continue
+    const group = groups.get(row.recipientIuId)
+    if (group) group.events.push(toWindowEvent(row))
+    else groups.set(row.recipientIuId, { recipientIuId: row.recipientIuId, events: [toWindowEvent(row)] })
   }
   return [...groups.values()]
 }
@@ -120,20 +175,22 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
   const liveTaskIds = await getLiveTaskIds(db, [...new Set(rows.map((r) => r.taskId))])
   const skippedDeletedTasks = rows.length - rows.filter((r) => liveTaskIds.has(r.taskId)).length
 
-  const groups = groupByRecipient(rows)
+  const cuGroups = groupCuRecipients(rows)
+  const iuGroups = groupIuRecipients(rows)
   logger.log('flush-grouped-email: starting', {
     workspaceId,
     windowKey,
     bufferedEvents: rows.length,
     skippedDeletedTasks,
-    recipients: groups.length,
+    recipients: cuGroups.length + iuGroups.length,
   })
 
   let sent = 0
   let sentGrouped = 0
   let sentIndividual = 0
   let senderId: string | undefined // resolved lazily — only the grouped branch needs a workspace IU
-  for (const group of groups) {
+
+  for (const group of cuGroups) {
     const liveEvents = group.events.filter((e) => liveTaskIds.has(e.taskId))
     // A single event reads awkwardly as a "summary" — replay the original individual email verbatim.
     // Pre-migration rows have no snapshot; fall back to the grouped summary rather than crash.
@@ -141,7 +198,7 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
 
     Sentry.addBreadcrumb({
       category: 'flush-grouped-email',
-      message: `recipient ${group.recipientClientId}`,
+      message: `cu recipient ${group.recipientClientId}`,
       data: { workspaceId, windowKey, recipientClientId: group.recipientClientId, liveEvents: liveEvents.length },
     })
 
@@ -150,10 +207,12 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
       sent += 1
       sentIndividual += 1
     } else if (liveEvents.length >= 1) {
-      senderId ??= await resolveSenderId(copilot)
+      const sender = senderFromEvents(liveEvents)
       await sendGroupedEmail({
         content: composeGroupedEmail(liveEvents),
-        senderId,
+        senderId: sender?.senderId ?? (senderId ??= await resolveSenderId(copilot)),
+        senderType: sender?.senderType,
+        senderCompanyId: sender?.senderCompanyId,
         recipientClientId: group.recipientClientId,
         recipientCompanyId: group.recipientCompanyId,
         copilot,
@@ -162,11 +221,52 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
       sentGrouped += 1
     }
 
-    await markRecipientSent(db, windowKey, group.recipientClientId, batchId)
+    await markCuRecipientSent(db, windowKey, group.recipientClientId, batchId)
     logger.log('flush-grouped-email: recipient processed', {
       workspaceId,
       windowKey,
       recipientClientId: group.recipientClientId,
+      liveEvents: liveEvents.length,
+      outcome: singleEmail ? ('individual' as const) : liveEvents.length >= 1 ? ('grouped' as const) : ('skipped' as const),
+    })
+  }
+
+  for (const group of iuGroups) {
+    const liveEvents = filterEventsForIuPreferences(group.events.filter((e) => liveTaskIds.has(e.taskId)))
+    // A single event replays its buffered email verbatim (it already carries its own setting id).
+    const singleEmail = liveEvents.length === 1 ? liveEvents[0].individualEmail : null
+
+    Sentry.addBreadcrumb({
+      category: 'flush-grouped-email',
+      message: `iu recipient ${group.recipientIuId}`,
+      data: { workspaceId, windowKey, recipientIuId: group.recipientIuId, liveEvents: liveEvents.length },
+    })
+
+    if (singleEmail) {
+      await sendIndividualEmail(copilot, singleEmail)
+      sent += 1
+      sentIndividual += 1
+    } else if (liveEvents.length >= 1) {
+      const sender = senderFromEvents(liveEvents)
+      await sendGroupedEmail({
+        content: composeGroupedEmail(liveEvents),
+        senderId: sender?.senderId ?? (senderId ??= await resolveSenderId(copilot)),
+        senderType: sender?.senderType,
+        senderCompanyId: sender?.senderCompanyId,
+        recipientInternalUserId: group.recipientIuId,
+        // Gate the summary per-IU only when the whole window is one category.
+        notificationSettingId: singleCategorySettingId(liveEvents),
+        copilot,
+      })
+      sent += 1
+      sentGrouped += 1
+    }
+
+    await markIuRecipientSent(db, windowKey, group.recipientIuId, batchId)
+    logger.log('flush-grouped-email: recipient processed', {
+      workspaceId,
+      windowKey,
+      recipientIuId: group.recipientIuId,
       liveEvents: liveEvents.length,
       outcome: singleEmail ? ('individual' as const) : liveEvents.length >= 1 ? ('grouped' as const) : ('skipped' as const),
     })
@@ -185,14 +285,14 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
   logger.log('flush-grouped-email: run summary', {
     workspaceId,
     windowKey,
-    recipients: groups.length,
+    recipients: cuGroups.length + iuGroups.length,
     sent,
     sentGrouped,
     sentIndividual,
     bufferedEvents: rows.length,
     skippedDeletedTasks,
   })
-  return { windowKey, recipients: groups.length, sent, sentGrouped, sentIndividual }
+  return { windowKey, recipients: cuGroups.length + iuGroups.length, sent, sentGrouped, sentIndividual }
 }
 
 export const flushGroupedEmailOnFailure = async ({ payload, error }: { payload: unknown; error: unknown }) => {

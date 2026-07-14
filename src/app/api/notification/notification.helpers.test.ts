@@ -1,6 +1,7 @@
+import { NotificationTaskActions } from '@api/core/types/tasks'
 import { WorkspaceResponse } from '@/types/common'
-import { getReminderEmailDetails } from './notification.helpers'
-import { TaskReminderType } from '@prisma/client'
+import { getEmailDetails, getReminderEmailDetails } from './notification.helpers'
+import { Task, TaskReminderType } from '@prisma/client'
 
 const workspace: WorkspaceResponse = {
   id: 'ws_1',
@@ -74,5 +75,36 @@ describe('getReminderEmailDetails', () => {
     const htmlBody = result[TaskReminderType.NO_DUE_DATE_3D].htmlBody
     expect(htmlBody).toContain('Report &lt;/strong&gt;&lt;img src=x onerror=alert(1)&gt;')
     expect(htmlBody).not.toContain('<img src=x')
+  })
+})
+
+describe('getEmailDetails', () => {
+  // Actions that email an IU recipient must have a template here, or the grouped
+  // buffer silently skips them (in-product fires but no email is ever flushed).
+  it.each([
+    NotificationTaskActions.Assigned,
+    NotificationTaskActions.ReassignedToIU,
+    NotificationTaskActions.Completed,
+    NotificationTaskActions.CompletedByIU,
+    NotificationTaskActions.CompletedByCompanyMember,
+    NotificationTaskActions.CompletedForCompanyByIU,
+  ])('defines an email template for IU-recipient action %s', (action) => {
+    const details = getEmailDetails(workspace, 'Arpan Two')[action]
+    expect(details).toBeDefined()
+    expect(details?.subject).toBeTruthy()
+    expect(details?.body).toBeTruthy()
+  })
+
+  it.each([
+    NotificationTaskActions.Completed,
+    NotificationTaskActions.CompletedByIU,
+    NotificationTaskActions.CompletedByCompanyMember,
+    NotificationTaskActions.CompletedForCompanyByIU,
+  ])('uses the task-marked-as-done copy for completion action %s', (action) => {
+    const details = getEmailDetails(workspace, 'Casey Client', task as unknown as Task)[action]
+    expect(details?.subject).toBe('Task marked as done')
+    expect(details?.header).toBe('A task has been completed')
+    expect(details?.body).toContain('has been marked as done by Casey Client')
+    expect(details?.title).toBe('View task')
   })
 })
