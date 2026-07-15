@@ -35,6 +35,9 @@ export const dispatchReminderEmailRun = async (payload: DispatchReminderEmailPay
     workspace: payload.workspace,
     copilot,
   })
+  if (notificationId === null) {
+    return { ledgerId: payload.ledgerId, notificationId, sent: false as const }
+  }
   return { ledgerId: payload.ledgerId, notificationId, sent: true as const }
 }
 

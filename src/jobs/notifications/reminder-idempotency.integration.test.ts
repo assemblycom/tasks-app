@@ -122,6 +122,18 @@ describe('reminder idempotency (real DB)', () => {
     expect(await getTestDb().taskReminderSent.count()).toBe(1)
   })
 
+  it('keeps the ledger and does not report when Copilot creates no notification', async () => {
+    await seedEligibleClientTask()
+    mockCreateNotification.mockResolvedValue(null)
+
+    await runCron()
+    await runCron()
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(await getTestDb().taskReminderSent.count()).toBe(1)
+    expect(mockCaptureException).not.toHaveBeenCalled()
+  })
+
   it('on a terminal Copilot failure, deletes the ledger row and reports to Sentry', async () => {
     const { taskId, assigneeId } = await seedEligibleClientTask()
     mockCreateNotification.mockRejectedValue(new Error('copilot 500'))

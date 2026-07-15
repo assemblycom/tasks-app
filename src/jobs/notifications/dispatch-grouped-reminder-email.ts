@@ -30,6 +30,9 @@ export const dispatchGroupedReminderEmailRun = async (payload: DispatchGroupedRe
     recipientCompanyId: payload.recipientCompanyId,
     copilot,
   })
+  if (notificationId === null) {
+    return { ledgerIds: payload.ledgerIds, notificationId, sent: false as const }
+  }
   return { ledgerIds: payload.ledgerIds, notificationId, sent: true as const }
 }
 

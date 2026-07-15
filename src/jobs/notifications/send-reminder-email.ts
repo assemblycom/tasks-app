@@ -26,7 +26,7 @@ export const sendReminderEmail = async ({
   isCompanyRecipient,
   workspace,
   copilot,
-}: SendReminderEmailArgs): Promise<string> => {
+}: SendReminderEmailArgs): Promise<string | null> => {
   // For opted-in workspaces, mirror the customized assignment email by using the task title as the
   // subject, prefixed with the escalating cadence tag (OUT-3861).
   const needsOverride = reminderSubjectOverrideWorkspaces.has(workspace.id)
@@ -64,7 +64,5 @@ export const sendReminderEmail = async ({
   }
 
   const notification = await copilot.createNotification(payload)
-  // Reminder emails never pass a notificationSettingId, so the platform can't suppress them.
-  if (!notification) throw new Error('sendReminderEmail: notification was unexpectedly suppressed')
-  return notification.id
+  return notification?.id ?? null
 }
