@@ -8,9 +8,3 @@ export const disabledEmailSettingIds = (settings: InternalUserNotificationSettin
     .map((entry) => entry.notificationSettingId as string)
   return new Set(ids)
 }
-
-// Global email gate, fail-closed: email is delivered only when the IU has explicitly activated
-// email notifications. Any other value — a different disabled string, unexpected casing, or a
-// missing field — is treated as not activated, so a global opt-out is never bypassed.
-export const isIuEmailGloballyOff = (settings: InternalUserNotificationSettings): boolean =>
-  (settings.emailSettings ?? '').trim().toLowerCase() !== 'active'

@@ -202,17 +202,6 @@ describe('flushGroupedEmailRun', () => {
     expect(result).toMatchObject({ recipients: 1, sent: 0, sentGrouped: 0, sentIndividual: 0 })
   })
 
-  it('sends nothing to an IU whose email is globally not active', async () => {
-    mockGetIuNotificationSettings.mockResolvedValue({ emailSettings: 'not_active', notifyAbout: {} })
-    mockQueryRaw.mockResolvedValue([iuRow('setting_assigned'), iuRow('setting_comment')])
-
-    const result = await flushGroupedEmailRun(payload)
-
-    expect(mockSendGroupedEmail).not.toHaveBeenCalled()
-    expect(mockCreateNotification).not.toHaveBeenCalled()
-    expect(result).toMatchObject({ sent: 0 })
-  })
-
   it('sends ungated when the IU preference read fails (fail-open)', async () => {
     mockGetIuNotificationSettings.mockRejectedValue(new Error('copilot 5xx'))
     mockQueryRaw.mockResolvedValue([iuRow('setting_comment'), iuRow('setting_comment')])
