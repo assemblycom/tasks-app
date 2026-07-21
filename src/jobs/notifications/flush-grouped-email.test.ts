@@ -6,6 +6,7 @@ const mockQueryRaw = jest.fn()
 const mockExecuteRaw = jest.fn()
 const mockFindManyTask = jest.fn()
 const mockGetInternalUsers = jest.fn()
+const mockGetIuNotificationSettings = jest.fn()
 const mockCaptureException = jest.fn()
 
 jest.mock('@trigger.dev/sdk/v3', () => ({
@@ -35,9 +36,11 @@ jest.mock('@/lib/db', () => ({
 }))
 
 jest.mock('@/utils/CopilotAPI', () => ({
-  CopilotAPI: jest
-    .fn()
-    .mockImplementation(() => ({ getInternalUsers: mockGetInternalUsers, createNotification: mockCreateNotification })),
+  CopilotAPI: jest.fn().mockImplementation(() => ({
+    getInternalUsers: mockGetInternalUsers,
+    createNotification: mockCreateNotification,
+    getInternalUserNotificationSettings: mockGetIuNotificationSettings,
+  })),
 }))
 
 jest.mock('./send-grouped-email', () => ({
@@ -83,6 +86,8 @@ beforeEach(() => {
   jest.clearAllMocks()
   seq = 0
   mockGetInternalUsers.mockResolvedValue({ data: [{ id: 'iu_1' }] })
+  // default: IU has all email categories enabled
+  mockGetIuNotificationSettings.mockResolvedValue({ emailSettings: 'active', notifyAbout: {} })
   mockSendGroupedEmail.mockResolvedValue('notif_1')
   mockCreateNotification.mockResolvedValue({ id: 'notif_1' })
   mockExecuteRaw.mockResolvedValue(1)
@@ -159,6 +164,63 @@ describe('flushGroupedEmailRun', () => {
     await flushGroupedEmailRun(payload)
 
     expect(mockSendGroupedEmail.mock.calls[0][0].notificationSettingId).toBeUndefined()
+  })
+
+  it('drops events for categories the IU disabled email on, keeping the rest', async () => {
+    mockGetIuNotificationSettings.mockResolvedValue({
+      emailSettings: 'active',
+      notifyAbout: {
+        newCommentOnATask: { disableEmail: true, notificationSettingId: 'setting_comment' },
+        newTaskAssigned: { disableEmail: false, notificationSettingId: 'setting_assigned' },
+      },
+    })
+    mockQueryRaw.mockResolvedValue([iuRow('setting_assigned'), iuRow('setting_comment')])
+
+    await flushGroupedEmailRun(payload)
+
+    // Only the assignment survives -> replayed as a single individual email, not a grouped summary.
+    expect(mockSendGroupedEmail).not.toHaveBeenCalled()
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(mockCreateNotification.mock.calls[0][0]).toMatchObject({ notificationSettingId: 'setting_assigned' })
+  })
+
+  it('sends nothing to an IU who disabled email on every buffered category', async () => {
+    mockGetIuNotificationSettings.mockResolvedValue({
+      emailSettings: 'active',
+      notifyAbout: {
+        newCommentOnATask: { disableEmail: true, notificationSettingId: 'setting_comment' },
+        newTaskAssigned: { disableEmail: true, notificationSettingId: 'setting_assigned' },
+      },
+    })
+    mockQueryRaw.mockResolvedValue([iuRow('setting_assigned'), iuRow('setting_comment')])
+
+    const result = await flushGroupedEmailRun(payload)
+
+    expect(mockSendGroupedEmail).not.toHaveBeenCalled()
+    expect(mockCreateNotification).not.toHaveBeenCalled()
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(2) // markRecipientSent + deleteWindowRows
+    expect(result).toMatchObject({ recipients: 1, sent: 0, sentGrouped: 0, sentIndividual: 0 })
+  })
+
+  it('sends nothing to an IU whose email is globally not active', async () => {
+    mockGetIuNotificationSettings.mockResolvedValue({ emailSettings: 'not_active', notifyAbout: {} })
+    mockQueryRaw.mockResolvedValue([iuRow('setting_assigned'), iuRow('setting_comment')])
+
+    const result = await flushGroupedEmailRun(payload)
+
+    expect(mockSendGroupedEmail).not.toHaveBeenCalled()
+    expect(mockCreateNotification).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ sent: 0 })
+  })
+
+  it('sends ungated when the IU preference read fails (fail-open)', async () => {
+    mockGetIuNotificationSettings.mockRejectedValue(new Error('copilot 5xx'))
+    mockQueryRaw.mockResolvedValue([iuRow('setting_comment'), iuRow('setting_comment')])
+
+    await flushGroupedEmailRun(payload)
+
+    expect(mockSendGroupedEmail).toHaveBeenCalledTimes(1)
+    expect(mockSendGroupedEmail.mock.calls[0][0].content.totalEventCount).toBe(2)
   })
 
   it('replays the original individual email when the window has a single live event', async () => {

@@ -432,13 +432,13 @@ describe('guard: IU wiring boundaries', () => {
   })
 })
 
-describe('guard: IU notifications ship ungated (settingId gating disabled)', () => {
-  it('does not attach notificationSettingId to the in-product dispatch or the buffered email', async () => {
+describe('guard: IU notifications carry the resolved notificationSettingId (platform gating)', () => {
+  it('attaches the resolved notificationSettingId to the in-product dispatch and the buffered email', async () => {
     const task = makeTask({ assigneeType: AssigneeType.internalUser, clientId: null })
     await buildService().create(NotificationTaskActions.Assigned, task, { disableEmail: false })
 
-    expect(mockCreateNotification.mock.calls[0][0].notificationSettingId).toBeUndefined()
-    expect(mockGroupedCreateMany.mock.calls[0][0].data[0].individualEmail.notificationSettingId).toBeUndefined()
+    expect(mockCreateNotification.mock.calls[0][0].notificationSettingId).toBe('setting_assigned')
+    expect(mockGroupedCreateMany.mock.calls[0][0].data[0].individualEmail.notificationSettingId).toBe('setting_assigned')
   })
 
   it('still buffers the IU email and fires the in-product notification', async () => {
