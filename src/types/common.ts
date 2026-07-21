@@ -237,6 +237,22 @@ export const NotificationSettingsResponseSchema = z.object({
 })
 export type NotificationSettingsResponse = z.infer<typeof NotificationSettingsResponseSchema>
 
+// A single IU's per-category notification preference (GET /v1/internal-users/:id/notification-settings).
+// Only our app's categories carry appId + notificationSettingId; the platform's own categories don't.
+export const IuNotifyAboutEntrySchema = z.object({
+  disableInProduct: z.boolean().optional(),
+  disableEmail: z.boolean().optional(),
+  appId: z.string().optional(),
+  notificationSettingId: z.string().optional(),
+})
+
+export const InternalUserNotificationSettingsSchema = z.object({
+  disableInProduct: z.boolean().optional(),
+  emailSettings: z.string().optional(),
+  notifyAbout: z.record(z.string(), IuNotifyAboutEntrySchema).default({}),
+})
+export type InternalUserNotificationSettings = z.infer<typeof InternalUserNotificationSettingsSchema>
+
 export const ScrapMediaRequestSchema = z.object({
   filePath: z.string(),
   taskId: z.string().uuid().optional(),

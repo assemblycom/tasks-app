@@ -19,6 +19,8 @@ import {
   CopilotListArgs,
   CustomFieldResponse,
   CustomFieldResponseSchema,
+  InternalUserNotificationSettings,
+  InternalUserNotificationSettingsSchema,
   InternalUsers,
   InternalUsersResponse,
   InternalUsersResponseSchema,
@@ -370,6 +372,15 @@ export class CopilotAPI {
     return NotificationSettingsResponseSchema.parse(response)
   }
 
+  // A single IU's live per-category notification preferences. Never cached — the platform evaluates
+  // this on every send and IUs can toggle it at any time.
+  async _getInternalUserNotificationSettings(id: string): Promise<InternalUserNotificationSettings> {
+    console.info('CopilotAPI#_getInternalUserNotificationSettings', id)
+    const workspaceId = await this._resolveWorkspaceId()
+    const response = await this._manualFetch(`internal-users/${id}/notification-settings`, undefined, workspaceId)
+    return InternalUserNotificationSettingsSchema.parse(response)
+  }
+
   async dispatchWebhook(
     eventName: DISPATCHABLE_EVENT,
     {
@@ -435,6 +446,7 @@ export class CopilotAPI {
   manualFetch = this.wrapWithRetry(this._manualFetch)
   getIUNotification = this.wrapWithRetry(this._getIUNotification)
   getNotificationSettings = this.wrapWithRetry(this._getNotificationSettings)
+  getInternalUserNotificationSettings = this.wrapWithRetry(this._getInternalUserNotificationSettings)
 }
 
 const cachedFetchInternalUser = cache(
