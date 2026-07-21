@@ -3,7 +3,7 @@ import 'server-only'
 import { randomUUID } from 'crypto'
 
 import { composeGroupedEmail, GroupedEmailEventInput } from '@/app/api/notification/groupedEmail.composer'
-import { disabledEmailSettingIds, isIuEmailGloballyOff } from '@/app/api/notification/iuEmailPreference'
+import { disabledEmailSettingIds } from '@/app/api/notification/iuEmailPreference'
 import { copilotAPIKey } from '@/config'
 import { Sentry } from '@/jobs/sentry'
 import DBClient from '@/lib/db'
@@ -99,7 +99,6 @@ const filterEventsForIuPreferences = async (
 ): Promise<WindowEvent[]> => {
   try {
     const settings = await copilot.getInternalUserNotificationSettings(recipientIuId)
-    if (isIuEmailGloballyOff(settings)) return []
     const disabled = disabledEmailSettingIds(settings)
     return events.filter((e) => {
       const id = e.individualEmail?.notificationSettingId
