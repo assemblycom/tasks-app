@@ -46,9 +46,16 @@ describe('disabledEmailSettingIds', () => {
 })
 
 describe('isIuEmailGloballyOff', () => {
-  it('is true only when emailSettings is not_active', () => {
-    expect(isIuEmailGloballyOff(settings({ emailSettings: 'not_active' }))).toBe(true)
+  it('is false only when emailSettings is explicitly active (case-insensitive)', () => {
     expect(isIuEmailGloballyOff(settings({ emailSettings: 'active' }))).toBe(false)
-    expect(isIuEmailGloballyOff(settings({ emailSettings: undefined }))).toBe(false)
+    expect(isIuEmailGloballyOff(settings({ emailSettings: 'Active' }))).toBe(false)
+    expect(isIuEmailGloballyOff(settings({ emailSettings: ' ACTIVE ' }))).toBe(false)
+  })
+
+  it('fails closed for any non-active value so a global opt-out is never bypassed', () => {
+    expect(isIuEmailGloballyOff(settings({ emailSettings: 'not_active' }))).toBe(true)
+    expect(isIuEmailGloballyOff(settings({ emailSettings: 'disabled' }))).toBe(true)
+    expect(isIuEmailGloballyOff(settings({ emailSettings: undefined }))).toBe(true)
+    expect(isIuEmailGloballyOff(settings({ emailSettings: '' }))).toBe(true)
   })
 })
