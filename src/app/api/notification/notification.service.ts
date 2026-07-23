@@ -14,7 +14,7 @@ import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
 import { NotificationTaskActions } from '@api/core/types/tasks'
 import { getEmailDetails, getInProductNotificationDetails, mergeEmailOverride } from '@api/notification/notification.helpers'
-// import { resolveIuNotificationSettingId } from '@api/notification/resolveNotificationSettingId'
+import { resolveIuNotificationSettingId } from '@api/notification/resolveNotificationSettingId'
 import { AssigneeType, ClientNotification, GroupedEmailEventType, Prisma, Task } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { enqueueGroupedEmailFlush } from '@/jobs/notifications/flush-grouped-email'
@@ -74,9 +74,10 @@ export class NotificationService extends BaseService {
       const email = baseEmail ? mergeEmailOverride({ base: baseEmail, override: opts.emailOverride }) : baseEmail
 
       const category = this.groupedEventTypeFor(action)
-      // TODO(OUT-3929): re-enable per-IU gating once Copilot exposes a preference-read endpoint — ship IUs ungated for now.
-      const notificationSettingId = undefined
-      // const notificationSettingId = isRecipientIu && category ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category }) : undefined
+      const notificationSettingId =
+        isRecipientIu && category
+          ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category })
+          : undefined
 
       const groupedType = email && recipientId ? category : null
       if (groupedType) {
@@ -201,9 +202,10 @@ export class NotificationService extends BaseService {
       const association = AssociationsSchema.parse(task.associations)?.[0]
       const category = this.groupedEventTypeFor(action)
       const isRecipientIu = opts.isRecipientIu
-      // TODO(OUT-3929): re-enable per-IU gating once Copilot exposes a preference-read endpoint — ship IUs ungated for now.
-      const notificationSettingId = undefined
-      // const notificationSettingId = isRecipientIu && category ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category }) : undefined
+      const notificationSettingId =
+        isRecipientIu && category
+          ? await resolveIuNotificationSettingId({ copilot: this.copilot, workspaceId: task.workspaceId, category })
+          : undefined
       // Non-null only when these emails should be diverted into the grouped buffer.
       const groupedType = email ? category : null
 
