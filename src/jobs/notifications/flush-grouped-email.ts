@@ -3,6 +3,7 @@ import 'server-only'
 import { randomUUID } from 'crypto'
 
 import { composeGroupedEmail, GroupedEmailEventInput } from '@/app/api/notification/groupedEmail.composer'
+import { disabledEmailSettingIds } from '@/app/api/notification/iuEmailPreference'
 import { copilotAPIKey } from '@/config'
 import { Sentry } from '@/jobs/sentry'
 import DBClient from '@/lib/db'
@@ -87,12 +88,30 @@ const senderFromEvents = (events: WindowEvent[]): EventSender | undefined => {
   return { senderId: email.senderId, senderType: email.senderType, senderCompanyId: email.senderCompanyId }
 }
 
-// Seam for per-IU category filtering. Today it's a pass-through: the platform can't gate a mixed
-// grouped summary, and there's no API to read an IU's per-setting preferences. Once Assembly exposes
-// that endpoint, fetch the recipient IU's prefs here and drop events for disabled categories so the
-// summary only carries allowed ones (an all-disabled recipient then sends nothing).
-// TODO(OUT-3929): implement per-IU filtering when the read endpoint lands.
-const filterEventsForIuPreferences = (events: WindowEvent[]): WindowEvent[] => events
+// Per-IU category filtering for grouped summaries. The platform can only gate a send that carries
+// one setting id, so a mixed-category window is gated here instead: read the recipient IU's prefs
+// and drop events for categories whose email is disabled (an all-disabled recipient sends nothing).
+// Matched by the notificationSettingId the buffered email already carries. Fails open on read error.
+const filterEventsForIuPreferences = async (
+  events: WindowEvent[],
+  recipientIuId: string,
+  copilot: CopilotAPI,
+): Promise<WindowEvent[]> => {
+  try {
+    const settings = await copilot.getInternalUserNotificationSettings(recipientIuId)
+    const disabled = disabledEmailSettingIds(settings)
+    return events.filter((e) => {
+      const id = e.individualEmail?.notificationSettingId
+      return !id || !disabled.has(id)
+    })
+  } catch (e) {
+    logger.error('flush-grouped-email: failed to read IU prefs; sending ungated', {
+      recipientIuId,
+      error: serializeError(e),
+    })
+    return events
+  }
+}
 
 // The platform can only gate a send that carries one setting id. A grouped summary gets an id only
 // when every live event shares the same one (i.e. a single-category window); a mixed window sends
@@ -232,7 +251,11 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
   }
 
   for (const group of iuGroups) {
-    const liveEvents = filterEventsForIuPreferences(group.events.filter((e) => liveTaskIds.has(e.taskId)))
+    const liveEvents = await filterEventsForIuPreferences(
+      group.events.filter((e) => liveTaskIds.has(e.taskId)),
+      group.recipientIuId,
+      copilot,
+    )
     // A single event replays its buffered email verbatim (it already carries its own setting id).
     const singleEmail = liveEvents.length === 1 ? liveEvents[0].individualEmail : null
 
