@@ -175,9 +175,10 @@ export class LabelMappingService extends BaseService {
         label,
       },
     })
+    if (!currentLabel) return
     await this.db.label.delete({
       where: {
-        id: currentLabel?.id,
+        id: currentLabel.id,
       },
     })
   }
