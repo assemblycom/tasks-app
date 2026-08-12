@@ -75,6 +75,7 @@ export type SeedTaskInput = {
   parentId?: string | null
   title?: string
   createdById?: string
+  label?: string
 }
 
 // The Tasks table has an `assignee_to_user_id_mapping` CHECK that ties assigneeType to which
@@ -101,7 +102,7 @@ export const seedTask = async (input: SeedTaskInput): Promise<string> => {
   await getTestDb().task.create({
     data: {
       id,
-      label: `T-${id.slice(0, 8)}`,
+      label: input.label ?? `T-${id.slice(0, 8)}`,
       title: input.title ?? 'Reminder task',
       workspaceId: input.workspaceId,
       createdById: input.createdById ?? uuid(),
