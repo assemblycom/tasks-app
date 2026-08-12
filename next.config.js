@@ -3,6 +3,8 @@ const { withSentryConfig } = require('@sentry/nextjs')
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   cacheMaxMemorySize: 0,
+  // Pure-ESM deps; transpile so next/jest can load them from CJS.
+  transpilePackages: ['p-retry', 'is-network-error'],
   turbopack: {
     rules: {
       '*.svg': {
@@ -11,7 +13,7 @@ const nextConfig = {
       },
     },
   },
-  allowedDevOrigins: ['*.ngrok-free.dev'],
+  allowedDevOrigins: ['*.ngrok-free.dev', '*.ngrok-free.app'],
   async redirects() {
     return [
       {
