@@ -394,8 +394,6 @@ export class TasksService extends TasksSharedService {
       if (!prevTask.assigneeId && assigneeId && assigneeType) {
         const labelMappingService = new LabelMappingService(this.user)
         labelMappingService.setTransaction(tx as PrismaClient)
-        //delete the existing label
-        await labelMappingService.deleteLabel(prevTask.label)
         if (validatedIds) {
           label = z.string().parse(await labelMappingService.getLabel(validatedIds))
         }
@@ -488,13 +486,7 @@ export class TasksService extends TasksSharedService {
       }
     }
 
-    //delete the associated label
-    const labelMappingService = new LabelMappingService(this.user)
-
     const updatedTask = await this.db.$transaction(async (tx) => {
-      labelMappingService.setTransaction(tx as PrismaClient)
-      await labelMappingService.deleteLabel(task?.label)
-
       const deletedTask = await tx.task.update({
         where: { id, workspaceId: this.user.workspaceId },
         relationLoadStrategy: 'join',
@@ -576,12 +568,10 @@ export class TasksService extends TasksSharedService {
       // If assignee doesn't have an associated task at all, skip logic
       return []
     }
-    const labels = tasks.map((task) => task.label)
 
     await this.db.task.deleteMany({
       where: { assigneeId, assigneeType, workspaceId: this.user.workspaceId },
     })
-    await this.db.label.deleteMany({ where: { label: { in: labels } } })
     return tasks
   }
 
