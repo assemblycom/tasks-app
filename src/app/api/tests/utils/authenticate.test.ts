@@ -85,9 +85,9 @@ describe('authenticate util', () => {
     })
   })
 
-  it('uses "public" as source fallback for public routes', async () => {
+  it('uses "platform" as source fallback for public routes', async () => {
     const req = new NextRequest(new Request(process.env.VERCEL_URL + '/api/tasks/public/?token=iu-token'))
     const user = await authenticate(req)
-    expect(user.assemblyMetadata?.source).toBe('public')
+    expect(user.assemblyMetadata?.source).toBe('platform')
   })
 })
