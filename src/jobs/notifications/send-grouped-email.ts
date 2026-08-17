@@ -3,7 +3,7 @@ import 'server-only'
 import { GroupedEmailContent } from '@/app/api/notification/groupedEmail.composer'
 import { renderGroupedEmail } from '@/app/api/notification/groupedEmail.renderer'
 import { NotificationRequestBody, NotificationSender } from '@/types/common'
-import { isMessagableError } from '@/utils/copilotError'
+import { isNoCompanyClientsMessageChannelError, isSenderCompanyIdInvalidError } from '@/utils/copilotError'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { logger } from '@trigger.dev/sdk/v3'
 
@@ -60,9 +60,13 @@ export const sendGroupedEmail = async ({
     return notification?.id
   } catch (e: unknown) {
     // Account for workspaces without multi-companies, which reject senderCompanyId (mirrors NotificationService).
-    if (isMessagableError(e) && e.body?.message === 'sender company ID is invalid based on sender') {
+    if (isSenderCompanyIdInvalidError(e)) {
       const notification = await copilot.createNotification({ ...payload, senderCompanyId: undefined })
       return notification?.id
+    }
+    if (isNoCompanyClientsMessageChannelError(e)) {
+      logger.info('send-grouped-email: skipped notification: company has no clients for message channel')
+      return undefined
     }
     throw e
   }

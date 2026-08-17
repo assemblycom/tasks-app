@@ -2,7 +2,7 @@ import { NotificationRequestBody, NotificationSender } from '@/types/common'
 import { getAssigneeName } from '@/utils/assignee'
 import { copilotBottleneck } from '@/utils/bottleneck'
 import { CopilotAPI } from '@/utils/CopilotAPI'
-import { isMessagableError } from '@/utils/copilotError'
+import { isNoCompanyClientsMessageChannelError, isSenderCompanyIdInvalidError } from '@/utils/copilotError'
 import { CommentRepository } from '@/app/api/comments/comment.repository'
 import { CommentService } from '@/app/api/comments/comment.service'
 import { NotificationService } from '@/app/api/notification/notification.service'
@@ -226,8 +226,12 @@ const createNotificationWithCompanyFallback = async (copilot: CopilotAPI, body: 
   try {
     return await copilot.createNotification(body)
   } catch (e) {
-    if (isMessagableError(e) && e.body?.message === 'sender company ID is invalid based on sender') {
+    if (isSenderCompanyIdInvalidError(e)) {
       return await copilot.createNotification({ ...body, senderCompanyId: undefined })
+    }
+    if (isNoCompanyClientsMessageChannelError(e)) {
+      logger.info('send-reply-create-notifications: skipped notification: company has no clients for message channel')
+      return null
     }
     throw e
   }

@@ -559,4 +559,29 @@ describe('guard: IU completion emails', () => {
     expect(deliveryTargetsOf(0).email).toBeUndefined()
     expect(mockCreateNotification.mock.calls[0][0].recipientInternalUserId).toBe('iu_a')
   })
+
+  it('skips bulk notification fan-out when recipientIds is empty', async () => {
+    await buildService().createBulkNotification(NotificationTaskActions.AssignedToCompany, makeTask(), [], {
+      email: true,
+      isRecipientIu: false,
+    })
+
+    expect(mockCreateNotification).not.toHaveBeenCalled()
+    expect(mockGroupedCreateMany).not.toHaveBeenCalled()
+  })
+
+  it('skips in-product notification when Copilot reports no company clients for message channel', async () => {
+    mockCreateNotification
+      .mockRejectedValueOnce({
+        message: 'No client users found for company',
+        body: { message: 'No clients for company to create message channel' },
+      })
+      .mockResolvedValueOnce(null)
+
+    const result = await buildService().create(NotificationTaskActions.Assigned, makeTask())
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(result).toBeUndefined()
+    expect(mockClientNotifCreate).not.toHaveBeenCalled()
+  })
 })

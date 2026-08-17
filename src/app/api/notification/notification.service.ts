@@ -8,7 +8,7 @@ import {
   Uuid,
 } from '@/types/common'
 import { copilotBottleneck } from '@/utils/bottleneck'
-import { isMessagableError } from '@/utils/copilotError'
+import { isNoCompanyClientsMessageChannelError, isSenderCompanyIdInvalidError } from '@/utils/copilotError'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import APIError from '@api/core/exceptions/api'
 import { BaseService } from '@api/core/services/base.service'
@@ -161,6 +161,15 @@ export class NotificationService extends BaseService {
       emailOverride?: EmailNotificationDetails
     },
   ) {
+    if (!recipientIds.length) {
+      console.info('NotificationService#bulkCreate | Skipping notification fan-out: no recipients', {
+        action,
+        taskId: task.id,
+        assigneeType: task.assigneeType,
+        assigneeId: task.assigneeId,
+      })
+      return
+    }
     try {
       const [workspace, userInfo] = await Promise.all([this.copilot.getWorkspace(), this.copilot.me()])
       if (!userInfo) {
@@ -712,12 +721,18 @@ export class NotificationService extends BaseService {
   private async handleIfSenderCompanyIdError(e: unknown, notificationDetails: NotificationRequestBody) {
     // Account for workspaces that don't have multi-companies enabled, thus don't support the senderCompanyId key
     // Yes, this is hacky. No, I don't have a choice (I can't find out if workspace has single/multi company at all from the Copilot API)
-    if (isMessagableError(e) && e.body?.message === 'sender company ID is invalid based on sender') {
+    if (isSenderCompanyIdInvalidError(e)) {
       console.info('NotificationService#create | senderCompanyId is not supported for this workspace (not multi-companies)')
       return await this.copilot.createNotification({
         ...notificationDetails,
         senderCompanyId: undefined,
       })
+    }
+    if (isNoCompanyClientsMessageChannelError(e)) {
+      console.info(
+        'NotificationService#create | skipped in-product notification: company has no clients for message channel',
+      )
+      return null
     } else if (e instanceof Error) {
       console.error('Error when handling sender companyId:')
       throw e

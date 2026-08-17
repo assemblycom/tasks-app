@@ -8,7 +8,7 @@ import { copilotAPIKey } from '@/config'
 import { Sentry } from '@/jobs/sentry'
 import DBClient from '@/lib/db'
 import { NotificationRequestBody } from '@/types/common'
-import { isMessagableError } from '@/utils/copilotError'
+import { isNoCompanyClientsMessageChannelError, isSenderCompanyIdInvalidError } from '@/utils/copilotError'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { serializeError } from '@/utils/serializeError'
 import { logger, task, tasks } from '@trigger.dev/sdk/v3'
@@ -127,8 +127,10 @@ const sendIndividualEmail = async (copilot: CopilotAPI, payload: NotificationReq
     await copilot.createNotification(payload)
   } catch (e: unknown) {
     // Account for workspaces without multi-companies, which reject senderCompanyId (mirrors NotificationService).
-    if (isMessagableError(e) && e.body?.message === 'sender company ID is invalid based on sender') {
+    if (isSenderCompanyIdInvalidError(e)) {
       await copilot.createNotification({ ...payload, senderCompanyId: undefined })
+    } else if (isNoCompanyClientsMessageChannelError(e)) {
+      logger.info('flush-grouped-email: skipped notification: company has no clients for message channel')
     } else {
       throw e
     }

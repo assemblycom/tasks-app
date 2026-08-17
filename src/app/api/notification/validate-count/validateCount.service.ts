@@ -1,6 +1,6 @@
 import { MAX_NOTIFICATIONS_COUNT } from '@/constants/notifications'
 import { DuplicateNotificationsQuerySchema } from '@/types/client-notifications'
-import { getArrayDifference } from '@/utils/array'
+import { isNoCompanyClientsMessageChannelError } from '@/utils/copilotError'
 import { copilotBottleneck } from '@/utils/bottleneck'
 import { NotificationService } from '@api/notification/notification.service'
 import { TasksService } from '@api/tasks/tasks.service'
@@ -149,20 +149,30 @@ export class ValidateCountService extends NotificationService {
       }
 
       createNotificationPromises.push(
-        copilotBottleneck.schedule(() => {
+        copilotBottleneck.schedule(async () => {
           console.info(`ValidateCount :: Creating missing notification for task ${task.id} - ${task.title}`)
-          // @ts-expect-error SDK types for new notification payload is not up to datelike always, SDK types are not up to date
-          return this.copilot.createNotification({
-            senderId: task.createdById,
-            recipientClientId: clientId,
-            recipientCompanyId: task.companyId || undefined,
-            deliveryTargets: {
-              inProduct: {
-                // doesn't matter what you add here since notification details cannot be viewed
-                title: task.id,
+          try {
+            // @ts-expect-error SDK types for new notification payload is not up to datelike always, SDK types are not up to date
+            return await this.copilot.createNotification({
+              senderId: task.createdById,
+              recipientClientId: clientId,
+              recipientCompanyId: task.companyId || undefined,
+              deliveryTargets: {
+                inProduct: {
+                  // doesn't matter what you add here since notification details cannot be viewed
+                  title: task.id,
+                },
               },
-            },
-          })
+            })
+          } catch (e: unknown) {
+            if (isNoCompanyClientsMessageChannelError(e)) {
+              console.info(
+                `ValidateCount :: Skipped missing notification for task ${task.id}: company has no clients for message channel`,
+              )
+              return null
+            }
+            throw e
+          }
         }),
       )
     }

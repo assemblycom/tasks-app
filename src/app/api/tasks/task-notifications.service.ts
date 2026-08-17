@@ -503,6 +503,13 @@ export class TaskNotificationsService extends BaseService {
       task,
       NotificationTaskActions.AssignedToCompany,
     )
+    if (!recipientIds.length) {
+      console.info('TaskNotificationsService#sendCompanyTaskNotifications | Skipping: company has no clients', {
+        taskId: task.id,
+        companyId: task.assigneeId,
+      })
+      return
+    }
     await this.notificationService.createBulkNotification(
       isReassigned ? NotificationTaskActions.ReassignedToCompany : NotificationTaskActions.AssignedToCompany,
       task,
