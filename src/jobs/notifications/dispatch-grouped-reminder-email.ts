@@ -30,7 +30,12 @@ export const dispatchGroupedReminderEmailRun = async (payload: DispatchGroupedRe
     recipientCompanyId: payload.recipientCompanyId,
     copilot,
   })
-  return { ledgerIds: payload.ledgerIds, notificationId, sent: true as const }
+  return {
+    ledgerIds: payload.ledgerIds,
+    notificationId,
+    sent: notificationId !== null,
+    suppressed: notificationId === null,
+  }
 }
 
 // Fires after Trigger.dev exhausts all retries. Compensates by hard-deleting all ledger

@@ -3,6 +3,7 @@ import 'server-only'
 import { ReminderEntry, renderGroupedReminderEmail } from '@/app/api/notification/groupedReminderEmail.renderer'
 import { NotificationRequestBody } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
+import { logger } from '@trigger.dev/sdk/v3'
 
 export type SendGroupedReminderEmailArgs = {
   entries: ReminderEntry[]
@@ -18,7 +19,7 @@ export const sendGroupedReminderEmail = async ({
   recipientClientId,
   recipientCompanyId,
   copilot,
-}: SendGroupedReminderEmailArgs): Promise<string> => {
+}: SendGroupedReminderEmailArgs): Promise<string | null> => {
   const email = renderGroupedReminderEmail(entries)
 
   const payload: NotificationRequestBody = {
@@ -37,7 +38,13 @@ export const sendGroupedReminderEmail = async ({
   }
 
   const notification = await copilot.createNotification(payload)
-  // Reminder emails never pass a notificationSettingId, so the platform can't suppress them.
-  if (!notification) throw new Error('sendGroupedReminderEmail: notification was unexpectedly suppressed')
+  if (!notification) {
+    logger.warn('sendGroupedReminderEmail: notification suppressed by platform; keeping ledger for dedupe', {
+      recipientClientId,
+      recipientCompanyId,
+      entryCount: entries.length,
+    })
+    return null
+  }
   return notification.id
 }

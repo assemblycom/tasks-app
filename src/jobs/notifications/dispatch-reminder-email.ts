@@ -35,7 +35,12 @@ export const dispatchReminderEmailRun = async (payload: DispatchReminderEmailPay
     workspace: payload.workspace,
     copilot,
   })
-  return { ledgerId: payload.ledgerId, notificationId, sent: true as const }
+  return {
+    ledgerId: payload.ledgerId,
+    notificationId,
+    sent: notificationId !== null,
+    suppressed: notificationId === null,
+  }
 }
 
 // Fires after Trigger.dev exhausts all retries. Compensating here (instead of inside run's

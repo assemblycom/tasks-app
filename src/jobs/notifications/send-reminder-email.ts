@@ -5,6 +5,7 @@ import { reminderSubjectOverrideWorkspaces, reminderSubjectReplacement, reminder
 import { NotificationRequestBody, WorkspaceResponse } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { Task, TaskReminderType } from '@prisma/client'
+import { logger } from '@trigger.dev/sdk/v3'
 
 export type SendReminderEmailArgs = {
   task: Pick<Task, 'id' | 'title' | 'createdById'>
@@ -26,7 +27,7 @@ export const sendReminderEmail = async ({
   isCompanyRecipient,
   workspace,
   copilot,
-}: SendReminderEmailArgs): Promise<string> => {
+}: SendReminderEmailArgs): Promise<string | null> => {
   // For opted-in workspaces, mirror the customized assignment email by using the task title as the
   // subject, prefixed with the escalating cadence tag (OUT-3861).
   const needsOverride = reminderSubjectOverrideWorkspaces.has(workspace.id)
@@ -64,7 +65,14 @@ export const sendReminderEmail = async ({
   }
 
   const notification = await copilot.createNotification(payload)
-  // Reminder emails never pass a notificationSettingId, so the platform can't suppress them.
-  if (!notification) throw new Error('sendReminderEmail: notification was unexpectedly suppressed')
+  if (!notification) {
+    logger.warn('sendReminderEmail: notification suppressed by platform; keeping ledger for dedupe', {
+      recipientClientId,
+      recipientCompanyId,
+      taskId: task.id,
+      reminderType,
+    })
+    return null
+  }
   return notification.id
 }

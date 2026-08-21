@@ -24,7 +24,17 @@ const task = { id: 'task_1', title: 'Submit timesheet', createdById: 'iu_1' }
 
 const buildCopilotMock = (createNotification: jest.Mock) => ({ createNotification }) as unknown as CopilotAPI
 
+const mockLoggerWarn = jest.fn()
+
+jest.mock('@trigger.dev/sdk/v3', () => ({
+  logger: { warn: (...args: unknown[]) => mockLoggerWarn(...args) },
+}))
+
 describe('sendReminderEmail', () => {
+  beforeEach(() => {
+    mockLoggerWarn.mockClear()
+  })
+
   it('returns the Copilot notification id', async () => {
     const createNotification = jest.fn().mockResolvedValue({ id: 'notif_1', createdAt: '2026-05-25T00:00:00Z' })
 
@@ -104,6 +114,30 @@ describe('sendReminderEmail', () => {
 
     const payload = createNotification.mock.calls[0][0]
     expect(payload.recipientCompanyId).toBeUndefined()
+  })
+
+  it('returns null and logs when Copilot suppresses the notification', async () => {
+    const createNotification = jest.fn().mockResolvedValue(null)
+
+    const id = await sendReminderEmail({
+      task,
+      recipientClientId: 'client_1',
+      recipientCompanyId: 'company_1',
+      reminderType: TaskReminderType.NO_DUE_DATE_3D,
+      isCompanyRecipient: false,
+      workspace,
+      copilot: buildCopilotMock(createNotification),
+    })
+
+    expect(id).toBeNull()
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      'sendReminderEmail: notification suppressed by platform; keeping ledger for dedupe',
+      expect.objectContaining({
+        recipientClientId: 'client_1',
+        taskId: 'task_1',
+        reminderType: TaskReminderType.NO_DUE_DATE_3D,
+      }),
+    )
   })
 
   it('propagates errors from Copilot (no ledger compensation here)', async () => {

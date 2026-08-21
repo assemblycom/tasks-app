@@ -80,7 +80,22 @@ describe('dispatchReminderEmail', () => {
         reminderType: TaskReminderType.NO_DUE_DATE_3D,
         isCompanyRecipient: false,
       })
-      expect(result).toEqual({ ledgerId: 'ledger_1', notificationId: 'notif_1', sent: true })
+      expect(result).toEqual({ ledgerId: 'ledger_1', notificationId: 'notif_1', sent: true, suppressed: false })
+    })
+
+    it('succeeds without retry when the platform suppresses the notification', async () => {
+      mockSendReminderEmail.mockResolvedValueOnce(null)
+
+      const result = await dispatchReminderEmailRun(buildPayload())
+
+      expect(result).toEqual({
+        ledgerId: 'ledger_1',
+        notificationId: null,
+        sent: false,
+        suppressed: true,
+      })
+      expect(mockExecuteRaw).not.toHaveBeenCalled()
+      expect(mockCaptureException).not.toHaveBeenCalled()
     })
 
     it('rethrows so Trigger.dev can apply its retry policy', async () => {
