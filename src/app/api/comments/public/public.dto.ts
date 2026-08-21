@@ -10,7 +10,7 @@ export const PublicCommentDtoSchema = z.object({
   parentCommentId: z.string().uuid().nullable(),
   content: z.string(),
   createdBy: z.string().uuid(),
-  createdByUserType: z.nativeEnum(AssigneeType).nullable(),
+  createdByUserType: z.nativeEnum(AssigneeType),
   createdDate: RFC3339DateSchema,
   updatedDate: RFC3339DateSchema,
   deletedDate: RFC3339DateSchema.nullable(),

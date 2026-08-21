@@ -9,7 +9,7 @@ export const PublicAttachmentDtoSchema = z.object({
   mimeType: z.string(),
   downloadUrl: z.string().url().nullable(),
   uploadedBy: z.string().uuid(),
-  uploadedByUserType: z.nativeEnum(AssigneeType).nullable(),
+  uploadedByUserType: z.nativeEnum(AssigneeType),
   uploadedDate: RFC3339DateSchema,
 })
 
