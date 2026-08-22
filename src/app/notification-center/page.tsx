@@ -9,9 +9,9 @@ async function getNotificationDetail(token: string) {
   const copilot = new CopilotAPI(token)
   const tokenPayload = await copilot.getTokenPayload()
 
-  if (!tokenPayload) throw new Error('Failed to get token payload')
+  if (!tokenPayload?.notificationId) return null
 
-  return await copilot.getIUNotification(z.string().parse(tokenPayload.notificationId), tokenPayload.workspaceId) // notification "id" is expected in tokenPayload
+  return await copilot.getIUNotification(tokenPayload.notificationId, tokenPayload.workspaceId)
 }
 
 export default async function NotificationCenter(props: { searchParams: Promise<{ token: string }> }) {
@@ -21,13 +21,24 @@ export default async function NotificationCenter(props: { searchParams: Promise<
     return <SilentError message="Please provide a Valid Token" />
   }
 
-  const notificationDetail = await getNotificationDetail(token)
+  let notificationDetail
+  try {
+    notificationDetail = await getNotificationDetail(token)
+  } catch (error) {
+    console.warn('notification-center: failed to load notification', error)
+    return <SilentError message="This notification could not be opened in Tasks" />
+  }
+
   if (!notificationDetail) return <SilentError message="Failed to get notification detail" />
 
-  const params = NotificationInProductCtaParamsSchema.parse(notificationDetail.deliveryTargets?.inProduct?.ctaParams)
+  const params = NotificationInProductCtaParamsSchema.safeParse(
+    notificationDetail.deliveryTargets?.inProduct?.ctaParams,
+  )
+  if (!params.success) {
+    return <SilentError message="This notification is not linked to a task" />
+  }
 
-  redirectIfTaskCta({ ...params, ...searchParams }, UserType.INTERNAL_USER, true)
+  redirectIfTaskCta({ ...params.data, ...searchParams }, UserType.INTERNAL_USER, true)
 
-  // Silent Error is shown if redirect fails. Only possible reason for redirect to not work can be of the taskId not found
   return <SilentError message="TaskId is not found" />
 }
