@@ -90,7 +90,7 @@ export const Subtemplates = ({ template_id, token }: { template_id: string; toke
     const optimisticData = sortTaskByDescendingOrder([...currentSubtemplates, tempSubtemplate])
 
     try {
-      mutate(
+      await mutate(
         cacheKey,
         async () => {
           const subTask = await createSubTemplate(token, template_id, payload)

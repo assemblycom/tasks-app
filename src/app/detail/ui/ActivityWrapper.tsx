@@ -102,7 +102,7 @@ export const ActivityWrapper = ({
     const optimisticData = getOptimisticData(postCommentPayload, activities.data, tempLog)
 
     try {
-      mutate(
+      await mutate(
         cacheKey,
         async () => {
           shouldRefetchRef.current = false

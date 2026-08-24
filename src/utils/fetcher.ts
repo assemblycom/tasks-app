@@ -4,8 +4,9 @@ export const fetcher = async (url: string | null) => {
   const res = await fetch(url)
 
   if (!res.ok) {
-    const error = new Error('An error occurred while fetching the data.')
-    throw error
+    const responseText = await res.text().catch(() => '')
+    const detail = responseText ? `: ${responseText.slice(0, 200)}` : ''
+    throw new Error(`An error occurred while fetching the data. [${res.status}] ${url}${detail}`)
   }
 
   return res.json()
