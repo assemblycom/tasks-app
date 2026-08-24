@@ -104,7 +104,7 @@ export const Subtasks = ({
     )
     const optimisticData = subTasks?.tasks ? sortSubtasksByPriority([...subTasks.tasks, tempSubtask]) : [tempSubtask]
     try {
-      mutate(
+      await mutate(
         cacheKey,
         async () => {
           const subTask = await handleCreate(token, payload, { disableSubtaskTemplates: true })
