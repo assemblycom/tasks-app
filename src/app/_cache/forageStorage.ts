@@ -12,33 +12,19 @@ export async function getAssignees(lookupKey: string): Promise<IAssigneeCombined
   if (typeof window === 'undefined') return []
 
   try {
-    if (!(await document.hasStorageAccess())) {
-      console.info('Browswer has no storage access')
-      await document.requestStorageAccess()
-    }
-
     return (await localforage.getItem<IAssigneeCombined[]>(`assignees.${lookupKey}`)) ?? []
   } catch (error: unknown) {
-    console.error(
-      "Storage access not granted. Under Chrome's Settings > Privacy and Security, make sure 'Third-party cookies' is allowed.",
-    )
+    console.info('Assignee cache unavailable, falling back to network', error)
     return []
   }
 }
 
-export async function setAssignees(lookupKey: string, value: any) {
+export async function setAssignees(lookupKey: string, value: IAssigneeCombined[]) {
   if (typeof window === 'undefined') return
 
   try {
-    if (!(await document.hasStorageAccess())) {
-      console.info('Browswer has no storage access')
-      await document.requestStorageAccess()
-    }
-
     return await localforage.setItem(`assignees.${lookupKey}`, value)
   } catch (error: unknown) {
-    console.error(
-      "Storage access not granted. Under Chrome's Settings > Privacy and Security, make sure 'Third-party cookies' is allowed.",
-    )
+    console.info('Assignee cache write skipped, storage unavailable', error)
   }
 }
