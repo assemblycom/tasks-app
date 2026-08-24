@@ -8,21 +8,6 @@ localforage.config({
   storeName: 'assignees',
 })
 
-export async function migrateAssignees(lookupKey: string) {
-  const lKey = `assignees.${lookupKey}`
-  const existing = localStorage.getItem(lKey)
-
-  if (existing) {
-    try {
-      const parsed = JSON.parse(existing)
-      await localforage.setItem(lKey, parsed)
-      localStorage.removeItem(lKey)
-    } catch (err) {
-      console.error('Migration failed', err)
-    }
-  }
-} //a utility function to migrate existing assignee data from localStorage to localForage
-
 export async function getAssignees(lookupKey: string): Promise<IAssigneeCombined[]> {
   if (typeof window === 'undefined') return []
 
