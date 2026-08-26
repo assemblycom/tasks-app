@@ -16,7 +16,6 @@ export const getTempTask = (
 ) => {
   return {
     id: tempId,
-    label: 'temp-label',
     workspaceId: workspaceId,
     assigneeId: (payload.internalUserId || payload.clientId || payload.companyId) ?? '',
     internalUserId: payload.internalUserId ?? null,
