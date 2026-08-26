@@ -20,6 +20,7 @@ export const sweepGroupedEmailWindowsRun = async () => {
       AND "createdAt" < now() - interval '30 minutes'
       AND "createdAt" > now() - interval '24 hours'`
 
+  // At-least-once by design: duplicate notification mail beats silently dropping it.
   for (const { workspaceId, windowKey } of stale) {
     await enqueueGroupedEmailFlush({ workspaceId, windowKey })
   }
