@@ -348,9 +348,9 @@ describe('flushGroupedEmailOnFailure', () => {
     })
   })
 
-  it('deletes all rows for the window so orphaned events do not accumulate', async () => {
+  it('leaves unsent rows in place for the sweeper to re-enqueue', async () => {
     await flushGroupedEmailOnFailure({ payload, error: new Error('terminal') })
 
-    expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
+    expect(mockExecuteRaw).not.toHaveBeenCalled()
   })
 })
