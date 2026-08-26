@@ -97,9 +97,10 @@ export class CommentService extends BaseService {
       ])
     }
 
-    // dispatch a webhook event when comment is created
+    const [commentForWebhook] = await this.resolveCommentInitiatorTypes([commentToReturn])
+
     await this.copilot.dispatchWebhook(DISPATCHABLE_EVENT.CommentCreated, {
-      payload: await PublicCommentSerializer.serialize(commentToReturn),
+      payload: await PublicCommentSerializer.serialize(commentForWebhook),
       workspaceId: this.user.workspaceId,
     })
 
@@ -321,6 +322,44 @@ export class CommentService extends BaseService {
       }
       return { ...comment, initiator }
     })
+  }
+
+  async resolveCommentInitiatorTypes<T extends { initiatorId: string; initiatorType: CommentInitiator | null }>(
+    comments: T[],
+  ): Promise<Array<T & { initiatorType: CommentInitiator }>> {
+    if (!comments.length) return []
+
+    const needsResolution = comments.some((comment) => comment.initiatorType === null)
+    if (!needsResolution) {
+      return comments as Array<T & { initiatorType: CommentInitiator }>
+    }
+
+    const [internalUsers, clients] = await Promise.all([this.copilot.getInternalUsers(), this.copilot.getClients()])
+    const internalUserIds = new Set(internalUsers.data.map((user) => user.id))
+    const clientIds = new Set(clients?.data?.map((client) => client.id) ?? [])
+
+    return Promise.all(
+      comments.map(async (comment) => {
+        if (comment.initiatorType !== null) {
+          return comment as T & { initiatorType: CommentInitiator }
+        }
+
+        if (internalUserIds.has(comment.initiatorId)) {
+          return { ...comment, initiatorType: CommentInitiator.internalUser }
+        }
+
+        if (clientIds.has(comment.initiatorId)) {
+          return { ...comment, initiatorType: CommentInitiator.client }
+        }
+
+        try {
+          await this.copilot.getInternalUser(comment.initiatorId)
+          return { ...comment, initiatorType: CommentInitiator.internalUser }
+        } catch {
+          return { ...comment, initiatorType: CommentInitiator.client }
+        }
+      }),
+    )
   }
 
   private async updateCommentIdOfAttachmentsAfterCreation(htmlString: string, task_id: string, commentId: string) {

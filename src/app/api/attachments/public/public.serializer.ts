@@ -21,7 +21,7 @@ export class PublicAttachmentSerializer {
     uploadedBy,
   }: {
     attachments: Attachment[]
-    uploadedByUserType: CommentInitiator | null
+    uploadedByUserType: CommentInitiator
     content: string | null
     uploadedBy?: string
   }): Promise<PublicAttachmentDto[]> {

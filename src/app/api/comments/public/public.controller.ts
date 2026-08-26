@@ -47,8 +47,10 @@ export const getAllCommentsPublic = async (req: NextRequest) => {
     : false
   const base64NextToken = hasMoreComments ? encode(lastCommentId) : undefined
 
+  const commentsWithInitiatorType = await commentService.resolveCommentInitiatorTypes(comments)
+
   return NextResponse.json({
-    data: await PublicCommentSerializer.serializeMany(comments),
+    data: await PublicCommentSerializer.serializeMany(commentsWithInitiatorType),
     nextToken: base64NextToken,
   })
 }
@@ -64,7 +66,9 @@ export const getOneCommentPublic = async (req: NextRequest, { params }: TaskAndC
 
   await commentService.checkCommentTaskPermissionForUser(comment.taskId) // check the user accessing the comment has access to the task
 
-  return NextResponse.json({ data: await PublicCommentSerializer.serialize(comment) })
+  const [commentWithInitiatorType] = await commentService.resolveCommentInitiatorTypes([comment])
+
+  return NextResponse.json({ data: await PublicCommentSerializer.serialize(commentWithInitiatorType) })
 }
 
 export const deleteOneCommentPublic = async (req: NextRequest, { params }: TaskAndCommentIdParams) => {
@@ -78,5 +82,7 @@ export const deleteOneCommentPublic = async (req: NextRequest, { params }: TaskA
 
   await commentService.checkCommentTaskPermissionForUser(deletedComment.taskId) // check the user accessing the comment has access to the task
 
-  return NextResponse.json({ ...(await PublicCommentSerializer.serialize(deletedComment)) })
+  const [deletedCommentWithInitiatorType] = await commentService.resolveCommentInitiatorTypes([deletedComment])
+
+  return NextResponse.json({ ...(await PublicCommentSerializer.serialize(deletedCommentWithInitiatorType)) })
 }
