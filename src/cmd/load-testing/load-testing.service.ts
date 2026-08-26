@@ -1,5 +1,4 @@
 import { authenticateWithToken } from '@/app/api/core/utils/authenticate'
-import { LabelMappingService } from '@/app/api/label-mapping/label-mapping.service'
 import DBClient from '@/lib/db'
 import {
   ClientRequest,
@@ -92,6 +91,7 @@ class LoadTester {
       const data: Omit<
         Task,
         | 'id'
+        | 'label'
         | 'completedAt'
         | 'deletedAt'
         | 'lastActivityLogUpdated'
@@ -112,7 +112,6 @@ class LoadTester {
         | 'isShared'
       >[] = []
       const currentUser = await authenticateWithToken(this.token, this.apiKey)
-      const labelsService = new LabelMappingService(currentUser, this.apiKey)
       const workflowStates = await this.db.workflowState.findMany({
         where: {
           type: { not: 'completed' },
@@ -130,13 +129,6 @@ class LoadTester {
           createdById: z.string().parse(currentUser.internalUserId),
           workflowStateId: workflowStates[Math.floor(Math.random() * workflowStates.length)].id,
           workspaceId: currentUser.workspaceId,
-          label: z.string().parse(
-            await labelsService.getLabel({
-              internalUserId: null,
-              clientId: null,
-              companyId: null,
-            }),
-          ), //passed a static value of userIds null for label. label wont work properly. This load testing service needs to be revamped in the future if we need this to run properly.
           assigneeId: user.id,
           assigneeType,
           assignedAt: getRandomBool() ? getRandomFutureDate() : null,

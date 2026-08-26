@@ -88,7 +88,7 @@ export class SubtaskService extends BaseService {
       )
     ).map((row) => row.id)
 
-    // Scope by id + workspaceId: label strings collide across workspaces (Labels has no workspaceId).
+    // Scope by id + workspaceId so a delete never crosses into another workspace's tasks.
     await this.db.task.deleteMany({ where: { id: { in: subtaskIds }, workspaceId: this.user.workspaceId } })
   }
 
