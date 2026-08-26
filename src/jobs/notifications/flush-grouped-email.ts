@@ -41,11 +41,25 @@ type IuRecipientGroup = {
 
 const TASK_ID = 'flush-grouped-email'
 
-const readUnsentWindowEvents = (db: ReturnType<typeof DBClient.getInstance>, windowKey: string) =>
+type WindowClaim = { db: ReturnType<typeof DBClient.getInstance>; windowKey: string; batchId: string }
+
+type ClaimedWindow = {
+  payload: FlushGroupedEmailPayload
+  db: ReturnType<typeof DBClient.getInstance>
+  batchId: string
+  rows: BufferedRow[]
+}
+
+const claimUnsentWindowEvents = ({ db, windowKey, batchId }: WindowClaim) =>
   db.$queryRaw<BufferedRow[]>`
-    SELECT "eventType", "taskId", "taskTitleSnapshot", "createdAt", "recipientClientId", "recipientCompanyId", "recipientIuId", "individualEmail"
-    FROM "GroupedEmailEvents"
-    WHERE "windowKey" = ${windowKey} AND "sentAt" IS NULL`
+    UPDATE "GroupedEmailEvents" SET "batchId" = ${batchId}::uuid
+    WHERE "windowKey" = ${windowKey} AND "sentAt" IS NULL AND "batchId" IS NULL
+    RETURNING "eventType", "taskId", "taskTitleSnapshot", "createdAt", "recipientClientId", "recipientCompanyId", "recipientIuId", "individualEmail"`
+
+const releaseClaim = ({ db, windowKey, batchId }: WindowClaim) =>
+  db.$executeRaw`
+    UPDATE "GroupedEmailEvents" SET "batchId" = NULL
+    WHERE "windowKey" = ${windowKey} AND "batchId" = ${batchId}::uuid AND "sentAt" IS NULL`
 
 const deleteWindowRows = (db: ReturnType<typeof DBClient.getInstance>, windowKey: string) =>
   db.$executeRaw`DELETE FROM "GroupedEmailEvents" WHERE "windowKey" = ${windowKey} AND "sentAt" IS NOT NULL`
@@ -178,17 +192,8 @@ const groupIuRecipients = (rows: BufferedRow[]): IuRecipientGroup[] => {
   return [...groups.values()]
 }
 
-export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) => {
+const dispatchClaimedWindow = async ({ payload, db, batchId, rows }: ClaimedWindow) => {
   const { workspaceId, windowKey } = payload
-  const db = DBClient.getInstance()
-  const batchId = randomUUID()
-
-  const rows = await readUnsentWindowEvents(db, windowKey)
-  if (rows.length === 0) {
-    logger.log('flush-grouped-email: nothing to send', { workspaceId, windowKey })
-    return { windowKey, recipients: 0, sent: 0, skipped: true as const }
-  }
-
   const copilot = new CopilotAPI('', `${workspaceId}/${copilotAPIKey}`)
 
   const liveTaskIds = await getLiveTaskIds(db, [...new Set(rows.map((r) => r.taskId))])
@@ -316,6 +321,27 @@ export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) =>
     skippedDeletedTasks,
   })
   return { windowKey, recipients: cuGroups.length + iuGroups.length, sent, sentGrouped, sentIndividual }
+}
+
+export const flushGroupedEmailRun = async (payload: FlushGroupedEmailPayload) => {
+  const { workspaceId, windowKey } = payload
+  const db = DBClient.getInstance()
+  const batchId = randomUUID()
+
+  // Atomic claim: a concurrent run on the same window matches no rows and no-ops, so a
+  // window can never be sent twice. Claims outliving their run are released by the sweeper.
+  const rows = await claimUnsentWindowEvents({ db, windowKey, batchId })
+  if (rows.length === 0) {
+    logger.log('flush-grouped-email: nothing to send', { workspaceId, windowKey })
+    return { windowKey, recipients: 0, sent: 0, skipped: true as const }
+  }
+
+  try {
+    return await dispatchClaimedWindow({ payload, db, batchId, rows })
+  } catch (err) {
+    await releaseClaim({ db, windowKey, batchId })
+    throw err
+  }
 }
 
 export const flushGroupedEmailOnFailure = async ({ payload, error }: { payload: unknown; error: unknown }) => {

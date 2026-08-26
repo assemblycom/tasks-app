@@ -304,7 +304,17 @@ describe('flushGroupedEmailRun', () => {
     mockCreateNotification.mockRejectedValue(new Error('copilot 5xx'))
 
     await expect(flushGroupedEmailRun(payload)).rejects.toThrow('copilot 5xx')
-    expect(mockExecuteRaw).not.toHaveBeenCalled()
+    const statements = mockExecuteRaw.mock.calls.map(([sql]) => (sql as string[]).join(''))
+    expect(statements.some((sql) => sql.includes('"sentAt" = now()'))).toBe(false)
+    expect(statements.some((sql) => sql.includes('"batchId" = NULL'))).toBe(true)
+  })
+
+  it('no-ops when a concurrent run already claimed the window', async () => {
+    mockQueryRaw.mockResolvedValue([])
+
+    await expect(flushGroupedEmailRun(payload)).resolves.toMatchObject({ sent: 0, skipped: true })
+    expect(mockSendGroupedEmail).not.toHaveBeenCalled()
+    expect(mockCreateNotification).not.toHaveBeenCalled()
   })
 
   it('throws when a grouped window has no buffered sender and no workspace internal user', async () => {

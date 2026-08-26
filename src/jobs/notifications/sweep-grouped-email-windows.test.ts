@@ -26,7 +26,7 @@ import { sweepGroupedEmailWindowsRun } from './sweep-grouped-email-windows'
 describe('sweepGroupedEmailWindows', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mockExecuteRaw.mockResolvedValue(3)
+    mockExecuteRaw.mockResolvedValueOnce(3).mockResolvedValueOnce(1)
   })
 
   it('re-enqueues every stale window and reports what it pruned', async () => {
@@ -35,18 +35,18 @@ describe('sweepGroupedEmailWindows', () => {
       { workspaceId: 'ws_2', windowKey: 'iu_1:iu:win_2' },
     ])
 
-    await expect(sweepGroupedEmailWindowsRun()).resolves.toEqual({ requeued: 2, pruned: 3 })
+    await expect(sweepGroupedEmailWindowsRun()).resolves.toEqual({ requeued: 2, released: 1, pruned: 3 })
     expect(mockEnqueue.mock.calls.map(([payload]) => payload)).toEqual([
       { workspaceId: 'ws_1', windowKey: 'client_1:win_1' },
       { workspaceId: 'ws_2', windowKey: 'iu_1:iu:win_2' },
     ])
   })
 
-  it('prunes without enqueueing anything when no window is stale', async () => {
+  it('prunes and releases stale claims without enqueueing when no window is stale', async () => {
     mockQueryRaw.mockResolvedValue([])
 
-    await expect(sweepGroupedEmailWindowsRun()).resolves.toEqual({ requeued: 0, pruned: 3 })
-    expect(mockExecuteRaw).toHaveBeenCalledTimes(1)
+    await expect(sweepGroupedEmailWindowsRun()).resolves.toEqual({ requeued: 0, released: 1, pruned: 3 })
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(2)
     expect(mockEnqueue).not.toHaveBeenCalled()
   })
 })

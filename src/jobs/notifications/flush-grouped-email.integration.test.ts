@@ -123,6 +123,32 @@ describe('flush-grouped-email idempotency (real DB)', () => {
     expect(await totalCount(window)).toBe(0)
   })
 
+  it('sends once when two runs race the same window', async () => {
+    const window = 'win_concurrent'
+    const taskA = await seedTask({ workspaceId: WS, assigneeId: CLIENT_A, assigneeType: 'client', companyId: COMPANY })
+    const taskB = await seedTask({ workspaceId: WS, assigneeId: CLIENT_A, assigneeType: 'client', companyId: COMPANY })
+    await seedEvent({
+      windowKey: window,
+      taskId: taskA,
+      recipientClientId: CLIENT_A,
+      eventType: GroupedEmailEventType.ASSIGNED,
+    })
+    await seedEvent({
+      windowKey: window,
+      taskId: taskB,
+      recipientClientId: CLIENT_A,
+      eventType: GroupedEmailEventType.SHARED,
+    })
+
+    await Promise.all([
+      flushGroupedEmailRun({ workspaceId: WS, windowKey: window }),
+      flushGroupedEmailRun({ workspaceId: WS, windowKey: window }),
+    ])
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1)
+    expect(await totalCount(window)).toBe(0)
+  })
+
   it('is idempotent: re-flushing a fully-sent window is a no-op', async () => {
     const window = 'win_idempotent'
     const taskA = await seedTask({ workspaceId: WS, assigneeId: CLIENT_A, assigneeType: 'client', companyId: COMPANY })
