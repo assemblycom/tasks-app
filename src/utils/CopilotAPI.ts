@@ -45,6 +45,7 @@ import { DISPATCHABLE_EVENT } from '@/types/webhook'
 import Bottleneck from 'bottleneck'
 import type { CopilotAPI as SDK } from 'copilot-node-sdk'
 import { copilotApi } from 'copilot-node-sdk'
+import { isInvalidPaginationCursorError } from '@/utils/copilotError'
 import { cache } from 'react'
 import { z } from 'zod'
 
@@ -161,28 +162,56 @@ export class CopilotAPI {
     console.info('CopilotAPI#_getClients', this.token)
     const maxLimit = MAX_LIMIT_CLIENT_COUNT
     const requestedLimit = args.limit || maxLimit
-    let clients: ClientResponse[] = []
-    let nextToken: string | undefined = undefined
 
-    if (requestedLimit <= maxLimit) {
-      return ClientsResponseSchema.parse(await this.copilot.listClients(args))
+    const listClientsOnce = async (listArgs: CopilotListArgs & { companyId?: string }) => {
+      return ClientsResponseSchema.parse(await this.copilot.listClients(listArgs))
     }
 
-    //fetching client data in batches of MAX_LIMIT_CLIENT_COUNT instead of fetching it as a whole.
-    do {
-      const remaining = requestedLimit - clients.length
-      const fetchLimit = Math.min(maxLimit, remaining)
-      const response = await this.copilot.listClients({
-        ...args,
-        limit: fetchLimit,
-        nextToken,
-      })
-      const parsedData = ClientsResponseSchema.parse(response)?.data ?? []
-      clients.push(...parsedData)
-      nextToken = response?.nextToken || undefined
-    } while (nextToken && clients.length < requestedLimit)
+    const listClientsWithCursorRetry = async (listArgs: CopilotListArgs & { companyId?: string }) => {
+      try {
+        return await listClientsOnce(listArgs)
+      } catch (error) {
+        if (!isInvalidPaginationCursorError(error) || !listArgs.nextToken) throw error
 
-    return ClientsResponseSchema.parse({ data: clients })
+        const { nextToken: _staleToken, ...listArgsWithoutToken } = listArgs
+        return await listClientsOnce(listArgsWithoutToken)
+      }
+    }
+
+    if (requestedLimit <= maxLimit) {
+      return listClientsWithCursorRetry(args)
+    }
+
+    const fetchAllPages = async (): Promise<ClientResponse[]> => {
+      const clients: ClientResponse[] = []
+      let nextToken: string | undefined = undefined
+      const { nextToken: _callerToken, ...baseArgs } = args
+
+      do {
+        const remaining = requestedLimit - clients.length
+        const fetchLimit = Math.min(maxLimit, remaining)
+        const response = await this.copilot.listClients({
+          ...baseArgs,
+          limit: fetchLimit,
+          nextToken,
+        })
+        const parsedData = ClientsResponseSchema.parse(response)?.data ?? []
+        clients.push(...parsedData)
+        nextToken = response?.nextToken || undefined
+      } while (nextToken && clients.length < requestedLimit)
+
+      return clients
+    }
+
+    try {
+      const clients = await fetchAllPages()
+      return ClientsResponseSchema.parse({ data: clients })
+    } catch (error) {
+      if (!isInvalidPaginationCursorError(error)) throw error
+
+      const clients = await fetchAllPages()
+      return ClientsResponseSchema.parse({ data: clients })
+    }
   }
 
   async _updateClient(id: string, requestBody: ClientRequest): Promise<ClientResponse> {
