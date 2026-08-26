@@ -53,7 +53,8 @@ export const Subtemplates = ({ template_id, token }: { template_id: string; toke
 
   const { mutate } = useSWRConfig()
 
-  const _debounceMutate = async (cacheKey: string) => await mutate(cacheKey)
+  const _debounceMutate = (cacheKey: string) =>
+    mutate(cacheKey).catch((error) => console.error('Failed to revalidate subtemplates:', error))
   const debounceMutate = useDebounce(_debounceMutate, 200)
 
   useEffect(() => {
@@ -68,7 +69,7 @@ export const Subtemplates = ({ template_id, token }: { template_id: string; toke
     debounceMutate(cacheKey)
   }, [activeTemplate?.subTaskTemplates])
 
-  const handleSubtemplateCreation = (payload: CreateTemplateRequest) => {
+  const handleSubtemplateCreation = async (payload: CreateTemplateRequest) => {
     const tempId = generateRandomString('temp-template')
     setOptimisticUpdates((prev) => [
       ...prev,
