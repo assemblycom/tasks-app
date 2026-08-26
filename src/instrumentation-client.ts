@@ -33,7 +33,11 @@ if (dsn) {
       //   }),
     ],
 
-    ignoreErrors: [/fetch failed/i, /failed to fetch/i],
+    ignoreErrors: [
+      /fetch failed/i,
+      /failed to fetch/i,
+      /Could not establish connection\. Receiving end does not exist/i,
+    ],
 
     beforeSend(event) {
       if (!isProd && event.type === undefined) {
