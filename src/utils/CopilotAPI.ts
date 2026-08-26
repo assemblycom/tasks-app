@@ -361,15 +361,29 @@ export class CopilotAPI {
   async _getNotificationSettings(): Promise<NotificationSettingsResponse> {
     console.info('CopilotAPI#_getNotificationSettings')
     const appId = z.string({ message: 'Missing AppID in environment' }).parse(APP_ID)
-    const installs = await this.copilot.listAppInstalls()
+
+    let installs
+    try {
+      installs = await this.copilot.listAppInstalls()
+    } catch (error) {
+      console.warn('CopilotAPI#_getNotificationSettings | Failed to list app installs', error)
+      return { notifications: [] }
+    }
+
     const install = installs.find((entry) => entry.appId === appId)
     if (!install?.id) {
       console.info('CopilotAPI#_getNotificationSettings | No matching app install in workspace; no settings')
       return { notifications: [] }
     }
     const workspaceId = await this._resolveWorkspaceId()
-    const response = await this._manualFetch(`installs/${install.id}/notification-settings`, undefined, workspaceId)
-    return NotificationSettingsResponseSchema.parse(response)
+
+    try {
+      const response = await this._manualFetch(`installs/${install.id}/notification-settings`, undefined, workspaceId)
+      return NotificationSettingsResponseSchema.parse(response)
+    } catch (error) {
+      console.warn('CopilotAPI#_getNotificationSettings | Failed to fetch notification settings', error)
+      return { notifications: [] }
+    }
   }
 
   // A single IU's live per-category notification preferences. Never cached — the platform evaluates

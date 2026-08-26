@@ -17,7 +17,9 @@ import { AutoArchiveSection } from '@/app/configure-tasks-app/ui/AutoArchiveSect
 import { ClientViewSettingsSection } from '@/app/configure-tasks-app/ui/ClientViewSettingsSection'
 import { StatusCustomizationSection } from '@/app/configure-tasks-app/ui/StatusCustomizationSection'
 import { ClientViewSettings } from '@/types/dto/workspaceSettings.dto'
+import { SilentError } from '@/components/templates/SilentError'
 import { Stack } from '@mui/material'
+import { z } from 'zod'
 
 async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
   const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
@@ -58,6 +60,23 @@ async function getWorkspaceSetting(token: string): Promise<{ autoArchiveAfterDay
   return await res.json()
 }
 
+async function loadConfigureTasksAppPageData(token: string) {
+  try {
+    const [workflowStates, assignee, templates, tokenPayload, workspaceSetting] = await Promise.all([
+      getAllWorkflowStates(token),
+      addTypeToAssignee(await getAssigneeList(token)),
+      getAllTemplates(token),
+      getTokenPayload(token),
+      getWorkspaceSetting(token),
+    ])
+
+    return { workflowStates, assignee, templates, tokenPayload, workspaceSetting }
+  } catch (error) {
+    console.warn('configure-tasks-app: failed to load configuration', error)
+    return null
+  }
+}
+
 interface ConfigureTasksAppPageProps {
   searchParams: Promise<{
     token: string
@@ -67,13 +86,16 @@ interface ConfigureTasksAppPageProps {
 export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPageProps) {
   const searchParams = await props.searchParams
   const { token } = searchParams
-  const [workflowStates, assignee, templates, tokenPayload, workspaceSetting] = await Promise.all([
-    getAllWorkflowStates(token),
-    addTypeToAssignee(await getAssigneeList(token)),
-    getAllTemplates(token),
-    getTokenPayload(token),
-    getWorkspaceSetting(token),
-  ])
+  if (!z.string().safeParse(token).success) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+
+  const pageData = await loadConfigureTasksAppPageData(token)
+  if (!pageData) {
+    return <SilentError message="Tasks app configuration is unavailable for this workspace" />
+  }
+
+  const { workflowStates, assignee, templates, tokenPayload, workspaceSetting } = pageData
 
   return (
     <ClientSideStateUpdate
