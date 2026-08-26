@@ -22,6 +22,8 @@ const buildFilePath = (
   return `/${workspaceId}/templates${entityId ? `/${entityId}` : ''}`
 }
 
+const UPLOAD_MAX_ATTEMPTS = 3
+
 export const uploadAttachmentHandler = async (
   file: File,
   token: string,
@@ -31,25 +33,27 @@ export const uploadAttachmentHandler = async (
   parentTaskId?: string,
 ): Promise<string | undefined> => {
   const supabaseActions = new SupabaseActions()
-
   const fileName = generateRandomString(file.name)
-  const signedUrl: ISignedUrlUpload = await getSignedUrlUpload(
-    token,
-    fileName,
-    buildFilePath(workspaceId, type, entityId, parentTaskId),
-  )
+  const storagePath = buildFilePath(workspaceId, type, entityId, parentTaskId)
 
-  const { filePayload, error } = await supabaseActions.uploadAttachment(file, signedUrl, entityId)
+  for (let attempt = 1; attempt <= UPLOAD_MAX_ATTEMPTS; attempt++) {
+    try {
+      const signedUrl: ISignedUrlUpload = await getSignedUrlUpload(token, fileName, storagePath)
+      const { filePayload, error } = await supabaseActions.uploadAttachment(file, signedUrl, entityId)
 
-  if (filePayload) {
-    const url = await getSignedUrlFile(token ?? '', filePayload?.filePath ?? '')
-    return url
+      if (filePayload) {
+        return getSignedUrlFile(token ?? '', filePayload.filePath ?? '')
+      }
+
+      if (error) {
+        console.error(`Upload attempt ${attempt}/${UPLOAD_MAX_ATTEMPTS} failed:`, error)
+      }
+    } catch (error) {
+      console.error(`Upload attempt ${attempt}/${UPLOAD_MAX_ATTEMPTS} failed:`, error)
+    }
   }
 
-  if (error) {
-    console.error('error uploading file :', error)
-    return Promise.reject(new Error('File upload failed'))
-  }
+  return Promise.reject(new Error('File upload failed'))
 }
 
 export const deleteEditorAttachmentsHandler = async (
