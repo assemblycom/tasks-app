@@ -1,6 +1,5 @@
 const mockQueryRawUnsafe = jest.fn()
 const mockTaskDeleteMany = jest.fn()
-const mockLabelDeleteMany = jest.fn()
 
 jest.mock('@/lib/db', () => ({
   __esModule: true,
@@ -8,7 +7,6 @@ jest.mock('@/lib/db', () => ({
     getInstance: () => ({
       $queryRawUnsafe: mockQueryRawUnsafe,
       task: { deleteMany: mockTaskDeleteMany },
-      label: { deleteMany: mockLabelDeleteMany },
     }),
   },
 }))
@@ -37,13 +35,5 @@ describe('SubtaskService#softDeleteAllSubtasks', () => {
     expect(mockTaskDeleteMany).toHaveBeenCalledWith({
       where: { id: { in: ['task-a', 'task-b'] }, workspaceId: 'ws-1' },
     })
-  })
-
-  it('never deletes Labels registry rows', async () => {
-    mockQueryRawUnsafe.mockResolvedValue([{ id: 'task-a' }])
-
-    await new SubtaskService(user).softDeleteAllSubtasks('parent-id')
-
-    expect(mockLabelDeleteMany).not.toHaveBeenCalled()
   })
 })

@@ -11,7 +11,7 @@ enum Source {
 
 model Task {
   id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  label           String
+  label           String        @default("")
   workspaceId     String        @db.VarChar(32)
   assigneeId      String?       @db.Uuid
   internalUserId  String?       @db.Uuid

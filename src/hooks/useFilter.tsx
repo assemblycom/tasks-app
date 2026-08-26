@@ -9,7 +9,6 @@ import { useSelector } from 'react-redux'
 interface KeywordMatchable {
   title?: string
   body?: string
-  label?: string
   assigneeId?: string
   internalUserId?: string | null
   clientId?: string | null
@@ -101,12 +100,7 @@ function filterByKeyword(
       .filter(Boolean)
       .some((name) => name && name.includes(keyword))
 
-    return (
-      task.title?.toLowerCase().includes(keyword) ||
-      task.body?.toLowerCase().includes(keyword) ||
-      task.label?.toLowerCase().includes(keyword) ||
-      assigneeMatches
-    )
+    return task.title?.toLowerCase().includes(keyword) || task.body?.toLowerCase().includes(keyword) || assigneeMatches
   }
 
   const keywordMatchingParentIds = new Set(

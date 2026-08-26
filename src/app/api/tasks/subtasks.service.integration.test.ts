@@ -21,21 +21,20 @@ describe('SubtaskService.softDeleteAllSubtasks (integration)', () => {
   beforeEach(truncateAll)
   afterAll(disconnectTestDb)
 
-  // Reproduces OUT-4029: colliding label strings across workspaces must not cause cross-workspace deletes.
-  it('deletes only the acting workspace subtree when a descendant shares a label string with another workspace', async () => {
+  // OUT-4029: deletion is scoped by id + workspaceId. A task in another workspace must
+  // never be soft-deleted when we delete the acting workspace's subtree.
+  it('deletes only the acting workspace subtree and leaves other workspaces untouched', async () => {
     const workspaceA = 'ws-a'
     const workspaceB = 'ws-b'
-    const sharedLabel = 'THE10-001'
 
-    // Root is soft-deleted before softDeleteAllSubtasks runs (as in the real call sites), so
-    // the query returns only live descendants — the collision is on childA.
-    const rootA = await seedTask({ workspaceId: workspaceA, label: 'THE10-000', deletedAt: new Date() })
-    const childA = await seedTask({ workspaceId: workspaceA, parentId: rootA, label: sharedLabel })
+    // Root is soft-deleted before softDeleteAllSubtasks runs (as at the real call sites),
+    // so the descendant query returns only the live child.
+    const rootA = await seedTask({ workspaceId: workspaceA, deletedAt: new Date() })
+    const childA = await seedTask({ workspaceId: workspaceA, parentId: rootA })
     await setPath(rootA, rootA)
     await setPath(childA, rootA, childA)
 
-    // Different workspace, different id, but the SAME label string as descendant childA.
-    const taskB = await seedTask({ workspaceId: workspaceB, label: sharedLabel })
+    const taskB = await seedTask({ workspaceId: workspaceB })
     await setPath(taskB, taskB)
 
     await new SubtaskService(makeUser(workspaceA)).softDeleteAllSubtasks(rootA)
@@ -47,7 +46,6 @@ describe('SubtaskService.softDeleteAllSubtasks (integration)', () => {
     ])
 
     expect(ca?.deletedAt).not.toBeNull()
-    // The colliding-label task in the other workspace must survive.
     expect(b?.deletedAt).toBeNull()
   })
 })

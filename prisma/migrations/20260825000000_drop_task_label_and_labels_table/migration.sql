@@ -1,0 +1,2 @@
+ALTER TABLE "Tasks" ALTER COLUMN "label" SET DEFAULT '';
+DROP TABLE "Labels";
