@@ -48,7 +48,7 @@ export const TemplateSidebar = ({
       const currentWorkflowState = workflowStates.find((el) => el?.id === currentTask?.workflowStateId)
       updateStatusValue(currentWorkflowState)
     }
-  }, [activeTemplate, workflowStates])
+  }, [activeTemplate, workflowStates, updateStatusValue])
 
   const windowWidth = useWindowWidth()
   const isMobile = windowWidth < 800 && windowWidth !== 0
