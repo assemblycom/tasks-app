@@ -101,7 +101,6 @@ export const seedTask = async (input: SeedTaskInput): Promise<string> => {
   await getTestDb().task.create({
     data: {
       id,
-      label: `T-${id.slice(0, 8)}`,
       title: input.title ?? 'Reminder task',
       workspaceId: input.workspaceId,
       createdById: input.createdById ?? uuid(),

@@ -20,7 +20,6 @@ import { AssigneeType, Prisma, PrismaClient, Source, StateType, Task, TaskTempla
 import httpStatus from 'http-status'
 import z from 'zod'
 import APIError from '@api/core/exceptions/api'
-import { LabelMappingService } from '@api/label-mapping/label-mapping.service'
 import { SubtaskService } from '@api/tasks/subtasks.service'
 import { TasksActivityLogger } from '@api/tasks/tasks.logger'
 import { TemplatesService } from '@api/tasks/templates/templates.service'
@@ -143,10 +142,6 @@ export class PublicTasksService extends TasksSharedService {
       companyId: validatedIds.companyId,
     })
 
-    //generate the label
-    const labelMappingService = new LabelMappingService(this.user)
-    const label = z.string().parse(await labelMappingService.getLabel(validatedIds))
-    console.info('PublicTasksService#createTask | Generated label for task:', label)
     if (data.parentId) {
       const canCreateSubTask = await this.canCreateSubTask(data.parentId)
       if (!canCreateSubTask) {
@@ -190,7 +185,6 @@ export class PublicTasksService extends TasksSharedService {
         ...data,
         workspaceId: this.user.workspaceId,
         createdById,
-        label: label,
         completedBy,
         completedByUserType,
         source: Source.api,
@@ -364,18 +358,6 @@ export class PublicTasksService extends TasksSharedService {
     const subtaskService = new SubtaskService(this.user)
 
     let updatedTask = await this.db.$transaction(async (tx) => {
-      //generate new label if prevTask has no assignee but now assigned to someone
-      let label: string = prevTask.label
-      if (!prevTask.assigneeId && assigneeId && assigneeType) {
-        const labelMappingService = new LabelMappingService(this.user)
-        labelMappingService.setTransaction(tx as PrismaClient)
-        //delete the existing label
-        await labelMappingService.deleteLabel(prevTask.label)
-        if (validatedIds) {
-          label = z.string().parse(await labelMappingService.getLabel(validatedIds))
-        }
-      }
-
       // Set / reset lastArchivedDate if isArchived has been triggered, else remove it from the update query
       let lastArchivedDate: Date | undefined | null = undefined
       let archivedBy: string | null | undefined = undefined
@@ -389,7 +371,6 @@ export class PublicTasksService extends TasksSharedService {
         where: { id },
         data: {
           ...dataWithoutUserIds,
-          label,
           lastArchivedDate,
           archivedBy,
           completedBy,
@@ -448,14 +429,8 @@ export class PublicTasksService extends TasksSharedService {
       }
     }
 
-    //delete the associated label
-    const labelMappingService = new LabelMappingService(this.user)
-
     // Note: this transaction is timing out in local machine
     const updatedTask = await this.db.$transaction(async (tx) => {
-      labelMappingService.setTransaction(tx as PrismaClient)
-      await labelMappingService.deleteLabel(task?.label)
-
       const deletedTask = await tx.task.update({
         where: { id, workspaceId: this.user.workspaceId },
         relationLoadStrategy: 'join',

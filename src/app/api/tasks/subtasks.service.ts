@@ -74,10 +74,10 @@ export class SubtaskService extends BaseService {
   async softDeleteAllSubtasks(id: string) {
     console.info('SubtasksService#deleteAllSubtasks | Deleting all subtasks for parent with id', id)
 
-    const taskLabels = (
-      await this.db.$queryRawUnsafe<Array<{ label: string }>>(
+    const subtaskIds = (
+      await this.db.$queryRawUnsafe<Array<{ id: string }>>(
         `
-          SELECT "label"
+          SELECT "id"
           FROM "Tasks"
           WHERE "deletedAt" IS NULL
             AND "workspaceId" = $1
@@ -86,10 +86,10 @@ export class SubtaskService extends BaseService {
         // even though the rendered SQL works fine when executed in a query console
         this.user.workspaceId,
       )
-    ).map((row) => row.label)
+    ).map((row) => row.id)
 
-    await this.db.task.deleteMany({ where: { label: { in: taskLabels } } })
-    await this.db.label.deleteMany({ where: { label: { in: taskLabels } } })
+    // Scope by id + workspaceId so a delete never crosses into another workspace's tasks.
+    await this.db.task.deleteMany({ where: { id: { in: subtaskIds }, workspaceId: this.user.workspaceId } })
   }
 
   /**
