@@ -4,6 +4,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
+import { sentryIgnoreErrors } from './src/utils/sentryIgnoreErrors'
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
 
@@ -16,5 +17,7 @@ if (dsn) {
 
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
     debug: false,
+
+    ignoreErrors: sentryIgnoreErrors,
   })
 }
