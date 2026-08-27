@@ -14,6 +14,7 @@ import { deleteEditorAttachmentsHandler, uploadAttachmentHandler } from '@/utils
 import { createUploadFn } from '@/utils/createUploadFn'
 import { getMentionsList } from '@/utils/getMentionList'
 import { isTapwriteContentEmpty } from '@/utils/isTapwriteContentEmpty'
+import { canSubmitTapwriteContent, isTapwriteInteractionActive } from '@/utils/tapwriteEditorState'
 import { Stack } from '@mui/material'
 import { useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
@@ -41,6 +42,8 @@ export const CommentInput = ({ createComment, task_id, token }: Prop) => {
   }
 
   const handleSubmit = () => {
+    if (!canSubmitTapwriteContent(isListOrMenuActive)) return
+
     let content = detail
     const END_P = '<p></p>'
     const endChunk = content.slice(-7)
@@ -65,11 +68,11 @@ export const CommentInput = ({ createComment, task_id, token }: Prop) => {
       if (!isFocused || isMobile()) {
         return
       }
-      if (event.key === 'Enter' && !event.shiftKey && !isListOrMenuActive) {
+      if (event.key === 'Enter' && !event.shiftKey && canSubmitTapwriteContent(isListOrMenuActive)) {
         event.preventDefault() // Prevent new line in the editor
         handleSubmit()
       }
-      if (event.key === 'Enter' && event.ctrlKey) {
+      if (event.key === 'Enter' && event.ctrlKey && canSubmitTapwriteContent(isListOrMenuActive)) {
         event.preventDefault()
         handleSubmit() //Invoke submit if ctrl+enter is pressed at any time
       }
@@ -156,8 +159,7 @@ export const CommentInput = ({ createComment, task_id, token }: Prop) => {
           editorClass="tapwrite-comment-input"
           hardbreak
           onActiveStatusChange={(prop) => {
-            const { isListActive, isFloatingMenuActive } = prop
-            setIsListOrMenuActive(isListActive || isFloatingMenuActive)
+            setIsListOrMenuActive(isTapwriteInteractionActive(prop))
           }}
           parentContainerStyle={{
             width: '100%',
