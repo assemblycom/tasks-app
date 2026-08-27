@@ -67,7 +67,8 @@ export const Subtasks = ({
 
   const { mutate } = useSWRConfig()
 
-  const _debounceMutate = async (cacheKey: string) => await mutate(cacheKey)
+  const _debounceMutate = (cacheKey: string) =>
+    mutate(cacheKey).catch((error) => console.error('Failed to revalidate subtasks:', error))
   const debounceMutate = useDebounce(_debounceMutate, 200)
 
   useEffect(() => {
@@ -84,7 +85,7 @@ export const Subtasks = ({
     setLastUpdated(activeTask?.lastSubtaskUpdated)
   }, [activeTask?.lastSubtaskUpdated])
 
-  const handleSubTaskCreation = (payload: CreateTaskRequest) => {
+  const handleSubTaskCreation = async (payload: CreateTaskRequest) => {
     const tempId = generateRandomString('temp-task')
     setOptimisticUpdates((prev) => [
       ...prev,
@@ -104,7 +105,7 @@ export const Subtasks = ({
     )
     const optimisticData = subTasks?.tasks ? sortSubtasksByPriority([...subTasks.tasks, tempSubtask]) : [tempSubtask]
     try {
-      mutate(
+      await mutate(
         cacheKey,
         async () => {
           const subTask = await handleCreate(token, payload, { disableSubtaskTemplates: true })
