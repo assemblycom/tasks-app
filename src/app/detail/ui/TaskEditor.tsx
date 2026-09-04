@@ -53,6 +53,7 @@ export const TaskEditor = ({
   const { showConfirmDeleteModal, openImage } = useSelector(selectTaskDetails)
   const { activeTask } = useSelector(selectTaskBoard)
   const [isUserTyping, setIsUserTyping] = useState(false)
+  const [isEditorFocused, setIsEditorFocused] = useState(false)
   const [activeUploads, setActiveUploads] = useState(0)
 
   const handleImagePreview = (e: MouseEvent<unknown>) => {
@@ -76,14 +77,14 @@ export const TaskEditor = ({
   const didMount = useRef(false)
 
   useEffect(() => {
-    if (!isUserTyping && activeUploads === 0) {
+    if (!isUserTyping && !isEditorFocused && activeUploads === 0) {
       const currentTask = activeTask?.id === task_id ? activeTask : task
       if (currentTask) {
         setUpdateTitle(currentTask.title || '')
         setUpdateDetail(currentTask.body ?? '')
       }
     }
-  }, [activeTask?.title, activeTask?.body, task_id, activeUploads, task])
+  }, [activeTask?.title, activeTask?.body, task_id, activeUploads, task, isEditorFocused])
 
   const _titleUpdateDebounced = async (title: string) => updateTaskTitle(title)
 
@@ -218,7 +219,11 @@ export const TaskEditor = ({
               handleDetailChange(content)
             }
           }}
-          onBlur={flushDetailsUpdateDebounced}
+          onFocus={() => setIsEditorFocused(true)}
+          onBlur={() => {
+            setIsEditorFocused(false)
+            flushDetailsUpdateDebounced()
+          }}
           readonly={!isEditable}
           editorClass="tapwrite-task-editor"
           placeholder="Add description..."
