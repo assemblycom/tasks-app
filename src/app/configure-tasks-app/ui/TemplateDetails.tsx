@@ -51,6 +51,7 @@ export default function TemplateDetails({
   const [updateDetail, setUpdateDetail] = useState('')
   const { activeTemplate, targetTemplateId, taskName } = useSelector(selectCreateTemplate)
   const [isUserTyping, setIsUserTyping] = useState(false)
+  const [isDescriptionFocused, setIsDescriptionFocused] = useState(false)
   const [activeUploads, setActiveUploads] = useState(0)
 
   const { showConfirmDeleteModal } = useSelector(selectTaskDetails)
@@ -61,7 +62,7 @@ export default function TemplateDetails({
   const didMount = useRef(false)
 
   useEffect(() => {
-    if (!isUserTyping && activeUploads === 0) {
+    if (!isUserTyping && !isDescriptionFocused && activeUploads === 0) {
       const currentTemplate = activeTemplate?.id === template_id ? activeTemplate : template
       if (currentTemplate) {
         setUpdateTitle(currentTemplate.title || '')
@@ -69,7 +70,7 @@ export default function TemplateDetails({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTemplate?.title, activeTemplate?.body, template_id, activeUploads, template])
+  }, [activeTemplate?.title, activeTemplate?.body, template_id, activeUploads, template, isDescriptionFocused])
 
   const _titleUpdateDebounced = async (title: string) => updateTemplateTitle(title)
   const {
@@ -300,8 +301,12 @@ export default function TemplateDetails({
           content={updateDetail}
           onFocus={() => {
             lastFocusedRef.current = 'description'
+            setIsDescriptionFocused(true)
           }}
-          onBlur={flushDetailsUpdateDebounced}
+          onBlur={() => {
+            setIsDescriptionFocused(false)
+            flushDetailsUpdateDebounced()
+          }}
           getContent={(content: string) => {
             if (updateDetail !== '') {
               handleDetailChange(content)
