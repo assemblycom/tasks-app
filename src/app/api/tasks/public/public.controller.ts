@@ -1,6 +1,6 @@
 import { publicTaskCreateDtoSchemaFactory, StatusSchema } from '@/app/api/tasks/public/public.dto'
 import { defaultLimit } from '@/constants/public-api'
-import { getSearchParams } from '@/utils/request'
+import { getSearchParams, parseStrictBooleanQuery } from '@/utils/request'
 import { IdParams } from '@api/core/types/api'
 import authenticate from '@api/core/utils/authenticate'
 import { PublicTaskUpdateDtoSchema } from '@api/tasks/public/public.dto'
@@ -8,7 +8,6 @@ import { PublicTaskSerializer, workflowStateTypeMap } from '@api/tasks/public/pu
 import { TasksService } from '@api/tasks/tasks.service'
 import { decode, encode } from 'js-base64'
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { PublicTasksService } from '@api/tasks/public/public.service'
 import { PublicTaskAttachmentService } from '@api/tasks/public/public-attachment.service'
 import { ValidateUuid } from '@api/core/utils/validateUuid'
@@ -101,6 +100,6 @@ export const deleteOneTaskPublic = async (req: NextRequest, { params }: IdParams
   const recursive = req.nextUrl.searchParams.get('recursive')
   const user = await authenticate(req)
   const tasksService = new PublicTasksService(user)
-  const task = await tasksService.deleteTask(id, z.coerce.boolean().parse(recursive))
+  const task = await tasksService.deleteTask(id, parseStrictBooleanQuery(recursive, { defaultValue: false }))
   return NextResponse.json({ ...(await PublicTaskSerializer.serialize(task)) })
 }
