@@ -18,10 +18,9 @@ export const getBooleanQuery = (val: string | null, defaultValue: boolean = fals
   return !falseyValues.includes(val)
 }
 
-const TRUTHY_BOOLEAN_VALUES = new Set(['1', 't', 'T', 'TRUE', 'true', 'True'])
-const FALSY_BOOLEAN_VALUES = new Set(['0', 'f', 'F', 'FALSE', 'false', 'False'])
+const TRUTHY_BOOLEAN_VALUES = new Set(['1', 'true'])
+const FALSY_BOOLEAN_VALUES = new Set(['0', 'false'])
 
-// Vocabulary matches Go's strconv.ParseBool, which the Assembly proxy validates against.
 export const parseStrictBooleanQuery = (val: string | null, { defaultValue }: { defaultValue: boolean }): boolean => {
   if (val === null) return defaultValue
   if (TRUTHY_BOOLEAN_VALUES.has(val)) return true
