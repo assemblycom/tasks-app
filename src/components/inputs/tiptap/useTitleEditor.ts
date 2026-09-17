@@ -4,6 +4,7 @@ import {
   tapwriteDynamicFields,
 } from '@/components/inputs/TapwriteDynamicFieldDropdown'
 import { getWorstCaseResolvedLength } from '@/utils/dynamicFields'
+import { clampProseMirrorPosition } from '@/utils/tapwriteEditorState'
 import Document from '@tiptap/extension-document'
 import History from '@tiptap/extension-history'
 import Paragraph from '@tiptap/extension-paragraph'
@@ -132,8 +133,10 @@ export function useTitleEditor({ value, onChange, placeholder = '', autoFocus, o
         const { schema } = view.state
         const node = schema.nodes.autofillField.create({ value: fieldKey })
         const space = schema.text(' ')
-        const tr = view.state.tr.insert(pos.pos, Fragment.from([node, space]))
-        tr.setSelection(TextSelection.create(tr.doc, pos.pos + node.nodeSize + space.nodeSize))
+        const insertPos = clampProseMirrorPosition(pos.pos, view.state.doc.content.size)
+        const tr = view.state.tr.insert(insertPos, Fragment.from([node, space]))
+        const selectionPos = clampProseMirrorPosition(insertPos + node.nodeSize + space.nodeSize, tr.doc.content.size)
+        tr.setSelection(TextSelection.create(tr.doc, selectionPos))
         view.dispatch(tr)
         view.focus()
         // Firefox hides the caret after drag-and-drop; a blur/focus cycle forces it to repaint.
