@@ -25,7 +25,6 @@ import { TasksActivityLogger } from '@api/tasks/tasks.logger'
 import { TemplatesService } from '@api/tasks/templates/templates.service'
 import { PublicTaskSerializer, TaskWithWorkflowStateAndAttachments } from '@api/tasks/public/public.serializer'
 import { getBasicPaginationAttributes } from '@/utils/pagination'
-import { AttachmentsService } from '@/app/api/attachments/attachments.service'
 import { EmailNotificationDetails } from '@/types/common'
 
 export class PublicTasksService extends TasksSharedService {
@@ -409,7 +408,7 @@ export class PublicTasksService extends TasksSharedService {
     return updatedTask
   }
 
-  async deleteTask(id: string, recursive: boolean = true) {
+  async deleteTask(id: string, recursive: boolean = false) {
     const policyGate = new PoliciesService(this.user)
     policyGate.authorize(UserAction.Delete, Resource.Tasks)
     const deletedBy = this.user.internalUserId
@@ -447,8 +446,8 @@ export class PublicTasksService extends TasksSharedService {
       return { ...deletedTask, attachments: [] } // empty attachments array for deleted tasks
     })
 
+    // Attachments are left intact; permanent cleanup of soft-deleted tasks is deferred to OUT-4087.
     await Promise.all([
-      new AttachmentsService(this.user).deleteAttachmentsOfTask([task.id]), // delete attachments of the task and its subtasks
       deleteTaskNotifications.trigger({ user: this.user, task }),
       this.copilot.dispatchWebhook(DISPATCHABLE_EVENT.TaskDeleted, {
         payload: await PublicTaskSerializer.serialize(updatedTask),
