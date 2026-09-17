@@ -8,18 +8,21 @@ describe('parseStrictBooleanQuery', () => {
     expect(parseStrictBooleanQuery(null, { defaultValue: true })).toBe(true)
   })
 
-  it.each(['1', 't', 'T', 'TRUE', 'true', 'True'])('parses %s as true', (value) => {
+  it.each(['1', 'true'])('parses %s as true', (value) => {
     expect(parseStrictBooleanQuery(value, { defaultValue: false })).toBe(true)
   })
 
-  it.each(['0', 'f', 'F', 'FALSE', 'false', 'False'])('parses %s as false', (value) => {
+  it.each(['0', 'false'])('parses %s as false', (value) => {
     expect(parseStrictBooleanQuery(value, { defaultValue: true })).toBe(false)
   })
 
-  it.each(['banana', '2', '', 'yes', 'no', 'TrUe'])('rejects invalid value %s with a 400', (value) => {
-    expect(() => parseStrictBooleanQuery(value, { defaultValue: false })).toThrow(APIError)
-    expect(() => parseStrictBooleanQuery(value, { defaultValue: false })).toThrow(
-      expect.objectContaining({ status: httpStatus.BAD_REQUEST }),
-    )
-  })
+  it.each(['banana', '2', '', 'yes', 'no', 'TRUE', 'True', 't', 'T', 'FALSE', 'False', 'f', 'F', 'TrUe'])(
+    'rejects invalid value %s with a 400',
+    (value) => {
+      expect(() => parseStrictBooleanQuery(value, { defaultValue: false })).toThrow(APIError)
+      expect(() => parseStrictBooleanQuery(value, { defaultValue: false })).toThrow(
+        expect.objectContaining({ status: httpStatus.BAD_REQUEST }),
+      )
+    },
+  )
 })
