@@ -1,4 +1,5 @@
 import { MAX_NOTIFICATIONS_COUNT } from '@/constants/notifications'
+import { getCopilotAppId } from '@/config'
 import { DuplicateNotificationsQuerySchema } from '@/types/client-notifications'
 import { getArrayDifference } from '@/utils/array'
 import { copilotBottleneck } from '@/utils/bottleneck'
@@ -13,6 +14,11 @@ export class ValidateCountService extends NotificationService {
    * @param {string} clientId - Copilot client id for which notification fix has to be done
    */
   async fixClientNotificationCount(clientId: string, companyId: string, workspaceId: string): Promise<void> {
+    if (!getCopilotAppId()) {
+      console.warn('ValidateCount :: Skipping notification count validation because Copilot app id is not configured')
+      return
+    }
+
     const notifications = await this.copilot.getClientNotifications(clientId, companyId, workspaceId, {
       limit: MAX_NOTIFICATIONS_COUNT,
     })
