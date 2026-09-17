@@ -422,14 +422,22 @@ export class PublicTasksService extends TasksSharedService {
 
     if (!task) throw new APIError(httpStatus.NOT_FOUND, 'The requested task to delete was not found')
 
-    if (!recursive) {
-      if (task.subtaskCount > 0) {
-        throw new APIError(httpStatus.CONFLICT, 'Cannot delete task with subtasks. Use recursive delete instead.')
-      }
-    }
-
     // Note: this transaction is timing out in local machine
     const updatedTask = await this.db.$transaction(async (tx) => {
+      const subtaskService = new SubtaskService(this.user)
+      subtaskService.setTransaction(tx as PrismaClient)
+
+      // Count live children inside the transaction rather than trusting the denormalized
+      // subtaskCount, which lags child-row creation and could let a non-recursive delete cascade.
+      if (!recursive) {
+        const liveSubtaskCount = await tx.task.count({
+          where: { parentId: task.id, workspaceId: this.user.workspaceId, deletedAt: null },
+        })
+        if (liveSubtaskCount > 0) {
+          throw new APIError(httpStatus.CONFLICT, 'Cannot delete task with subtasks. Use recursive delete instead.')
+        }
+      }
+
       const deletedTask = await tx.task.update({
         where: { id, workspaceId: this.user.workspaceId },
         relationLoadStrategy: 'join',
@@ -437,12 +445,12 @@ export class PublicTasksService extends TasksSharedService {
         data: { deletedAt: new Date(), deletedBy: deletedBy },
       })
       await this.setNewLastSubtaskUpdated(task.parentId) //updates lastSubtaskUpdated timestamp of parent task if there is task.parentId
-      const subtaskService = new SubtaskService(this.user)
-      subtaskService.setTransaction(tx as PrismaClient)
       if (task.parentId) {
         await subtaskService.decreaseSubtaskCount(task.parentId)
       }
-      await subtaskService.softDeleteAllSubtasks(task.id)
+      if (recursive) {
+        await subtaskService.softDeleteAllSubtasks(task.id)
+      }
       return { ...deletedTask, attachments: [] } // empty attachments array for deleted tasks
     })
 
