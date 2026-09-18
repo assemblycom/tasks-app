@@ -427,8 +427,8 @@ export class PublicTasksService extends TasksSharedService {
       const subtaskService = new SubtaskService(this.user)
       subtaskService.setTransaction(tx as PrismaClient)
 
-      // Count live children inside the transaction rather than trusting the denormalized
-      // subtaskCount, which lags child-row creation and could let a non-recursive delete cascade.
+      // Count live children in-tx, not the lagging subtaskCount. Accepted race: a child inserted
+      // post-count only gets orphaned (never wrongly deleted; OUT-4087 skips trees with live descendants).
       if (!recursive) {
         const liveSubtaskCount = await tx.task.count({
           where: { parentId: task.id, workspaceId: this.user.workspaceId, deletedAt: null },
