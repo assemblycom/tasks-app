@@ -1,3 +1,4 @@
+import { AssemblySource } from '@/constants/assemblySource'
 import { EmailNotificationDetails, Uuid } from '@/types/common'
 import { TaskWithWorkflowState } from '@/types/db'
 import { TaskResponseSchema, Associations, AssociationsSchema, ViewerType } from '@/types/dto/tasks.dto'
@@ -15,6 +16,12 @@ export class TaskNotificationsService extends BaseService {
   constructor(user: User) {
     super(user)
     this.notificationService = new NotificationService(user)
+  }
+
+  // An automation acts as the IU who saved it, so "assignee is the creator" does not mean the
+  // assignee already knows about the task the way it does when they created it themselves.
+  private get isAutomationActor(): boolean {
+    return this.user.assemblyMetadata?.source === AssemblySource.automation
   }
 
   async getExistingClientNotificationForTask(taskId: string, clientId: string, companyId: string) {
@@ -138,7 +145,7 @@ export class TaskNotificationsService extends BaseService {
     }
 
     // If task is assigned to the same person that created it, no need to notify yourself
-    if (task.assigneeId === task.createdById) return
+    if (task.assigneeId === task.createdById && !this.isAutomationActor) return
 
     // If new task is assigned to someone (IU / Client / Company), send proper notification + email to them
     const sendTaskNotifications =
@@ -343,7 +350,7 @@ export class TaskNotificationsService extends BaseService {
       return // No one to send notifications to if task is reassigned to "No assignee"
     }
     // -- If task reassigned to self IU, don't send any notifications
-    if (updatedTask.assigneeId === this.user.internalUserId) {
+    if (updatedTask.assigneeId === this.user.internalUserId && !this.isAutomationActor) {
       return // old notifications were removed but new one was not created
     }
     // -- If task goes from unassigned to assigned task is createed
