@@ -1,4 +1,3 @@
-import { AssemblySource } from '@/constants/assemblySource'
 import { EmailNotificationDetails, Uuid } from '@/types/common'
 import { TaskWithWorkflowState } from '@/types/db'
 import { TaskResponseSchema, Associations, AssociationsSchema, ViewerType } from '@/types/dto/tasks.dto'
@@ -16,12 +15,6 @@ export class TaskNotificationsService extends BaseService {
   constructor(user: User) {
     super(user)
     this.notificationService = new NotificationService(user)
-  }
-
-  // An automation acts as the IU who saved it, so "assignee is the creator" does not mean the
-  // assignee already knows about the task the way it does when they created it themselves.
-  private get isAutomationActor(): boolean {
-    return this.user.assemblyMetadata?.source === AssemblySource.automation
   }
 
   async getExistingClientNotificationForTask(taskId: string, clientId: string, companyId: string) {
@@ -144,7 +137,8 @@ export class TaskNotificationsService extends BaseService {
       await sendSharedNotifications(task, associations)
     }
 
-    // If task is assigned to the same person that created it, no need to notify yourself
+    // If task is assigned to the same person that created it, no need to notify yourself.
+    // An automation's creator is not present when it runs, so they still need to hear about it.
     if (task.assigneeId === task.createdById && !this.isAutomationActor) return
 
     // If new task is assigned to someone (IU / Client / Company), send proper notification + email to them
