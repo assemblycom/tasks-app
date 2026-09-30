@@ -78,11 +78,18 @@ const normalizeError = (error: unknown): ErrorResponse => {
 const isExpectedPrismaError = (error: unknown) =>
   error instanceof PrismaClientKnownRequestError && getPrismaKnownRequestErrorResponse(error) !== null
 
+const isCopilotSdkApiError = (error: unknown) => {
+  if (typeof error !== 'object' || error === null) return false
+  const err = error as StatusableError & { name?: string }
+  return err.name === 'ApiError' && typeof err.status === 'number' && err.status < httpStatus.INTERNAL_SERVER_ERROR
+}
+
 const isExpectedClientError = (error: unknown) => {
   return (
     error instanceof ZodError ||
     error instanceof CopilotApiError ||
     error instanceof APIError ||
+    isCopilotSdkApiError(error) ||
     isExpectedPrismaError(error)
   )
 }
