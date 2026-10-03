@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { eventHasTransientNetworkException } from '@/utils/transientNetworkError'
 import * as Sentry from '@sentry/nextjs'
 
 // Trigger.dev runs jobs in a standalone Node process, separate from the Next.js server, so
@@ -17,7 +18,13 @@ if (dsn) {
     // integration set (matches Trigger.dev's documented Sentry setup).
     defaultIntegrations: false,
     environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development',
-    ignoreErrors: [/fetch failed/i],
+    ignoreErrors: [/fetch failed/i, /failed to fetch/i],
+    beforeSend(event) {
+      if (eventHasTransientNetworkException(event)) {
+        return null
+      }
+      return event
+    },
   })
 }
 
