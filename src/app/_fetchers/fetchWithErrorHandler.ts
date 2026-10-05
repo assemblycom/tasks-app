@@ -2,6 +2,19 @@ type FetchOptions = RequestInit & {
   next?: { tags?: string[] }
 }
 
+const parseJsonBody = <T>(text: string): T => {
+  const trimmed = text.trim()
+  if (!trimmed) {
+    throw new Error('Empty API response')
+  }
+
+  try {
+    return JSON.parse(trimmed) as T
+  } catch {
+    throw new Error(`Invalid JSON response: ${trimmed.slice(0, 200)}`)
+  }
+}
+
 export async function fetchWithErrorHandler<T>(input: RequestInfo, options?: FetchOptions, retries = 3): Promise<T> {
   let lastError: any
 
@@ -18,7 +31,7 @@ export async function fetchWithErrorHandler<T>(input: RequestInfo, options?: Fet
         throw new Error(`Fetch failed (${res.status}): ${text}`)
       }
 
-      const data = await res.json()
+      const data = parseJsonBody<T>(await res.text())
       return data
     } catch (error) {
       lastError = error
