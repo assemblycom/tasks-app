@@ -5,8 +5,9 @@ import { TaskCard } from '@/components/cards/TaskCard'
 import { ArchiveBoxIcon } from '@/icons'
 import { selectTaskBoard } from '@/redux/features/taskBoardSlice'
 import { TaskResponse } from '@/types/dto/tasks.dto'
-import { View } from '@/types/interfaces'
+import { Sizes, View } from '@/types/interfaces'
 import { getCardHref } from '@/utils/getCardHref'
+import { statusIcons } from '@/utils/iconMatcher'
 import { Box, Stack, Typography } from '@mui/material'
 import { useSelector } from 'react-redux'
 
@@ -35,8 +36,8 @@ export function TaskDragPreview({ task, mode }: Props) {
   return (
     <Stack
       direction="row"
-      alignItems="flex-start"
-      columnGap="16px"
+      alignItems="center"
+      columnGap="8px"
       sx={{
         bgcolor: '#fff',
         border: '1px solid #EFF1F4',
@@ -45,19 +46,11 @@ export function TaskDragPreview({ task, mode }: Props) {
         borderRadius: '4px',
       }}
     >
-      <Typography
-        variant="sm"
-        fontWeight={400}
-        sx={{
-          color: (theme) => theme.color.gray[500],
-          flexGrow: 0,
-          flexShrink: 0,
-          minWidth: '75px',
-          lineHeight: '21px',
-        }}
-      >
-        {task.label}
-      </Typography>
+      {workflowState && (
+        <Box role="img" aria-label={workflowState.name} sx={{ display: 'flex', flexShrink: 0 }}>
+          {statusIcons[Sizes.SMALL][workflowState.type]}
+        </Box>
+      )}
       <Box sx={{ display: 'flex', gap: '8px', flex: 1, minWidth: 0 }}>
         <Typography variant="sm" sx={{ lineHeight: '21px', wordBreak: 'break-word', flexGrow: 1 }}>
           {task.title}

@@ -55,7 +55,8 @@ export const ActivityWrapper = ({
 
   useScrollToElement('commentId')
 
-  const _debounceMutate = async (cacheKey: string) => await mutate(cacheKey)
+  const _debounceMutate = (cacheKey: string) =>
+    mutate(cacheKey).catch((error) => console.error('Failed to revalidate activity logs:', error))
   const debounceMutate = useDebounce(_debounceMutate, 300)
 
   const shouldRefetchRef = useRef(true) //preventing double fetching from comment apis. Due to optimistic update revalidation, we are already fetching logs there. So no need to refetch in case for comment creation and deletion.
@@ -102,7 +103,7 @@ export const ActivityWrapper = ({
     const optimisticData = getOptimisticData(postCommentPayload, activities.data, tempLog)
 
     try {
-      mutate(
+      await mutate(
         cacheKey,
         async () => {
           shouldRefetchRef.current = false

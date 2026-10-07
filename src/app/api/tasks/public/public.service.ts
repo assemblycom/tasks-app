@@ -20,13 +20,11 @@ import { AssigneeType, Prisma, PrismaClient, Source, StateType, Task, TaskTempla
 import httpStatus from 'http-status'
 import z from 'zod'
 import APIError from '@api/core/exceptions/api'
-import { LabelMappingService } from '@api/label-mapping/label-mapping.service'
 import { SubtaskService } from '@api/tasks/subtasks.service'
 import { TasksActivityLogger } from '@api/tasks/tasks.logger'
 import { TemplatesService } from '@api/tasks/templates/templates.service'
 import { PublicTaskSerializer, TaskWithWorkflowStateAndAttachments } from '@api/tasks/public/public.serializer'
 import { getBasicPaginationAttributes } from '@/utils/pagination'
-import { AttachmentsService } from '@/app/api/attachments/attachments.service'
 import { EmailNotificationDetails } from '@/types/common'
 
 export class PublicTasksService extends TasksSharedService {
@@ -143,10 +141,6 @@ export class PublicTasksService extends TasksSharedService {
       companyId: validatedIds.companyId,
     })
 
-    //generate the label
-    const labelMappingService = new LabelMappingService(this.user)
-    const label = z.string().parse(await labelMappingService.getLabel(validatedIds))
-    console.info('PublicTasksService#createTask | Generated label for task:', label)
     if (data.parentId) {
       const canCreateSubTask = await this.canCreateSubTask(data.parentId)
       if (!canCreateSubTask) {
@@ -190,7 +184,6 @@ export class PublicTasksService extends TasksSharedService {
         ...data,
         workspaceId: this.user.workspaceId,
         createdById,
-        label: label,
         completedBy,
         completedByUserType,
         source: Source.api,
@@ -364,18 +357,6 @@ export class PublicTasksService extends TasksSharedService {
     const subtaskService = new SubtaskService(this.user)
 
     let updatedTask = await this.db.$transaction(async (tx) => {
-      //generate new label if prevTask has no assignee but now assigned to someone
-      let label: string = prevTask.label
-      if (!prevTask.assigneeId && assigneeId && assigneeType) {
-        const labelMappingService = new LabelMappingService(this.user)
-        labelMappingService.setTransaction(tx as PrismaClient)
-        //delete the existing label
-        await labelMappingService.deleteLabel(prevTask.label)
-        if (validatedIds) {
-          label = z.string().parse(await labelMappingService.getLabel(validatedIds))
-        }
-      }
-
       // Set / reset lastArchivedDate if isArchived has been triggered, else remove it from the update query
       let lastArchivedDate: Date | undefined | null = undefined
       let archivedBy: string | null | undefined = undefined
@@ -389,7 +370,6 @@ export class PublicTasksService extends TasksSharedService {
         where: { id },
         data: {
           ...dataWithoutUserIds,
-          label,
           lastArchivedDate,
           archivedBy,
           completedBy,
@@ -428,7 +408,7 @@ export class PublicTasksService extends TasksSharedService {
     return updatedTask
   }
 
-  async deleteTask(id: string, recursive: boolean = true) {
+  async deleteTask(id: string, recursive: boolean = false) {
     const policyGate = new PoliciesService(this.user)
     policyGate.authorize(UserAction.Delete, Resource.Tasks)
     const deletedBy = this.user.internalUserId
@@ -442,19 +422,21 @@ export class PublicTasksService extends TasksSharedService {
 
     if (!task) throw new APIError(httpStatus.NOT_FOUND, 'The requested task to delete was not found')
 
-    if (!recursive) {
-      if (task.subtaskCount > 0) {
-        throw new APIError(httpStatus.CONFLICT, 'Cannot delete task with subtasks. Use recursive delete instead.')
-      }
-    }
-
-    //delete the associated label
-    const labelMappingService = new LabelMappingService(this.user)
-
     // Note: this transaction is timing out in local machine
     const updatedTask = await this.db.$transaction(async (tx) => {
-      labelMappingService.setTransaction(tx as PrismaClient)
-      await labelMappingService.deleteLabel(task?.label)
+      const subtaskService = new SubtaskService(this.user)
+      subtaskService.setTransaction(tx as PrismaClient)
+
+      // Count live children inside the transaction rather than trusting the denormalized
+      // subtaskCount, which lags child-row creation and could let a non-recursive delete cascade.
+      if (!recursive) {
+        const liveSubtaskCount = await tx.task.count({
+          where: { parentId: task.id, workspaceId: this.user.workspaceId, deletedAt: null },
+        })
+        if (liveSubtaskCount > 0) {
+          throw new APIError(httpStatus.CONFLICT, 'Cannot delete task with subtasks. Use recursive delete instead.')
+        }
+      }
 
       const deletedTask = await tx.task.update({
         where: { id, workspaceId: this.user.workspaceId },
@@ -463,17 +445,17 @@ export class PublicTasksService extends TasksSharedService {
         data: { deletedAt: new Date(), deletedBy: deletedBy },
       })
       await this.setNewLastSubtaskUpdated(task.parentId) //updates lastSubtaskUpdated timestamp of parent task if there is task.parentId
-      const subtaskService = new SubtaskService(this.user)
-      subtaskService.setTransaction(tx as PrismaClient)
       if (task.parentId) {
         await subtaskService.decreaseSubtaskCount(task.parentId)
       }
-      await subtaskService.softDeleteAllSubtasks(task.id)
+      if (recursive) {
+        await subtaskService.softDeleteAllSubtasks(task.id)
+      }
       return { ...deletedTask, attachments: [] } // empty attachments array for deleted tasks
     })
 
+    // Attachments are left intact; permanent cleanup of soft-deleted tasks is deferred to OUT-4087.
     await Promise.all([
-      new AttachmentsService(this.user).deleteAttachmentsOfTask([task.id]), // delete attachments of the task and its subtasks
       deleteTaskNotifications.trigger({ user: this.user, task }),
       this.copilot.dispatchWebhook(DISPATCHABLE_EVENT.TaskDeleted, {
         payload: await PublicTaskSerializer.serialize(updatedTask),

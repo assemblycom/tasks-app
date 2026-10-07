@@ -30,7 +30,7 @@ export const HeaderBreadcrumbs = ({
   const router = useRouter()
   const windowWidth = useWindowWidth()
   // Below 600px the platform-rendered header overflows with long titles,
-  // so fall back to the shorter task label that we send via app-bridge.
+  // so fall back to the shorter mobileLabel (a more aggressively truncated title).
   const isMobile = windowWidth < 600 && windowWidth !== 0
 
   const displayItems = useMemo(
@@ -78,7 +78,7 @@ export const HeaderBreadcrumbs = ({
         const isLast = index === displayItems.length - 1
 
         return (
-          <Fragment key={item.label}>
+          <Fragment key={item.href ?? index}>
             {isLast ? (
               <>
                 <StyledKeyboardIcon />

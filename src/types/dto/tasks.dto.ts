@@ -111,7 +111,6 @@ export type UpdateTaskRequest = z.infer<typeof UpdateTaskRequestSchema>
 
 export const TaskResponseSchema = z.object({
   id: z.string(),
-  label: z.string(),
   workspaceId: z.string(),
   assigneeId: z.string().optional(),
   assigneeType: AssigneeTypeSchema,
@@ -146,7 +145,7 @@ export const SubTaskStatusSchema = z.object({
 
 export type SubTaskStatusResponse = z.infer<typeof SubTaskStatusSchema>
 
-export type AncestorTaskResponse = Pick<Task, 'id' | 'title' | 'label' | 'associations' | 'isShared'> & {
+export type AncestorTaskResponse = Pick<Task, 'id' | 'title' | 'associations' | 'isShared'> & {
   internalUserId: string | null
   clientId: string | null
   companyId: string | null
