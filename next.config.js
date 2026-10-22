@@ -23,6 +23,10 @@ const nextConfig = {
       },
     ]
   },
+  // Deep links to client task pages carry the /client surface prefix; see hooks/app-bridge/location.ts.
+  async rewrites() {
+    return [{ source: '/client/:path+', destination: '/:path+' }]
+  },
 }
 
 module.exports = withSentryConfig(nextConfig, {

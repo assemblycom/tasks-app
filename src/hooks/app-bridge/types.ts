@@ -49,3 +49,17 @@ export interface Clickable {
 export interface Configurable {
   portalUrl?: string
 }
+
+export interface LocationChangedPayload {
+  type: 'location.changed'
+  path: string
+  search: string
+  replace?: boolean
+}
+
+export interface LocationNavigateMessage {
+  type: 'location.navigate'
+  path: string
+  search: string
+  replace?: boolean
+}

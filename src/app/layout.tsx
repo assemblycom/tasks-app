@@ -3,6 +3,7 @@
 
 import { AssigneesFetcher } from '@/app/_fetchers/AssigneesFetcher'
 import { WorkspaceFetcher } from '@/app/_fetchers/WorkspaceFetcher'
+import { LocationBridge } from '@/hooks/app-bridge/useLocationBridge'
 import { ProgressLoad } from '@/components/TopLoader'
 import { InterrupCmdK } from '@/hoc/Interrupt_CmdK'
 import { swrConfig } from '@/lib/swr-config'
@@ -38,6 +39,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Suspense>
                 <Suspense fallback={null}>
                   <AssigneesFetcher />
+                </Suspense>
+                <Suspense fallback={null}>
+                  <LocationBridge />
                 </Suspense>
                 {children}
               </SWRConfig>
