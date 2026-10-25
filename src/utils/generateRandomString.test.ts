@@ -3,9 +3,7 @@ import { generateRandomString } from './generateRandomString'
 describe('generateRandomString', () => {
   it('prefixes a uuid and preserves a short original name', () => {
     const result = generateRandomString('photo.png')
-    expect(result).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_photo\.png$/i,
-    )
+    expect(result).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_photo\.png$/i)
   })
 
   it('truncates very long original names while keeping the extension', () => {

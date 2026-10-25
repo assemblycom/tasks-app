@@ -8,9 +8,7 @@ const buildSafeStorageSuffix = (name: string) => {
   const extension = extensionMatch?.[1] ?? ''
   const baseName = extension ? safeName.slice(0, -extension.length) : safeName
   const truncatedBase =
-    baseName.length > MAX_ORIGINAL_NAME_SUFFIX_LENGTH
-      ? baseName.slice(0, MAX_ORIGINAL_NAME_SUFFIX_LENGTH)
-      : baseName
+    baseName.length > MAX_ORIGINAL_NAME_SUFFIX_LENGTH ? baseName.slice(0, MAX_ORIGINAL_NAME_SUFFIX_LENGTH) : baseName
 
   return `${truncatedBase}${extension}`
 }
