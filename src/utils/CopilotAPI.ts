@@ -55,7 +55,11 @@ export class CopilotAPI {
     private token: string,
     private customApiKey?: string,
   ) {
-    this.copilot = copilotApi({ apiKey: customApiKey ?? apiKey, token })
+    try {
+      this.copilot = copilotApi({ apiKey: customApiKey ?? apiKey, token })
+    } catch {
+      throw new APIError(httpStatus.UNAUTHORIZED, 'Failed to authenticate token')
+    }
   }
 
   private async _manualFetch(
