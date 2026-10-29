@@ -29,6 +29,11 @@ describe('parsePortalAppLink', () => {
     })
   })
 
+  it('leaves links alone when their destination lives in a query string the bridge cannot carry', () => {
+    expect(parsePortalAppLink('https://acme.myassembly.com/apps/inst-1/detail/t1/cu?commentId=c9', origins)).toBeNull()
+    expect(parsePortalAppLink('https://acme.myassembly.com/apps?id=inst-1&taskId=t1', origins)).toBeNull()
+  })
+
   it('ignores links that are not portal app links', () => {
     expect(parsePortalAppLink('https://example.com/apps/inst-1', origins)).toBeNull()
     expect(parsePortalAppLink('https://acme.myassembly.com/files', origins)).toBeNull()

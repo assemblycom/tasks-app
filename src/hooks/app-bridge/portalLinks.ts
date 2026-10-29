@@ -22,13 +22,19 @@ export const parsePortalAppLink = (href: string, portalOrigins: readonly string[
 
   const canonical = APP_PATH.exec(url.pathname)
   if (canonical) {
+    // The bridge's app destination carries a path but no query, so a link whose destination
+    // state lives in its query (a task's ?commentId=) is left to the browser rather than
+    // delivered somewhere slightly wrong.
+    if (url.search) return null
     const [, installId, innerPath] = canonical
     return innerPath ? { installId, path: innerPath } : { installId }
   }
 
   if (APPS_INDEX_PATH.test(url.pathname)) {
-    const installId = url.searchParams.get('id')
-    if (installId && SAFE_ID.test(installId)) return { installId }
+    const params = new URLSearchParams(url.search)
+    const installId = params.get('id')
+    params.delete('id')
+    if (installId && SAFE_ID.test(installId) && [...params.keys()].length === 0) return { installId }
   }
 
   return null
