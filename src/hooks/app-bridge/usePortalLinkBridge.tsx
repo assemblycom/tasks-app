@@ -4,7 +4,7 @@ import { DASHBOARD_DOMAIN } from '@/constants/domains'
 import { BridgeHelloMessage, NavigateMessage, NavigateResultMessage } from '@/hooks/app-bridge/types'
 import { selectAuthDetails } from '@/redux/features/authDetailsSlice'
 import { ensureHttps } from '@/utils/https'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSelector } from 'react-redux'
 import { parsePortalAppLink } from './portalLinks'
 
@@ -23,6 +23,9 @@ const originOf = (url: string): string | null => {
 export const usePortalLinkBridge = () => {
   const { workspace } = useSelector(selectAuthDetails)
   const portalUrl = workspace?.portalUrl
+  // The hello usually lands before the workspace has loaded, and the portal does not resend it
+  // when portalUrl later arrives, so the accepted capability must outlive the effect below.
+  const hostNavigatesRef = useRef(false)
 
   useEffect(() => {
     if (window.parent === window) return
@@ -37,7 +40,6 @@ export const usePortalLinkBridge = () => {
     if (referrerOrigin) portalOrigins.add(referrerOrigin)
     const origins = [...portalOrigins]
 
-    let hostNavigates = false
     const pending = new Map<string, string>()
 
     const postToPortal = (message: NavigateMessage) => {
@@ -49,7 +51,7 @@ export const usePortalLinkBridge = () => {
       const data = event.data as { type?: unknown } | undefined
       if (data?.type === 'bridge.hello') {
         const hello = data as Partial<BridgeHelloMessage>
-        hostNavigates = hello.features?.navigate === true
+        hostNavigatesRef.current = hello.features?.navigate === true
         return
       }
       if (data?.type === 'navigate.result') {
@@ -65,7 +67,7 @@ export const usePortalLinkBridge = () => {
     }
 
     const handleClick = (event: MouseEvent) => {
-      if (!hostNavigates || event.defaultPrevented || event.button !== 0) return
+      if (!hostNavigatesRef.current || event.defaultPrevented || event.button !== 0) return
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
       const target = event.target instanceof Element ? event.target : null
       const anchor = target?.closest('a[href]')
