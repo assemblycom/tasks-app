@@ -5,6 +5,7 @@ import User from '@api/core/models/User.model'
 import httpStatus from 'http-status'
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
+import { isNilUuid } from '@/utils/uuid'
 import { withRetry } from './withRetry'
 import * as Sentry from '@sentry/nextjs'
 
@@ -19,6 +20,10 @@ export const _authenticateWithToken = async (token: string, customApiKey?: strin
   const payload = TokenSchema.safeParse(await copilotClient.getTokenPayload())
 
   if (!payload.success) {
+    throw new APIError(httpStatus.UNAUTHORIZED, 'Failed to authenticate token')
+  }
+
+  if (isNilUuid(payload.data.internalUserId) || isNilUuid(payload.data.clientId)) {
     throw new APIError(httpStatus.UNAUTHORIZED, 'Failed to authenticate token')
   }
 
