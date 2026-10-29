@@ -63,3 +63,29 @@ export interface LocationNavigateMessage {
   search: string
   replace?: boolean
 }
+
+// The portal opens the handshake; `features` says which bridge messages this portal answers,
+// so the app can decide synchronously (inside a click) whether to hand it a navigation.
+export interface BridgeHelloMessage {
+  type: 'bridge.hello'
+  features?: {
+    navigate?: boolean
+  }
+}
+
+export interface NavigateMessage {
+  type: 'navigate'
+  requestId: string
+  to: 'app'
+  params: {
+    installId: string
+    path?: string
+  }
+}
+
+export interface NavigateResultMessage {
+  type: 'navigate.result'
+  requestId: string
+  ok: boolean
+  reason?: string
+}
