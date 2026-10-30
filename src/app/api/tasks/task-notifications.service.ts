@@ -137,8 +137,9 @@ export class TaskNotificationsService extends BaseService {
       await sendSharedNotifications(task, associations)
     }
 
-    // If task is assigned to the same person that created it, no need to notify yourself
-    if (task.assigneeId === task.createdById) return
+    // If task is assigned to the same person that created it, no need to notify yourself.
+    // An automation's creator is not present when it runs, so they still need to hear about it.
+    if (task.assigneeId === task.createdById && !this.isAutomationActor) return
 
     // If new task is assigned to someone (IU / Client / Company), send proper notification + email to them
     const sendTaskNotifications =
@@ -343,7 +344,7 @@ export class TaskNotificationsService extends BaseService {
       return // No one to send notifications to if task is reassigned to "No assignee"
     }
     // -- If task reassigned to self IU, don't send any notifications
-    if (updatedTask.assigneeId === this.user.internalUserId) {
+    if (updatedTask.assigneeId === this.user.internalUserId && !this.isAutomationActor) {
       return // old notifications were removed but new one was not created
     }
     // -- If task goes from unassigned to assigned task is createed
