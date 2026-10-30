@@ -33,7 +33,11 @@ if (dsn) {
       //   }),
     ],
 
-    ignoreErrors: [/fetch failed/i, /failed to fetch/i],
+    ignoreErrors: [
+      /fetch failed/i,
+      /failed to fetch/i,
+      /Object Not Found Matching Id:\d+, MethodName:\w+, ParamCount:\d+/,
+    ],
 
     beforeSend(event) {
       if (!isProd && event.type === undefined) {
