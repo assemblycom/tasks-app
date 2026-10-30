@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
+import { shouldDropUnrecognizedServerActionSentryEvent } from '@/utils/sentryFilters'
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
 const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV
@@ -20,9 +21,17 @@ if (dsn) {
 
     // Uncomment the line below to enable Spotlight (https://spotlightjs.com)
     // spotlight: process.env.NODE_ENV === 'development',
-    ignoreErrors: [/fetch failed/i, /failed to fetch/i],
+    ignoreErrors: [
+      /fetch failed/i,
+      /failed to fetch/i,
+      /UnrecognizedActionError/i,
+      /Server Action "[^"]+" was not found on the server/i,
+    ],
 
     beforeSend(event) {
+      if (shouldDropUnrecognizedServerActionSentryEvent(event)) {
+        return null
+      }
       if (!isProd && event.type === undefined) {
         return null
       }
