@@ -9,6 +9,7 @@ import { CreateComment } from '@/types/dto/comment.dto'
 import { deleteEditorAttachmentsHandler } from '@/utils/attachmentUtils'
 import { isPopoverInputFocused } from '@/utils/isPopoverInputFocused'
 import { isTapwriteContentEmpty } from '@/utils/isTapwriteContentEmpty'
+import { canSubmitTapwriteContent, isTapwriteInteractionActive } from '@/utils/tapwriteEditorState'
 import { Box, Stack } from '@mui/material'
 import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
@@ -47,6 +48,8 @@ export const ReplyInput = ({
   const [pendingReplies, setPendingReplies] = useState<{ content: string; taskId: string }[]>([])
 
   const handleReplySubmission = useCallback(() => {
+    if (!canSubmitTapwriteContent(isListOrMenuActive)) return
+
     let content = detail
     const END_P = '<p></p>'
     if (content.slice(-7) === END_P) {
@@ -57,7 +60,7 @@ export const ReplyInput = ({
       setDetail('')
       setPendingReplies((prev) => [...prev, { content, taskId: task_id }])
     }
-  }, [comment, detail, task_id])
+  }, [detail, isListOrMenuActive, task_id])
 
   useEffect(() => {
     if (pendingReplies.length > 0 && !comment.details.id.includes('temp-comment')) {
@@ -76,11 +79,11 @@ export const ReplyInput = ({
       if (!focusReplyInput || isMobile()) {
         return
       }
-      if (event.key === 'Enter' && !event.shiftKey && !isListOrMenuActive) {
+      if (event.key === 'Enter' && !event.shiftKey && canSubmitTapwriteContent(isListOrMenuActive)) {
         event.preventDefault()
         handleReplySubmission()
       }
-      if (event.key === 'Enter' && event.ctrlKey) {
+      if (event.key === 'Enter' && event.ctrlKey && canSubmitTapwriteContent(isListOrMenuActive)) {
         event.preventDefault()
         handleReplySubmission()
       }
@@ -181,8 +184,7 @@ export const ReplyInput = ({
             className={'tapwrite-reply-input'}
             hardbreak
             onActiveStatusChange={(prop) => {
-              const { isListActive, isFloatingMenuActive } = prop
-              setIsListOrMenuActive(isListActive || isFloatingMenuActive)
+              setIsListOrMenuActive(isTapwriteInteractionActive(prop))
             }}
             attachmentLayout={(props) => (
               <AttachmentLayout {...props} isComment={true} onUploadStatusChange={handleUploadStatusChange} />

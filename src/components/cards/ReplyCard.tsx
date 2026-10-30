@@ -23,6 +23,7 @@ import { deleteEditorAttachmentsHandler, getAttachmentPayload, getCustomFilePath
 import { createUploadFn } from '@/utils/createUploadFn'
 import { getTimeDifference } from '@/utils/getTimeDifference'
 import { isTapwriteContentEmpty } from '@/utils/isTapwriteContentEmpty'
+import { canSubmitTapwriteContent, isTapwriteInteractionActive } from '@/utils/tapwriteEditorState'
 import { Box, Stack } from '@mui/material'
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
@@ -86,6 +87,8 @@ export const ReplyCard = ({
   const { postAttachment } = usePostAttachment()
 
   const handleEdit = async () => {
+    if (!canSubmitTapwriteContent(isListOrMenuActive)) return
+
     if (isTapwriteContentEmpty(editedContent)) {
       setEditedContent(content)
       setIsReadOnly(true)
@@ -105,11 +108,11 @@ export const ReplyCard = ({
       if (!isFocused || isMobile()) {
         return
       }
-      if (event.key === 'Enter' && !event.shiftKey && !isListOrMenuActive) {
+      if (event.key === 'Enter' && !event.shiftKey && canSubmitTapwriteContent(isListOrMenuActive)) {
         event.preventDefault()
         handleEdit()
       }
-      if (event.key === 'Enter' && event.ctrlKey) {
+      if (event.key === 'Enter' && event.ctrlKey && canSubmitTapwriteContent(isListOrMenuActive)) {
         event.preventDefault()
         handleEdit() //Invoke submit if ctrl+enter is pressed at any time
       }
@@ -236,8 +239,7 @@ export const ReplyCard = ({
             <Tapwrite
               content={editedContent}
               onActiveStatusChange={(prop) => {
-                const { isListActive, isFloatingMenuActive } = prop
-                setIsListOrMenuActive(isListActive || isFloatingMenuActive)
+                setIsListOrMenuActive(isTapwriteInteractionActive(prop))
               }}
               getContent={setEditedContent}
               readonly={isReadOnly}
