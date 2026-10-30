@@ -32,6 +32,7 @@ import { getAssigneeName } from '@/utils/assignee'
 import { deleteEditorAttachmentsHandler, getAttachmentPayload, getCustomFilePath } from '@/utils/attachmentUtils'
 import { createUploadFn } from '@/utils/createUploadFn'
 import { fetcher } from '@/utils/fetcher'
+import { getCommentActivityId, isPendingCommentId } from '@/utils/commentActivity'
 import { getTimeDifference } from '@/utils/getTimeDifference'
 import { isTapwriteContentEmpty } from '@/utils/isTapwriteContentEmpty'
 import { checkOptimisticStableId, OptimisticUpdate } from '@/utils/optimisticCommentUtils'
@@ -85,6 +86,7 @@ export const CommentCard = ({
   const [deletedReplies, setDeletedReplies] = useState<string[]>([])
 
   const { postAttachment } = usePostAttachment()
+  const commentId = getCommentActivityId(comment.details)
 
   const windowWidth = useWindowWidth()
   const isMobile = () => {
@@ -111,11 +113,11 @@ export const CommentCard = ({
     return () => clearInterval(intervalId)
   }, [comment.createdAt])
 
-  const commentIdRef = useRef(comment.details.id)
+  const commentIdRef = useRef(commentId)
 
   useEffect(() => {
-    commentIdRef.current = comment.details.id
-  }, [comment.details.id]) //done because tapwrite only takes uploadFn once on mount where commentId will be temp from optimistic update. So we need an actual commentId for uploadFn to work.
+    commentIdRef.current = commentId
+  }, [commentId]) //done because tapwrite only takes uploadFn once on mount where commentId will be temp from optimistic update. So we need an actual commentId for uploadFn to work.
 
   const uploadFn = createUploadFn({
     token,
@@ -139,7 +141,7 @@ export const CommentCard = ({
       setIsReadOnly(true)
       return
     }
-    const commentId = z.string().parse(comment.details.id)
+    const commentId = z.string().parse(commentIdRef.current)
     const updateCommentPayload: UpdateComment = {
       content: editedContent,
       // mentions : add mentions in the future
@@ -173,7 +175,7 @@ export const CommentCard = ({
 
   const replyCount = (comment.details as CommentResponse).replyCount
 
-  const cacheKey = `/api/comments/?token=${token}&parentId=${comment.details.id}`
+  const cacheKey = commentId ? `/api/comments/?token=${token}&parentId=${commentId}` : null
   const { trigger } = useSWRMutation(cacheKey, fetcher, {
     optimisticData: optimisticUpdates.filter((update) => update.tempId),
   })
@@ -182,7 +184,9 @@ export const CommentCard = ({
       const updatedComment = await trigger()
 
       setReplies(updatedComment?.comments || comment.details.replies || [])
-      store.dispatch(setExpandedComments([...expandedComments, z.string().parse(comment.details.id ?? '')]))
+      if (commentId) {
+        store.dispatch(setExpandedComments([...expandedComments, commentId]))
+      }
     } catch (error) {
       console.error('Failed to fetch replies:', error)
     }
@@ -191,7 +195,7 @@ export const CommentCard = ({
   useEffect(() => {
     const replies = (comment.details.replies as ReplyResponse[]) || []
 
-    if (expandedComments.length && expandedComments.includes(z.string().parse(comment.details.id))) {
+    if (expandedComments.length && commentId && expandedComments.includes(commentId)) {
       const lastReply = replies[replies.length - 1]
       if (deletedReplies.length > 0) {
         const pendingReplyToBeRemoved = deletedReplies[0]
@@ -199,7 +203,7 @@ export const CommentCard = ({
         setDeletedReplies((prev) => prev.slice(1))
         return
       } //handle optimistic updates on reply deletion when view all button is active.
-      if (lastReply && lastReply.id.includes('temp-comment')) {
+      if (lastReply && isPendingCommentId(getCommentActivityId(lastReply))) {
         setReplies((prev) => [...prev, lastReply])
         return
       } //handle optimistic updates on reply creation when view all button is active.
@@ -359,7 +363,7 @@ export const CommentCard = ({
         {((Array.isArray((comment as LogResponse).details?.replies) &&
           ((comment as LogResponse).details.replies as ReplyResponse[]).length > 0) ||
           showReply) && <CustomDivider />}
-        {replyCount > 3 && !expandedComments.includes(z.string().parse(comment.details.id)) && (
+        {replyCount > 3 && commentId && !expandedComments.includes(commentId) && (
           <CollapsibleReplyCard
             lastAssignees={firstInitiators}
             fetchCommentsWithFullReplies={fetchCommentsWithFullReplies}
@@ -385,9 +389,10 @@ export const CommentCard = ({
               )
             })}
         </TransitionGroup>
-        {(Array.isArray((comment as LogResponse).details?.replies) &&
+        {commentId &&
+        ((Array.isArray((comment as LogResponse).details?.replies) &&
           ((comment as LogResponse).details.replies as LogResponse[]).length > 0) ||
-        showReply ? (
+          showReply) ? (
           <ReplyInput
             token={token}
             comment={comment}
@@ -407,7 +412,9 @@ export const CommentCard = ({
         <ConfirmDeleteUI
           handleCancel={() => setShowConfirmDeleteModal(false)}
           handleDelete={() => {
-            deleteComment((comment as LogResponse).details.id as string, undefined, replies.length > 0)
+            if (commentId) {
+              deleteComment(commentId, undefined, replies.length > 0)
+            }
             setShowConfirmDeleteModal(false)
           }}
           bodyTag="comment"
