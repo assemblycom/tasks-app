@@ -6,9 +6,30 @@ import { ViewSettingsService } from '@api/view-settings/viewSettings.service'
 import httpStatus from 'http-status'
 import type { AncestorTaskResponse, SubTaskStatusResponse, TaskResponse } from '@/types/dto/tasks.dto'
 import type { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library'
+import { ZodError } from 'zod'
 
 // this is needed since we are no longer making api round trip our dates are actual dates when we need it as string.
 const toJsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
+
+const isInvalidUuidPrismaError = (err: unknown) => {
+  if (!(err instanceof PrismaClientKnownRequestError)) {
+    return false
+  }
+
+  if (err.code === 'P2010' && err.meta?.code === '22P02') {
+    return true
+  }
+
+  const metaMessage = err.meta?.message
+  return err.code === 'P2023' && typeof metaMessage === 'string' && metaMessage.toLowerCase().includes('uuid')
+}
+
+const isInvalidUuidZodError = (err: unknown) =>
+  err instanceof ZodError &&
+  err.issues.some((issue) => issue.code === 'invalid_string' && issue.message.toLowerCase().includes('uuid'))
+
+const isInvalidTaskIdError = (err: unknown) => isInvalidUuidPrismaError(err) || isInvalidUuidZodError(err)
 
 export const loadTask = async (user: User, taskId: string): Promise<TaskResponse | null> => {
   try {
@@ -17,6 +38,7 @@ export const loadTask = async (user: User, taskId: string): Promise<TaskResponse
   } catch (err) {
     const nonRenderableStatuses: number[] = [httpStatus.NOT_FOUND, httpStatus.UNAUTHORIZED]
     if (err instanceof APIError && nonRenderableStatuses.includes(err.status)) return null
+    if (isInvalidTaskIdError(err)) return null
     throw err
   }
 }
@@ -26,6 +48,7 @@ export const loadTaskPath = async (user: User, taskId: string): Promise<Ancestor
     return toJsonSafe(await new TasksService(user).getTraversalPath(taskId))
   } catch (err) {
     if (err instanceof APIError && err.status === httpStatus.NOT_FOUND) return []
+    if (isInvalidTaskIdError(err)) return []
     throw err
   }
 }
@@ -35,6 +58,7 @@ export const loadSubtaskStatus = async (user: User, taskId: string): Promise<Sub
     return await new SubtaskService(user).getSubtaskStatus(taskId)
   } catch (err) {
     if (err instanceof APIError && err.status === httpStatus.NOT_FOUND) return { count: 0, canCreateSubtask: false }
+    if (isInvalidTaskIdError(err)) return { count: 0, canCreateSubtask: false }
     throw err
   }
 }
