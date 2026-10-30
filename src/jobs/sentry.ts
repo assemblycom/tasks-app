@@ -1,6 +1,7 @@
 import 'server-only'
 
 import * as Sentry from '@sentry/nextjs'
+import { shouldDropCopilotMissingClientSentryEvent } from '@/utils/sentryFilters'
 
 // Trigger.dev runs jobs in a standalone Node process, separate from the Next.js server, so
 // `sentry.server.config.ts` (loaded via instrumentation.ts) never executes here — without
@@ -17,7 +18,13 @@ if (dsn) {
     // integration set (matches Trigger.dev's documented Sentry setup).
     defaultIntegrations: false,
     environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development',
-    ignoreErrors: [/fetch failed/i],
+    ignoreErrors: [/fetch failed/i, /No client found with/i],
+    beforeSend(event) {
+      if (shouldDropCopilotMissingClientSentryEvent(event)) {
+        return null
+      }
+      return event
+    },
   })
 }
 

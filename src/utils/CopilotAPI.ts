@@ -47,6 +47,7 @@ import type { CopilotAPI as SDK } from 'copilot-node-sdk'
 import { copilotApi } from 'copilot-node-sdk'
 import { cache } from 'react'
 import { z } from 'zod'
+import { isNilUuid, isUuid } from '@/utils/uuid'
 
 export class CopilotAPI {
   copilot: SDK
@@ -116,7 +117,7 @@ export class CopilotAPI {
     console.info('CopilotAPI#_me', this.token)
     const tokenPayload = await this.getTokenPayload()
     const id = tokenPayload?.internalUserId || tokenPayload?.clientId
-    if (!tokenPayload || !id) return null
+    if (!tokenPayload || !id || isNilUuid(id) || !isUuid(id)) return null
 
     const retrieveCurrentUserInfo = tokenPayload.internalUserId
       ? this.copilot.retrieveInternalUser
@@ -153,6 +154,9 @@ export class CopilotAPI {
   }
 
   async _getClient(id: string): Promise<ClientResponse> {
+    if (!isUuid(id) || isNilUuid(id)) {
+      throw new APIError(httpStatus.BAD_REQUEST, 'Invalid client id')
+    }
     console.info('CopilotAPI#_getClient', this.token)
     return ClientResponseSchema.parse(await this.copilot.retrieveClient({ id }))
   }
@@ -228,6 +232,9 @@ export class CopilotAPI {
   }
 
   async _getInternalUser(id: string): Promise<InternalUsers> {
+    if (!isUuid(id) || isNilUuid(id)) {
+      throw new APIError(httpStatus.BAD_REQUEST, 'Invalid internal user id')
+    }
     console.info('CopilotAPI#_getInternalUser', this.token)
     return InternalUsersSchema.parse(await this.copilot.retrieveInternalUser({ id }))
   }

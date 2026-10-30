@@ -11,6 +11,7 @@ import { getFileNameFromPath } from '@/utils/attachmentUtils'
 import { extractMediaSrcMatches } from '@/utils/signedUrlReplacer'
 import { SupabaseActions } from '@/utils/SupabaseActions'
 import { getBasicPaginationAttributes } from '@/utils/pagination'
+import { isUuid } from '@/utils/uuid'
 import { CommentAddedSchema } from '@api/activity-logs/schemas/CommentAddedSchema'
 import { ActivityLogger } from '@api/activity-logs/services/activity-logger.service'
 import { CommentRepository } from '@/app/api/comments/comment.repository'
@@ -208,7 +209,11 @@ export class CommentService extends BaseService {
       try {
         initiator = await this.copilot.getInternalUser(comment.initiatorId)
       } catch (e) {
-        initiator = await this.copilot.getClient(comment.initiatorId)
+        if (isUuid(comment.initiatorId)) {
+          initiator = await this.copilot.getClient(comment.initiatorId)
+        } else {
+          throw e
+        }
       }
     }
 
