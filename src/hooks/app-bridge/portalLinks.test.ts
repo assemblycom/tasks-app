@@ -34,6 +34,13 @@ describe('parsePortalAppLink', () => {
     expect(parsePortalAppLink('https://acme.myassembly.com/apps?id=inst-1&taskId=t1', origins)).toBeNull()
   })
 
+  it('leaves links alone when their destination lives in a fragment the bridge cannot carry', () => {
+    expect(parsePortalAppLink('https://acme.myassembly.com/apps/inst-1/orders/42#discussion', origins)).toBeNull()
+    expect(parsePortalAppLink('https://acme.myassembly.com/apps/inst-1#top', origins)).toBeNull()
+    expect(parsePortalAppLink('https://acme.myassembly.com/apps?id=inst-1#top', origins)).toBeNull()
+    expect(parsePortalAppLink('https://dashboard.assembly.com/w/acme/apps/inst-1/orders/42#x', origins)).toBeNull()
+  })
+
   it('ignores links that are not portal app links', () => {
     expect(parsePortalAppLink('https://example.com/apps/inst-1', origins)).toBeNull()
     expect(parsePortalAppLink('https://acme.myassembly.com/files', origins)).toBeNull()
