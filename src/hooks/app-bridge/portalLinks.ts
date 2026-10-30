@@ -20,11 +20,13 @@ export const parsePortalAppLink = (href: string, portalOrigins: readonly string[
   }
   if (!portalOrigins.includes(url.origin)) return null
 
+  // The bridge's app destination carries a path but no query or fragment, so a link whose
+  // destination state lives in either (a task's ?commentId=, a page's #section) is left to the
+  // browser rather than delivered somewhere slightly wrong.
+  if (url.hash) return null
+
   const canonical = APP_PATH.exec(url.pathname)
   if (canonical) {
-    // The bridge's app destination carries a path but no query, so a link whose destination
-    // state lives in its query (a task's ?commentId=) is left to the browser rather than
-    // delivered somewhere slightly wrong.
     if (url.search) return null
     const [, installId, innerPath] = canonical
     return innerPath ? { installId, path: innerPath } : { installId }
