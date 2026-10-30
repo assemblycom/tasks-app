@@ -38,7 +38,13 @@ export const supabaseBucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || ''
 // (OUT-3864). Empty falls back to the project URL, so behaviour is unchanged until it's configured.
 export const supabaseStorageDomain = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_DOMAIN || ''
 export const cronSecret = process.env.CRON_SECRET || ''
-export const APP_ID = process.env.COPILOT_APP_API_KEY
+
+const parseOptionalUuid = (value?: string) => {
+  const parsed = z.string().uuid().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+export const APP_ID = parseOptionalUuid(process.env.COPILOT_APP_ID ?? process.env.COPILOT_APP_API_KEY)
 
 export const ScrapImageExpiryPeriod = +(process.env.SCRAP_IMAGE_EXPIRY_PERIOD || '604800000')
 
