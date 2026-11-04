@@ -1,10 +1,9 @@
-import { getAllWorkflowStates, getTokenPayload } from '@/app/(home)/page'
+import { authenticatePage, loadTemplate, loadWorkflowStates } from '@/app/_fetchers/loaders'
 import { ResponsiveStack } from '@/app/detail/ui/ResponsiveStack'
-import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { SeedActiveTemplate } from '@/hoc/state-seeders'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
-import { ITemplate, UserType } from '@/types/interfaces'
+import { UserType } from '@/types/interfaces'
 import EscapeHandler from '@/utils/escapeHandler'
 import { Box } from '@mui/material'
 import TemplateDetails from '@/app/configure-tasks-app/ui/TemplateDetails'
@@ -21,15 +20,6 @@ import { OneTemplateDataFetcher } from '@/app/_fetchers/OneTemplateDataFetcher'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { getPreviewMode } from '@/utils/previewMode'
 
-async function getTemplate(id: string, token: string): Promise<ITemplate> {
-  const res = await fetch(`${apiUrl}/api/tasks/templates/${id}?token=${token}`, {
-    cache: 'no-store',
-  })
-
-  const templates = await res.json()
-  return templates.data
-}
-
 export default async function TaskDetailPage(props: {
   params: Promise<{ template_id: string }>
   searchParams: Promise<{ token: string }>
@@ -39,11 +29,8 @@ export default async function TaskDetailPage(props: {
   const { token } = searchParams
   const { template_id } = params
 
-  const [workflowStates, template, tokenPayload] = await Promise.all([
-    getAllWorkflowStates(token),
-    getTemplate(template_id, token),
-    getTokenPayload(token),
-  ])
+  const { user, tokenPayload } = await authenticatePage(token)
+  const [workflowStates, template] = await Promise.all([loadWorkflowStates(user), loadTemplate({ user, id: template_id })])
 
   if (!template) {
     return <DeletedRedirectPage token={token} />
