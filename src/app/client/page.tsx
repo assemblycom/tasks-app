@@ -13,7 +13,7 @@ import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { RealTime } from '@/hoc/RealTime'
-import { Token, TokenSchema, UrlActionParamsType } from '@/types/common'
+import { Token, UrlActionParamsType } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
@@ -43,10 +43,9 @@ async function getAllTasks(token: string): Promise<TaskResponse[]> {
   return data.tasks
 }
 
-async function getTokenPayload(token: string): Promise<Token> {
+async function getTokenPayload(token: string): Promise<Token | null> {
   const copilotClient = new CopilotAPI(token)
-  const payload = TokenSchema.parse(await copilotClient.getTokenPayload())
-  return payload as Token
+  return copilotClient.getTokenPayload()
 }
 
 export default async function ClientPage(props: { searchParams: Promise<{ token: string } & UrlActionParamsType> }) {
@@ -62,6 +61,10 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
     getViewSettings(token),
     getTokenPayload(token),
   ])
+
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
 
   const previewMode = getPreviewMode(tokenPayload)
 

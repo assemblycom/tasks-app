@@ -232,8 +232,11 @@ class LoadTester {
   }
 
   private async getTokenPayload(token: string): Promise<Token> {
-    const payload = TokenSchema.parse(await this.copilot.getTokenPayload())
-    return payload as Token
+    const parsed = TokenSchema.safeParse(await this.copilot.getTokenPayload())
+    if (!parsed.success) {
+      throw new Error('Load testing: invalid or unauthenticated Copilot token payload')
+    }
+    return parsed.data
   }
 
   private async getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
