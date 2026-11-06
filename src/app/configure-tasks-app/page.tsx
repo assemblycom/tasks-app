@@ -11,13 +11,15 @@ import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
-import { Token, TokenSchema } from '@/types/common'
+import { Token } from '@/types/common'
 import { ConfigureTasksAppBridge } from '@/app/configure-tasks-app/ui/ConfigureTasksAppBridge'
 import { AutoArchiveSection } from '@/app/configure-tasks-app/ui/AutoArchiveSection'
 import { ClientViewSettingsSection } from '@/app/configure-tasks-app/ui/ClientViewSettingsSection'
 import { StatusCustomizationSection } from '@/app/configure-tasks-app/ui/StatusCustomizationSection'
 import { ClientViewSettings } from '@/types/dto/workspaceSettings.dto'
 import { Stack } from '@mui/material'
+import { SilentError } from '@/components/templates/SilentError'
+import { z } from 'zod'
 
 async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
   const res = await fetch(`${apiUrl}/api/workflow-states?token=${token}`, {
@@ -48,9 +50,9 @@ async function getAllTemplates(token: string): Promise<ITemplate[]> {
   return templates.data
 }
 
-async function getTokenPayload(token: string): Promise<Token> {
+async function getTokenPayload(token: string): Promise<Token | null> {
   const copilotClient = new CopilotAPI(token)
-  return TokenSchema.parse(await copilotClient.getTokenPayload())
+  return copilotClient.getTokenPayload()
 }
 
 async function getWorkspaceSetting(token: string): Promise<{ autoArchiveAfterDays: number } & ClientViewSettings> {
@@ -67,6 +69,9 @@ interface ConfigureTasksAppPageProps {
 export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPageProps) {
   const searchParams = await props.searchParams
   const { token } = searchParams
+  if (!z.string().safeParse(token).success) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
   const [workflowStates, assignee, templates, tokenPayload, workspaceSetting] = await Promise.all([
     getAllWorkflowStates(token),
     addTypeToAssignee(await getAssigneeList(token)),
@@ -74,6 +79,10 @@ export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPage
     getTokenPayload(token),
     getWorkspaceSetting(token),
   ])
+
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
 
   return (
     <ClientSideStateUpdate
