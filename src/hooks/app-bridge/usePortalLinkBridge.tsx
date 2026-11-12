@@ -40,12 +40,15 @@ const collectPortalOrigins = (portalUrl?: string): string[] => {
   return [...origins]
 }
 
-// Opening with the `noopener` feature makes `window.open` return null even on success, so the
-// opener is severed by hand to keep the blocked-popup signal.
 const openInNewTab = (href: string): boolean => {
-  const opened = window.open(href, '_blank')
-  if (!opened) return false
-  opened.opener = null
+  const anchor = document.createElement('a')
+  anchor.href = href
+  anchor.target = '_blank'
+  anchor.rel = 'noopener noreferrer'
+  anchor.style.display = 'none'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
   return true
 }
 
