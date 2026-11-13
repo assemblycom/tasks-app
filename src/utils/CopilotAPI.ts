@@ -109,7 +109,13 @@ export class CopilotAPI {
       return null
     }
 
-    return TokenSchema.parse(await getTokenPayload())
+    const parsed = TokenSchema.safeParse(await getTokenPayload())
+    if (!parsed.success) {
+      console.error(`CopilotAPI#getTokenPayload | Token payload validation failed`, parsed.error.format())
+      return null
+    }
+
+    return parsed.data
   }
 
   async _me(): Promise<MeResponse | null> {
