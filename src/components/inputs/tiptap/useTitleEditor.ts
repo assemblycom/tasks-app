@@ -126,6 +126,8 @@ export function useTitleEditor({ value, onChange, placeholder = '', autoFocus, o
         if (!fieldKey) return false
 
         event.preventDefault()
+        if (view.isDestroyed) return true
+
         const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })
         if (!pos) return true
 
@@ -138,6 +140,7 @@ export function useTitleEditor({ value, onChange, placeholder = '', autoFocus, o
         view.focus()
         // Firefox hides the caret after drag-and-drop; a blur/focus cycle forces it to repaint.
         requestAnimationFrame(() => {
+          if (view.isDestroyed) return
           view.dom.blur()
           view.focus()
         })
@@ -152,7 +155,7 @@ export function useTitleEditor({ value, onChange, placeholder = '', autoFocus, o
 
   // Sync external value changes
   useEffect(() => {
-    if (!editor) return
+    if (!editor || editor.isDestroyed) return
     const currentText = editorToPlainText(editor)
     if (currentText !== value) {
       isInternalRef.current = true
