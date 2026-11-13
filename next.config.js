@@ -2,6 +2,11 @@ const { withSentryConfig } = require('@sentry/nextjs')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
+  },
   cacheMaxMemorySize: 0,
   // Pure-ESM deps; transpile so next/jest can load them from CJS.
   transpilePackages: ['p-retry', 'is-network-error'],

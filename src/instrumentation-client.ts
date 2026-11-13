@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
+import { shouldDropRequestBodySizeLimitSentryEvent } from '@/utils/sentryFilters'
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
 const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV
@@ -38,6 +39,9 @@ if (dsn) {
     denyUrls: [/injectScript\.js/],
 
     beforeSend(event) {
+      if (shouldDropRequestBodySizeLimitSentryEvent(event)) {
+        return null
+      }
       if (!isProd && event.type === undefined) {
         return null
       }
