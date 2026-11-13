@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
+import { shouldDropCopilotMissingClientSentryEvent } from '@/utils/sentryFilters'
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
 const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV
@@ -23,6 +24,9 @@ if (dsn) {
     ignoreErrors: [/fetch failed/i, /failed to fetch/i],
 
     beforeSend(event) {
+      if (shouldDropCopilotMissingClientSentryEvent(event)) {
+        return null
+      }
       if (!isProd && event.type === undefined) {
         return null
       }
