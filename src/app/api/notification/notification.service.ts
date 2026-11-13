@@ -1,3 +1,4 @@
+import { AUTOMATION_ACTOR_LABEL } from '@/constants/notifications'
 import {
   CompanyResponse,
   CopilotUser,
@@ -60,10 +61,10 @@ export class NotificationService extends BaseService {
       // 2. Dispatch notification to Copilot
       const workspace = await this.copilot.getWorkspace()
 
-      const { senderId, senderCompanyId, recipientId, actionUser, companyName } = await this.getNotificationParties(
-        task,
-        action,
-      )
+      const parties = await this.getNotificationParties(task, action)
+      const { senderId, senderCompanyId, recipientId, companyName } = parties
+      // An automation notifying its own creator would otherwise read "assigned to you by <your name>".
+      const actionUser = this.isAutomationActor && senderId === recipientId ? AUTOMATION_ACTOR_LABEL : parties.actionUser
 
       const inProduct = opts.disableInProduct
         ? undefined

@@ -560,3 +560,40 @@ describe('guard: IU completion emails', () => {
     expect(mockCreateNotification.mock.calls[0][0].recipientInternalUserId).toBe('iu_a')
   })
 })
+
+describe('NotificationService automation actor copy', () => {
+  const SELF = '33333333-3333-3333-3333-333333333333'
+
+  const buildSelfAssignedService = (source: string) => {
+    const service = new NotificationService({
+      ...(user as object),
+      internalUserId: SELF,
+      assemblyMetadata: { source },
+    } as unknown as ConstructorParameters<typeof NotificationService>[0])
+    jest.spyOn(service, 'getNotificationParties').mockResolvedValue({
+      senderId: SELF,
+      senderCompanyId: undefined,
+      recipientId: SELF,
+      recipientIds: [],
+      actionUser: 'Jane IU',
+      companyName: undefined,
+    })
+    return service
+  }
+  const selfAssignedTask = () =>
+    makeTask({ assigneeType: AssigneeType.internalUser, clientId: null, assigneeId: SELF, createdById: SELF })
+
+  it('names an automation, not the recipient, when an automation notifies its own creator', async () => {
+    await buildSelfAssignedService('automation').create(NotificationTaskActions.Assigned, selfAssignedTask())
+
+    const sent = mockCreateNotification.mock.calls[0][0]
+    expect(sent.deliveryTargets.inProduct.body).toContain('by an automation')
+    expect(sent.deliveryTargets.inProduct.body).not.toContain('Jane IU')
+  })
+
+  it('keeps the acting user name for a non-automation sender', async () => {
+    await buildSelfAssignedService('web').create(NotificationTaskActions.Assigned, selfAssignedTask())
+
+    expect(mockCreateNotification.mock.calls[0][0].deliveryTargets.inProduct.body).toContain('by Jane IU')
+  })
+})
