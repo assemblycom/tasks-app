@@ -13,17 +13,17 @@ import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { RealTime } from '@/hoc/RealTime'
-import { Token, TokenSchema, UrlActionParamsType } from '@/types/common'
+import { UrlActionParamsType } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { UserType } from '@/types/interfaces'
-import { CopilotAPI } from '@/utils/CopilotAPI'
+import { getEmbedTokenPayload } from '@/utils/embedTokenAuth'
+import { normalizeTokenParam } from '@/utils/tokenQuery'
 import { getPreviewMode } from '@/utils/previewMode'
 import { redirectIfTaskCta } from '@/utils/redirect'
 import { UserRole } from '@api/core/types/user'
 import { Suspense } from 'react'
-import { z } from 'zod'
 
 export const maxDuration = 300 //just to be safe. the validate count job might take longer that 15 seconds(default max duration of server components) which will make the app crash. Increasing the duration to 60.
 
@@ -43,24 +43,21 @@ async function getAllTasks(token: string): Promise<TaskResponse[]> {
   return data.tasks
 }
 
-async function getTokenPayload(token: string): Promise<Token> {
-  const copilotClient = new CopilotAPI(token)
-  const payload = TokenSchema.parse(await copilotClient.getTokenPayload())
-  return payload as Token
-}
-
 export default async function ClientPage(props: { searchParams: Promise<{ token: string } & UrlActionParamsType> }) {
   const searchParams = await props.searchParams
-  const token = searchParams.token
-  if (!z.string().safeParse(token).success) {
+  const token = normalizeTokenParam(searchParams.token)
+  if (!token) {
     return <SilentError message="Please provide a Valid Token" />
   }
-  redirectIfTaskCta(searchParams, UserType.CLIENT_USER)
-  const [workflowStates, tasks, viewSettings, tokenPayload] = await Promise.all([
+  redirectIfTaskCta({ ...searchParams, token }, UserType.CLIENT_USER)
+  const tokenPayload = await getEmbedTokenPayload(token)
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+  const [workflowStates, tasks, viewSettings] = await Promise.all([
     getAllWorkflowStates(token),
     getAllTasks(token),
     getViewSettings(token),
-    getTokenPayload(token),
   ])
 
   const previewMode = getPreviewMode(tokenPayload)

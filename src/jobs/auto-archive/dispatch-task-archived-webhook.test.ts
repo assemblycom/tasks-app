@@ -14,6 +14,8 @@ jest.mock('@/lib/db', () => ({
   },
 }))
 
+jest.mock('@/config', () => ({ copilotAPIKey: 'test-api-key' }))
+
 jest.mock('@/utils/CopilotAPI', () => ({
   __esModule: true,
   CopilotAPI: jest.fn().mockImplementation(() => ({
@@ -26,6 +28,7 @@ jest.mock('@/app/api/tasks/public/public.serializer', () => ({
   PublicTaskSerializer: { serialize: (...args: unknown[]) => mockSerialize(...(args as [{ id: string }])) },
 }))
 
+import { CopilotAPI } from '@/utils/CopilotAPI'
 import { dispatchTaskArchivedWebhook } from './dispatch-task-archived-webhook'
 
 type Run = (payload: { taskId: string; workspaceId: string }) => Promise<unknown>
@@ -47,6 +50,7 @@ describe('dispatchTaskArchivedWebhook', () => {
 
     const result = await runTask('t1', 'ws1')
 
+    expect(CopilotAPI).toHaveBeenCalledWith('', 'ws1/test-api-key')
     expect(mockTaskFindFirst).toHaveBeenCalledWith({
       where: { id: 't1' },
       include: { workflowState: true, attachments: true },

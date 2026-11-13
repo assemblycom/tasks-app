@@ -1,4 +1,5 @@
 import { PublicTaskSerializer } from '@/app/api/tasks/public/public.serializer'
+import { copilotAPIKey } from '@/config'
 import DBClient from '@/lib/db'
 import { DISPATCHABLE_EVENT } from '@/types/webhook'
 import { CopilotAPI } from '@/utils/CopilotAPI'
@@ -30,10 +31,7 @@ export const dispatchTaskArchivedWebhook = task({
   maxDuration: 30,
   run: async ({ taskId, workspaceId }: DispatchTaskArchivedWebhookPayload) => {
     const db = DBClient.getInstance()
-    // CopilotAPI authenticates with `${workspaceId}/${apiKey}` from env, not a user token,
-    // so an empty token is correct here. Requires COPILOT_ENV on the Trigger.dev runtime
-    // (`local` for prod, `__SECRET_STAGING__` for staging) — without it the SDK throws.
-    const copilot = new CopilotAPI('')
+    const copilot = new CopilotAPI('', `${workspaceId}/${copilotAPIKey}`)
 
     const archivedTask = await db.task.findFirst({
       where: { id: taskId },
