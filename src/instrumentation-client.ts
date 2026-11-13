@@ -35,6 +35,8 @@ if (dsn) {
 
     ignoreErrors: [/fetch failed/i, /failed to fetch/i],
 
+    denyUrls: [/injectScript\.js/],
+
     beforeSend(event) {
       if (!isProd && event.type === undefined) {
         return null
