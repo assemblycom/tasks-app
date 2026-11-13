@@ -33,7 +33,9 @@ if (dsn) {
       //   }),
     ],
 
-    ignoreErrors: [/fetch failed/i, /failed to fetch/i, /Cannot assign to read only property 'open' of object/],
+    ignoreErrors: [/fetch failed/i, /failed to fetch/i],
+
+    denyUrls: [/injectScript\.js/],
 
     beforeSend(event) {
       if (!isProd && event.type === undefined) {
