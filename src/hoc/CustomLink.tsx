@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { CSSProperties, ReactNode, useCallback, useRef, useState } from 'react'
 import { UrlObject } from 'url'
+import { buildTokenQueryString } from '@/utils/tokenQuery'
 import { z } from 'zod'
 
 export const CustomLink = ({
@@ -30,18 +31,12 @@ export const CustomLink = ({
         console.error('Invalid UrlObject format')
         return {}
       }
-    } else {
-      // check if the href has token param
-      let regex = /\?token=.+/
-      if (regex.test(href)) {
-        return { pathname: href }
-      } else {
-        return {}
-      }
     }
+    return { pathname: href }
   }, [href])
 
   const { pathname, token } = getUrl()
+  const linkHref = token && pathname ? `${pathname}?${buildTokenQueryString(token)}` : (pathname ?? '')
 
   const [shouldPrefetch, setShouldPrefetch] = useState(false)
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -61,7 +56,7 @@ export const CustomLink = ({
 
   return (
     <Link
-      href={`${pathname}?token=${token}`}
+      href={linkHref}
       style={{
         ...style,
         outline: 'none',
