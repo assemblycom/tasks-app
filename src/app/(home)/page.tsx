@@ -3,67 +3,23 @@ export const fetchCache = 'force-no-store'
 import { createMultipleAttachments } from '@/app/(home)/actions'
 import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'
 import { AllTasksFetcher } from '@/app/_fetchers/AllTasksFetcher'
+import { authenticatePage, loadTasks, loadViewSettings, loadWorkflowStates } from '@/app/_fetchers/loaders'
 import { TemplatesFetcher } from '@/app/_fetchers/TemplatesFetcher'
 import { ModalNewTaskForm } from '@/app/ui/Modal_NewTaskForm'
 import { TaskBoard } from '@/app/ui/TaskBoard'
 import { SilentError } from '@/components/templates/SilentError'
-import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { RealTime } from '@/hoc/RealTime'
-import { UrlActionParamsType, Token, TokenSchema } from '@/types/common'
+import { UrlActionParamsType } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
-import { TaskResponse } from '@/types/dto/tasks.dto'
-import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
-import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { UserType } from '@/types/interfaces'
-import { CopilotAPI } from '@/utils/CopilotAPI'
 import { redirectIfTaskCta, redirectToClientPortal } from '@/utils/redirect'
 import { UserRole } from '@api/core/types/user'
 import { Suspense } from 'react'
 import { z } from 'zod'
-import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
 
 export const maxDuration = 300
-
-export async function getAllWorkflowStates(token: string): Promise<WorkflowStateResponse[]> {
-  const data = await fetchWithErrorHandler<{ workflowStates: WorkflowStateResponse[] }>(
-    `${apiUrl}/api/workflow-states?token=${token}`,
-    { next: { tags: ['getAllWorkflowStates'] } },
-  )
-  return data.workflowStates
-}
-
-export async function getAllTasks(
-  token: string,
-  filters?: { showArchived?: boolean; showUnarchived?: boolean },
-): Promise<TaskResponse[]> {
-  const queryParams = new URLSearchParams({ token })
-  if (filters?.showArchived !== undefined) {
-    queryParams.append('showArchived', filters.showArchived.toString())
-  }
-  if (filters?.showUnarchived !== undefined) {
-    queryParams.append('showUnarchived', filters.showUnarchived.toString())
-  }
-  const data = await fetchWithErrorHandler<{ tasks: TaskResponse[] }>(`${apiUrl}/api/tasks?${queryParams.toString()}`, {
-    next: { tags: ['getTasks'] },
-  })
-
-  return data.tasks
-}
-
-export async function getTokenPayload(token: string): Promise<Token> {
-  const copilotClient = new CopilotAPI(token)
-  const payload = TokenSchema.parse(await copilotClient.getTokenPayload())
-
-  return payload as Token
-}
-
-export async function getViewSettings(token: string): Promise<CreateViewSettingsDTO> {
-  return fetchWithErrorHandler<CreateViewSettingsDTO>(`${apiUrl}/api/view-settings?token=${token}`, {
-    next: { tags: ['getViewSettings'] },
-  })
-}
 
 export default async function Main(props: {
   searchParams: Promise<{ token: string; taskId?: string } & UrlActionParamsType>
@@ -76,7 +32,7 @@ export default async function Main(props: {
     return <SilentError message="Please provide a Valid Token" />
   }
 
-  const tokenPayload = await getTokenPayload(token)
+  const { user, tokenPayload } = await authenticatePage(token)
   const userRole = tokenPayload.internalUserId ? UserType.INTERNAL_USER : tokenPayload.clientId ? UserType.CLIENT_USER : null
   if (!userRole) {
     return <SilentError message="Please provide a Valid Token" />
@@ -89,10 +45,10 @@ export default async function Main(props: {
     redirectToClientPortal(token)
   }
 
-  const viewSettings = await getViewSettings(token)
+  const viewSettings = await loadViewSettings(user)
   const [workflowStates, tasks] = await Promise.all([
-    getAllWorkflowStates(token),
-    getAllTasks(token, { showArchived: viewSettings.showArchived, showUnarchived: viewSettings.showUnarchived }),
+    loadWorkflowStates(user),
+    loadTasks({ user, showArchived: viewSettings.showArchived, showUnarchived: viewSettings.showUnarchived }),
   ])
 
   console.info(`app/page.tsx | Serving user ${token} with payload`, tokenPayload)
@@ -112,10 +68,10 @@ export default async function Main(props: {
       >
         {/* Async fetchers */}
         <Suspense fallback={null}>
-          <TemplatesFetcher token={token} />
+          <TemplatesFetcher user={user} />
         </Suspense>
         <Suspense fallback={null}>
-          <AllTasksFetcher token={token} />
+          <AllTasksFetcher user={user} />
         </Suspense>
 
         <RealTime tokenPayload={tokenPayload}>

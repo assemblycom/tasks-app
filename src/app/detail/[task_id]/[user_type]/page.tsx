@@ -5,8 +5,8 @@ import { OneTaskDataFetcher } from '@/app/_fetchers/OneTaskDataFetcher'
 import { TemplatesFetcher } from '@/app/_fetchers/TemplatesFetcher'
 import { WorkflowStateFetcher } from '@/app/_fetchers/WorkflowStateFetcher'
 import { UserRole } from '@/app/api/core/types/user'
-import { authenticateWithToken } from '@/app/api/core/utils/authenticate'
-import { loadSubtaskStatus, loadTask, loadTaskPath, loadViewSettings } from '@/app/detail/[task_id]/[user_type]/loaders'
+import { authenticatePage, loadViewSettings } from '@/app/_fetchers/loaders'
+import { loadSubtaskStatus, loadTask, loadTaskPath } from '@/app/detail/[task_id]/[user_type]/loaders'
 import {
   clientUpdateTask,
   deleteAttachment,
@@ -33,7 +33,6 @@ import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { AttachmentProvider } from '@/hoc/PostAttachmentProvider'
 import { RealTime } from '@/hoc/RealTime'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
-import { Token } from '@/types/common'
 import { UserType } from '@/types/interfaces'
 import { getAssigneeCacheLookupKey, UserIdsWithAssociationSharedType } from '@/utils/assignee'
 import EscapeHandler from '@/utils/escapeHandler'
@@ -57,13 +56,7 @@ export default async function TaskDetailPage(props: {
     return <SilentError message="Please provide a Valid Token" />
   }
 
-  const user = await authenticateWithToken(token)
-  const tokenPayload: Token = {
-    internalUserId: user.internalUserId,
-    clientId: user.clientId,
-    companyId: user.companyId,
-    workspaceId: user.workspaceId,
-  }
+  const { user, tokenPayload } = await authenticatePage(token)
 
   const [task, subTaskStatus, taskPath, viewSettings] = await Promise.all([
     loadTask(user, task_id),
@@ -100,6 +93,7 @@ export default async function TaskDetailPage(props: {
     <DetailStateUpdate
       isRedirect={!!searchParams.isRedirect}
       token={token}
+      user={user}
       tokenPayload={tokenPayload}
       task={task}
       viewSettings={viewSettings}
@@ -108,7 +102,7 @@ export default async function TaskDetailPage(props: {
       {/* Templates are IU-only (clients have no TaskTemplates policy); fetching them as a client 401s and crashes the page */}
       {tokenPayload.internalUserId && (
         <Suspense fallback={null}>
-          <TemplatesFetcher token={token} />
+          <TemplatesFetcher user={user} />
         </Suspense>
       )}
       <RealTime tokenPayload={tokenPayload}>
@@ -204,7 +198,7 @@ export default async function TaskDetailPage(props: {
                 : {})}
             >
               <AssigneeCacheGetter lookupKey={getAssigneeCacheLookupKey(user_type, tokenPayload, isPreviewMode)} />
-              <WorkflowStateFetcher token={token} />
+              <WorkflowStateFetcher user={user} />
               <Sidebar
                 task_id={task_id}
                 selectedAssigneeId={task?.assigneeId}
