@@ -1,6 +1,7 @@
 import 'server-only'
 
 import * as Sentry from '@sentry/nextjs'
+import { sentryIgnoreErrors } from '@/utils/sentryIgnoreErrors'
 
 // Trigger.dev runs jobs in a standalone Node process, separate from the Next.js server, so
 // `sentry.server.config.ts` (loaded via instrumentation.ts) never executes here — without
@@ -17,7 +18,7 @@ if (dsn) {
     // integration set (matches Trigger.dev's documented Sentry setup).
     defaultIntegrations: false,
     environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development',
-    ignoreErrors: [/fetch failed/i],
+    ignoreErrors: sentryIgnoreErrors,
   })
 }
 
