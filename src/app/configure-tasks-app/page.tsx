@@ -10,7 +10,7 @@ import { createNewTemplate, deleteTemplate, editTemplate } from './actions'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
 import { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
-import { getTokenPayload } from '@/app/(home)/page'
+import { CopilotAPI } from '@/utils/CopilotAPI'
 import { SilentError } from '@/components/templates/SilentError'
 import { ConfigureTasksAppBridge } from '@/app/configure-tasks-app/ui/ConfigureTasksAppBridge'
 import { AutoArchiveSection } from '@/app/configure-tasks-app/ui/AutoArchiveSection'
@@ -62,7 +62,7 @@ interface ConfigureTasksAppPageProps {
 export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPageProps) {
   const searchParams = await props.searchParams
   const { token } = searchParams
-  const tokenPayload = await getTokenPayload(token)
+  const tokenPayload = await new CopilotAPI(token).getTokenPayload()
   if (!tokenPayload) {
     return <SilentError message="Please provide a Valid Token" />
   }

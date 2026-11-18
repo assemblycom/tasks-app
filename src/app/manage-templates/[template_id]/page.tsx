@@ -1,4 +1,5 @@
-import { getAllWorkflowStates, getTokenPayload } from '@/app/(home)/page'
+import { getAllWorkflowStates } from '@/app/(home)/page'
+import { CopilotAPI } from '@/utils/CopilotAPI'
 import { ResponsiveStack } from '@/app/detail/ui/ResponsiveStack'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
@@ -40,7 +41,7 @@ export default async function TaskDetailPage(props: {
   const { token } = searchParams
   const { template_id } = params
 
-  const tokenPayload = await getTokenPayload(token)
+  const tokenPayload = await new CopilotAPI(token).getTokenPayload()
   if (!tokenPayload) {
     return <SilentError message="Please provide a Valid Token" />
   }

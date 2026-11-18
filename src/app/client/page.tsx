@@ -1,7 +1,7 @@
 export const fetchCache = 'force-no-store'
 
 import { createMultipleAttachments } from '@/app/(home)/actions'
-import { getTokenPayload, getViewSettings } from '@/app/(home)/page'
+import { getViewSettings } from '@/app/(home)/page'
 import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'
 import { AllTasksFetcher } from '@/app/_fetchers/AllTasksFetcher'
 import { TemplatesFetcher } from '@/app/_fetchers/TemplatesFetcher'
@@ -18,6 +18,7 @@ import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { UserType } from '@/types/interfaces'
+import { CopilotAPI } from '@/utils/CopilotAPI'
 import { getPreviewMode } from '@/utils/previewMode'
 import { redirectIfTaskCta } from '@/utils/redirect'
 import { UserRole } from '@api/core/types/user'
@@ -49,7 +50,7 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
     return <SilentError message="Please provide a Valid Token" />
   }
   redirectIfTaskCta(searchParams, UserType.CLIENT_USER)
-  const tokenPayload = await getTokenPayload(token)
+  const tokenPayload = await new CopilotAPI(token).getTokenPayload()
   if (!tokenPayload) {
     return <SilentError message="Please provide a Valid Token" />
   }
