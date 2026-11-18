@@ -60,20 +60,20 @@ describe('database security', () => {
   })
 
   describe('catalog', () => {
-    it('has RLS on every public table outside the Realtime allowlist', async () => {
+    it('has RLS on every public table', async () => {
       const rows = await getTestDb().$queryRaw<{ tablename: string }[]>`
         select tablename from pg_tables
-        where schemaname = 'public' and not rowsecurity
-          and tablename <> all(${REALTIME_TABLES})`
+        where schemaname = 'public' and not rowsecurity`
       expect(rows).toEqual([])
     })
 
-    it('keeps RLS off on Realtime tables so postgres_changes reaches anon subscribers', async () => {
-      const rows = await getTestDb().$queryRaw<{ tablename: string }[]>`
-        select tablename from pg_tables
-        where schemaname = 'public' and rowsecurity
-          and tablename = any(${REALTIME_TABLES})`
-      expect(rows).toEqual([])
+    it('only has SELECT policies, and only on Realtime tables', async () => {
+      const rows = await getTestDb().$queryRaw<{ tablename: string; cmd: string; roles: string[] }[]>`
+        select tablename, cmd, roles::text[] as roles from pg_policies
+        where schemaname = 'public' order by tablename`
+      expect(rows).toEqual(
+        [...REALTIME_TABLES].sort().map((tablename) => ({ tablename, cmd: 'SELECT', roles: ['anon', 'authenticated'] })),
+      )
     })
 
     it('never forces RLS on the table owner', async () => {
