@@ -125,7 +125,6 @@
     "cmd:post-deploy-m15": "tsx ./src/cmd/post-deploy-m15",
     "cmd:backfill-attachments": "tsx ./src/cmd/backfill-attachments",
     "cmd:backfill-initiatorType-in-comments": "tsx ./src/cmd/backfill-initiatorType-in-comments",
-    "db:grant-supabase-privileges": "node src/lib/supabase-privilege",
     "deploy": "npx trigger.dev@latest deploy",
     "dev": "next dev",
     "dev:debug": "nodemon --exec \"node --inspect-brk node_modules/.bin/next dev\"",

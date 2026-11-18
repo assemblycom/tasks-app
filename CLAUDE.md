@@ -65,7 +65,7 @@ When adding an endpoint, replicate this 3-layer split — don't put logic in rou
 
 ### Realtime
 
-- Supabase Realtime drives live updates. `src/lib/realtime.ts` (`RealtimeHandler`) processes `postgres_changes` payloads on the client, reconciles them into Redux, and filters by `workspaceId` and assignee/shared scope. The build step grants anon privileges (`yarn db:grant-supabase-privileges`) so the channel works with only a Copilot token.
+- Supabase Realtime drives live updates. `src/lib/realtime.ts` (`RealtimeHandler`) processes `postgres_changes` payloads on the client, reconciles them into Redux, and filters by `workspaceId` and assignee/shared scope. `anon` can only read `Tasks` and `TaskTemplates` (for the channel); every other public table has RLS on and no API-role grants, and new tables get RLS automatically (`ensure_rls` event trigger). `test/integration/db-security.integration.test.ts` guards this.
 - Client state is Redux Toolkit (`src/redux/`); data fetching is SWR (`src/lib/swr-config.ts`). Optimistic update utils live in `src/utils/optimistic*.ts` and `cascadeOptimistic.ts`.
 
 ### Public API
