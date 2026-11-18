@@ -49,15 +49,16 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
     return <SilentError message="Please provide a Valid Token" />
   }
   redirectIfTaskCta(searchParams, UserType.CLIENT_USER)
-  const [workflowStates, tasks, viewSettings, tokenPayload] = await Promise.all([
-    getAllWorkflowStates(token),
-    getAllTasks(token),
-    getViewSettings(token),
-    getTokenPayload(token),
-  ])
+  const tokenPayload = await getTokenPayload(token)
   if (!tokenPayload) {
     return <SilentError message="Please provide a Valid Token" />
   }
+
+  const [workflowStates, tasks, viewSettings] = await Promise.all([
+    getAllWorkflowStates(token),
+    getAllTasks(token),
+    getViewSettings(token),
+  ])
 
   const previewMode = getPreviewMode(tokenPayload)
 

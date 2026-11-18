@@ -62,16 +62,17 @@ interface ConfigureTasksAppPageProps {
 export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPageProps) {
   const searchParams = await props.searchParams
   const { token } = searchParams
-  const [workflowStates, assignee, templates, tokenPayload, workspaceSetting] = await Promise.all([
-    getAllWorkflowStates(token),
-    addTypeToAssignee(await getAssigneeList(token)),
-    getAllTemplates(token),
-    getTokenPayload(token),
-    getWorkspaceSetting(token),
-  ])
+  const tokenPayload = await getTokenPayload(token)
   if (!tokenPayload) {
     return <SilentError message="Please provide a Valid Token" />
   }
+
+  const [workflowStates, assignee, templates, workspaceSetting] = await Promise.all([
+    getAllWorkflowStates(token),
+    addTypeToAssignee(await getAssigneeList(token)),
+    getAllTemplates(token),
+    getWorkspaceSetting(token),
+  ])
 
   return (
     <ClientSideStateUpdate

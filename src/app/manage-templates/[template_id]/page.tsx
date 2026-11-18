@@ -40,15 +40,12 @@ export default async function TaskDetailPage(props: {
   const { token } = searchParams
   const { template_id } = params
 
-  const [workflowStates, template, tokenPayload] = await Promise.all([
-    getAllWorkflowStates(token),
-    getTemplate(template_id, token),
-    getTokenPayload(token),
-  ])
-
+  const tokenPayload = await getTokenPayload(token)
   if (!tokenPayload) {
     return <SilentError message="Please provide a Valid Token" />
   }
+
+  const [workflowStates, template] = await Promise.all([getAllWorkflowStates(token), getTemplate(template_id, token)])
 
   if (!template) {
     return <DeletedRedirectPage token={token} />
