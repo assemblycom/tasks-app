@@ -20,6 +20,7 @@ import { DeletedRedirectPage } from '@/components/layouts/DeletedRedirectPage'
 import { OneTemplateDataFetcher } from '@/app/_fetchers/OneTemplateDataFetcher'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { getPreviewMode } from '@/utils/previewMode'
+import { SilentError } from '@/components/templates/SilentError'
 
 async function getTemplate(id: string, token: string): Promise<ITemplate> {
   const res = await fetch(`${apiUrl}/api/tasks/templates/${id}?token=${token}`, {
@@ -44,6 +45,10 @@ export default async function TaskDetailPage(props: {
     getTemplate(template_id, token),
     getTokenPayload(token),
   ])
+
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
 
   if (!template) {
     return <DeletedRedirectPage token={token} />

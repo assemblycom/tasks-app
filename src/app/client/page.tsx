@@ -1,7 +1,7 @@
 export const fetchCache = 'force-no-store'
 
 import { createMultipleAttachments } from '@/app/(home)/actions'
-import { getViewSettings } from '@/app/(home)/page'
+import { getTokenPayload, getViewSettings } from '@/app/(home)/page'
 import { AssigneeCacheGetter } from '@/app/_cache/AssigneeCacheGetter'
 import { AllTasksFetcher } from '@/app/_fetchers/AllTasksFetcher'
 import { TemplatesFetcher } from '@/app/_fetchers/TemplatesFetcher'
@@ -13,12 +13,11 @@ import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { RealTime } from '@/hoc/RealTime'
-import { Token, TokenSchema, UrlActionParamsType } from '@/types/common'
+import { UrlActionParamsType } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
 import { UserType } from '@/types/interfaces'
-import { CopilotAPI } from '@/utils/CopilotAPI'
 import { getPreviewMode } from '@/utils/previewMode'
 import { redirectIfTaskCta } from '@/utils/redirect'
 import { UserRole } from '@api/core/types/user'
@@ -43,12 +42,6 @@ async function getAllTasks(token: string): Promise<TaskResponse[]> {
   return data.tasks
 }
 
-async function getTokenPayload(token: string): Promise<Token> {
-  const copilotClient = new CopilotAPI(token)
-  const payload = TokenSchema.parse(await copilotClient.getTokenPayload())
-  return payload as Token
-}
-
 export default async function ClientPage(props: { searchParams: Promise<{ token: string } & UrlActionParamsType> }) {
   const searchParams = await props.searchParams
   const token = searchParams.token
@@ -62,6 +55,9 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
     getViewSettings(token),
     getTokenPayload(token),
   ])
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
 
   const previewMode = getPreviewMode(tokenPayload)
 

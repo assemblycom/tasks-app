@@ -8,10 +8,10 @@ import { addTypeToAssignee } from '@/utils/addTypeToAssignee'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { createNewTemplate, deleteTemplate, editTemplate } from './actions'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
-import { CopilotAPI } from '@/utils/CopilotAPI'
 import { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
-import { Token, TokenSchema } from '@/types/common'
+import { getTokenPayload } from '@/app/(home)/page'
+import { SilentError } from '@/components/templates/SilentError'
 import { ConfigureTasksAppBridge } from '@/app/configure-tasks-app/ui/ConfigureTasksAppBridge'
 import { AutoArchiveSection } from '@/app/configure-tasks-app/ui/AutoArchiveSection'
 import { ClientViewSettingsSection } from '@/app/configure-tasks-app/ui/ClientViewSettingsSection'
@@ -48,11 +48,6 @@ async function getAllTemplates(token: string): Promise<ITemplate[]> {
   return templates.data
 }
 
-async function getTokenPayload(token: string): Promise<Token> {
-  const copilotClient = new CopilotAPI(token)
-  return TokenSchema.parse(await copilotClient.getTokenPayload())
-}
-
 async function getWorkspaceSetting(token: string): Promise<{ autoArchiveAfterDays: number } & ClientViewSettings> {
   const res = await fetch(`${apiUrl}/api/workspace-settings?token=${token}`, { cache: 'no-store' })
   return await res.json()
@@ -74,6 +69,9 @@ export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPage
     getTokenPayload(token),
     getWorkspaceSetting(token),
   ])
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
 
   return (
     <ClientSideStateUpdate
