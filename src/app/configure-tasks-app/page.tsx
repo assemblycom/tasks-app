@@ -8,10 +8,10 @@ import { addTypeToAssignee } from '@/utils/addTypeToAssignee'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { createNewTemplate, deleteTemplate, editTemplate } from './actions'
 import { MAX_FETCH_ASSIGNEE_COUNT } from '@/constants/users'
-import { CopilotAPI } from '@/utils/CopilotAPI'
 import { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
-import { Token, TokenSchema } from '@/types/common'
+import { CopilotAPI } from '@/utils/CopilotAPI'
+import { SilentError } from '@/components/templates/SilentError'
 import { ConfigureTasksAppBridge } from '@/app/configure-tasks-app/ui/ConfigureTasksAppBridge'
 import { AutoArchiveSection } from '@/app/configure-tasks-app/ui/AutoArchiveSection'
 import { ClientViewSettingsSection } from '@/app/configure-tasks-app/ui/ClientViewSettingsSection'
@@ -48,11 +48,6 @@ async function getAllTemplates(token: string): Promise<ITemplate[]> {
   return templates.data
 }
 
-async function getTokenPayload(token: string): Promise<Token> {
-  const copilotClient = new CopilotAPI(token)
-  return TokenSchema.parse(await copilotClient.getTokenPayload())
-}
-
 async function getWorkspaceSetting(token: string): Promise<{ autoArchiveAfterDays: number } & ClientViewSettings> {
   const res = await fetch(`${apiUrl}/api/workspace-settings?token=${token}`, { cache: 'no-store' })
   return await res.json()
@@ -67,11 +62,15 @@ interface ConfigureTasksAppPageProps {
 export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPageProps) {
   const searchParams = await props.searchParams
   const { token } = searchParams
-  const [workflowStates, assignee, templates, tokenPayload, workspaceSetting] = await Promise.all([
+  const tokenPayload = await new CopilotAPI(token).getTokenPayload()
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+
+  const [workflowStates, assignee, templates, workspaceSetting] = await Promise.all([
     getAllWorkflowStates(token),
     addTypeToAssignee(await getAssigneeList(token)),
     getAllTemplates(token),
-    getTokenPayload(token),
     getWorkspaceSetting(token),
   ])
 

@@ -13,7 +13,7 @@ import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { RealTime } from '@/hoc/RealTime'
-import { Token, TokenSchema, UrlActionParamsType } from '@/types/common'
+import { UrlActionParamsType } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
@@ -43,12 +43,6 @@ async function getAllTasks(token: string): Promise<TaskResponse[]> {
   return data.tasks
 }
 
-async function getTokenPayload(token: string): Promise<Token> {
-  const copilotClient = new CopilotAPI(token)
-  const payload = TokenSchema.parse(await copilotClient.getTokenPayload())
-  return payload as Token
-}
-
 export default async function ClientPage(props: { searchParams: Promise<{ token: string } & UrlActionParamsType> }) {
   const searchParams = await props.searchParams
   const token = searchParams.token
@@ -56,11 +50,15 @@ export default async function ClientPage(props: { searchParams: Promise<{ token:
     return <SilentError message="Please provide a Valid Token" />
   }
   redirectIfTaskCta(searchParams, UserType.CLIENT_USER)
-  const [workflowStates, tasks, viewSettings, tokenPayload] = await Promise.all([
+  const tokenPayload = await new CopilotAPI(token).getTokenPayload()
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+
+  const [workflowStates, tasks, viewSettings] = await Promise.all([
     getAllWorkflowStates(token),
     getAllTasks(token),
     getViewSettings(token),
-    getTokenPayload(token),
   ])
 
   const previewMode = getPreviewMode(tokenPayload)
