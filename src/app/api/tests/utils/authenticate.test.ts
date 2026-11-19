@@ -50,6 +50,18 @@ describe('authenticate util', () => {
     }
   })
 
+  it('throws APIError when token payload has no user identity', async () => {
+    const req = buildNextRequest(`/?token=workspace-only-token`)
+    try {
+      await authenticate(req)
+      fail('Expected authenticate function to throw an error, but it did not')
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(APIError)
+      expect((error as APIError).status).toBe(httpStatus.UNAUTHORIZED)
+      expect((error as Error).message).toBe('Failed to authenticate token')
+    }
+  })
+
   it('captures assembly metadata headers when present', async () => {
     const req = new NextRequest(
       new Request(process.env.VERCEL_URL + '/?token=iu-token', {

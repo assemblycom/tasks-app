@@ -21,16 +21,37 @@ export interface AssemblyMetadata {
   userAgent?: string
 }
 
-export const TokenSchema = z.object({
-  clientId: z.string().optional(),
-  companyId: z
-    .string()
-    .transform((val) => (val === 'default' ? undefined : val))
-    .optional(),
-  internalUserId: z.string().optional(),
-  workspaceId: z.string(),
-  notificationId: z.string().optional(),
-})
+export const validateViewSettingUserIds = (
+  data: { internalUserId?: string | null; clientId?: string | null; companyId?: string | null },
+  ctx: z.RefinementCtx,
+) => {
+  if (!data.clientId && !data.companyId && !data.internalUserId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'At least one of clientId, companyId, or internalUserId must be provided',
+    })
+  }
+  if (data.clientId && !data.companyId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'companyId must be provided when clientId is provided',
+      path: ['companyId'],
+    })
+  }
+}
+
+export const TokenSchema = z
+  .object({
+    clientId: z.string().optional(),
+    companyId: z
+      .string()
+      .transform((val) => (val === 'default' ? undefined : val))
+      .optional(),
+    internalUserId: z.string().optional(),
+    workspaceId: z.string(),
+    notificationId: z.string().optional(),
+  })
+  .superRefine(validateViewSettingUserIds)
 export type Token = z.infer<typeof TokenSchema>
 
 export const IUTokenSchema = z.object({
@@ -350,14 +371,7 @@ export const ViewSettingUserIds = z
     clientId: z.string().nullable(),
     companyId: z.string().nullable(),
   })
-  .superRefine((val) => {
-    if (!val.clientId && !val.companyId && !val.internalUserId) {
-      throw new Error('At least one of clientId, companyId, or internalUserId must be provided')
-    }
-    if (val.clientId && !val.companyId) {
-      throw new Error('companyId must be provided when clientId is provided')
-    }
-  })
+  .superRefine(validateViewSettingUserIds)
 export type ViewSettingUserIdsType = z.infer<typeof ViewSettingUserIds>
 
 /**
