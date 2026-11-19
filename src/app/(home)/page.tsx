@@ -10,7 +10,7 @@ import { SilentError } from '@/components/templates/SilentError'
 import { apiUrl } from '@/config'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { RealTime } from '@/hoc/RealTime'
-import { UrlActionParamsType, Token, TokenSchema } from '@/types/common'
+import { UrlActionParamsType } from '@/types/common'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { TaskResponse } from '@/types/dto/tasks.dto'
 import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
@@ -52,13 +52,6 @@ export async function getAllTasks(
   return data.tasks
 }
 
-export async function getTokenPayload(token: string): Promise<Token> {
-  const copilotClient = new CopilotAPI(token)
-  const payload = TokenSchema.parse(await copilotClient.getTokenPayload())
-
-  return payload as Token
-}
-
 export async function getViewSettings(token: string): Promise<CreateViewSettingsDTO> {
   return fetchWithErrorHandler<CreateViewSettingsDTO>(`${apiUrl}/api/view-settings?token=${token}`, {
     next: { tags: ['getViewSettings'] },
@@ -76,7 +69,11 @@ export default async function Main(props: {
     return <SilentError message="Please provide a Valid Token" />
   }
 
-  const tokenPayload = await getTokenPayload(token)
+  const tokenPayload = await new CopilotAPI(token).getTokenPayload()
+  if (!tokenPayload) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+
   const userRole = tokenPayload.internalUserId ? UserType.INTERNAL_USER : tokenPayload.clientId ? UserType.CLIENT_USER : null
   if (!userRole) {
     return <SilentError message="Please provide a Valid Token" />
