@@ -65,7 +65,9 @@ When adding an endpoint, replicate this 3-layer split — don't put logic in rou
 
 ### Realtime
 
-- Supabase Realtime drives live updates. `src/lib/realtime.ts` (`RealtimeHandler`) processes `postgres_changes` payloads on the client, reconciles them into Redux, and filters by `workspaceId` and assignee/shared scope. The build step grants anon privileges (`yarn db:grant-supabase-privileges`) so the channel works with only a Copilot token.
+- Supabase Realtime drives live updates. `src/lib/realtime.ts` (`RealtimeHandler`) processes `postgres_changes` payloads on the client, reconciles them into Redux, and filters by `workspaceId` and assignee/shared scope. Every public table has RLS on. `anon` can only read `Tasks` and `TaskTemplates` (for the channel, via a `SELECT` grant plus a `USING (true)` policy); every other table has no API-role grants or policies, and new tables get RLS automatically (`ensure_rls` event trigger). `test/integration/db-security.integration.test.ts` guards this.
+- **When a change adds a `postgres_changes` subscription on a new table** (or a schema change drops/recreates/renames `Tasks` or `TaskTemplates`), the migration must also `GRANT SELECT ... TO anon, authenticated`, `CREATE POLICY realtime_read ... FOR SELECT TO anon, authenticated USING (true)`, and `ALTER TABLE ... REPLICA IDENTITY FULL`, and the table must be added to `REALTIME_TABLES` in that test. Without these, Realtime silently delivers nothing. Tell the user explicitly that the table becomes readable in full by anyone holding the anon key.
+- **When a migration adds any other table**, don't grant it to `anon`/`authenticated` and don't add policies; RLS with no policy is the intended lockdown. Never `GRANT` to API roles, `DISABLE`/`FORCE ROW LEVEL SECURITY`, or reintroduce a blanket privilege script. If a task seems to require one, stop and ask.
 - Client state is Redux Toolkit (`src/redux/`); data fetching is SWR (`src/lib/swr-config.ts`). Optimistic update utils live in `src/utils/optimistic*.ts` and `cascadeOptimistic.ts`.
 
 ### Public API

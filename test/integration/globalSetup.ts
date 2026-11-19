@@ -11,6 +11,22 @@ export default async function globalSetup(): Promise<void> {
   const container = await new PostgreSqlContainer('postgres:16-alpine').start()
   const url = container.getConnectionUri()
 
+  // Mirror Supabase's starting point: API roles exist and get ALL on every new public table.
+  await container.exec([
+    'psql',
+    '-U',
+    container.getUsername(),
+    '-d',
+    container.getDatabase(),
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-c',
+    `create role anon nologin;
+     create role authenticated nologin;
+     alter default privileges in schema public grant all on tables to anon, authenticated;
+     alter default privileges in schema public grant all on sequences to anon, authenticated;`,
+  ])
+
   // `prisma migrate deploy` runs the real migration history (incl. CREATE EXTENSION ltree),
   // so the schema matches prod exactly. dotenv won't override the env we pass explicitly,
   // so the container URL wins over the dev .env DATABASE_URL/DIRECT_URL.
