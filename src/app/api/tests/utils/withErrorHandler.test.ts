@@ -63,6 +63,66 @@ describe('withErrorHandler util', () => {
     expect(console.error).not.toHaveBeenCalled()
   })
 
+  it('catches Copilot SDK ApiError 400 without logging to Sentry', async () => {
+    const error = new Error('Bad Request') as Error & {
+      status: number
+      body: { message: string }
+    }
+    error.name = 'ApiError'
+    error.status = httpStatus.BAD_REQUEST
+    error.body = { message: 'parameter_invalid' }
+
+    const handler = async (_req: NextRequest, _params: any) => {
+      throw error
+    }
+
+    const nextResponse = await withErrorHandler(handler)(req, null)
+    const response = await nextResponse.json()
+    expect(response.error).toBe('parameter_invalid')
+    expect(nextResponse.status).toBe(httpStatus.BAD_REQUEST)
+    expect(console.error).not.toHaveBeenCalled()
+  })
+
+  it('catches Copilot SDK ApiError 404 without logging', async () => {
+    const error = new Error('Not Found') as Error & {
+      status: number
+      body: { message: string }
+    }
+    error.name = 'ApiError'
+    error.status = httpStatus.NOT_FOUND
+    error.body = { message: "No client found with 'example'" }
+
+    const handler = async (_req: NextRequest, _params: any) => {
+      throw error
+    }
+
+    const nextResponse = await withErrorHandler(handler)(req, null)
+    const response = await nextResponse.json()
+    expect(response.error).toBe("No client found with 'example'")
+    expect(nextResponse.status).toBe(httpStatus.NOT_FOUND)
+    expect(console.error).not.toHaveBeenCalled()
+  })
+
+  it('logs Copilot SDK ApiError 500 responses', async () => {
+    const error = new Error('Internal Server Error') as Error & {
+      status: number
+      body: { message: string }
+    }
+    error.name = 'ApiError'
+    error.status = httpStatus.INTERNAL_SERVER_ERROR
+    error.body = { message: 'upstream failure' }
+
+    const handler = async (_req: NextRequest, _params: any) => {
+      throw error
+    }
+
+    const nextResponse = await withErrorHandler(handler)(req, null)
+    const response = await nextResponse.json()
+    expect(response.error).toBe('upstream failure')
+    expect(nextResponse.status).toBe(httpStatus.INTERNAL_SERVER_ERROR)
+    expect(console.error).toHaveBeenCalledWith(error)
+  })
+
   it('maps Prisma not-found errors to 404 and warns instead of erroring', async () => {
     const error = new PrismaClientKnownRequestError('Record not found', {
       code: 'P2025',

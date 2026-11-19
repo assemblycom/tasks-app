@@ -50,6 +50,24 @@ describe('authenticate util', () => {
     }
   })
 
+  it('throws APIError when token payload contains nil UUID user ids', async () => {
+    const { CopilotAPI } = jest.requireMock('@/utils/CopilotAPI') as {
+      CopilotAPI: jest.Mock
+    }
+    CopilotAPI.mockImplementationOnce(() => ({
+      getTokenPayload: jest.fn().mockResolvedValue({
+        internalUserId: '00000000-0000-0000-0000-000000000000',
+        workspaceId: 'workspace-id',
+      }),
+    }))
+
+    const req = buildNextRequest(`/?token=nil-uuid-token`)
+    await expect(authenticate(req)).rejects.toMatchObject({
+      status: httpStatus.UNAUTHORIZED,
+      message: 'Failed to authenticate token',
+    })
+  })
+
   it('captures assembly metadata headers when present', async () => {
     const req = new NextRequest(
       new Request(process.env.VERCEL_URL + '/?token=iu-token', {
