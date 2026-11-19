@@ -6,7 +6,9 @@ import { mockTokenPayloads, validMockTokens } from '@api/tests/__mocks__/mockDat
 export const mockCopilotAPI = (token: string) => {
   const userRole = Object.keys(validMockTokens).find((key) => validMockTokens[key as UserRole] === token)
 
-  const getTokenPayload = jest.fn().mockReturnValueOnce(mockTokenPayloads[userRole as UserRole] ?? null)
+  const getTokenPayload = jest.fn().mockReturnValueOnce(
+    mockTokenPayloads[userRole as keyof typeof mockTokenPayloads] ?? null,
+  )
 
   return {
     getTokenPayload,
