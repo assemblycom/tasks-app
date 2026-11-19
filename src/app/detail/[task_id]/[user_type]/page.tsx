@@ -56,7 +56,11 @@ export default async function TaskDetailPage(props: {
     return <SilentError message="Please provide a Valid Token" />
   }
 
-  const { user, tokenPayload } = await authenticatePage(token)
+  const auth = await authenticatePage(token)
+  if (!auth) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+  const { user, tokenPayload } = auth
 
   const [task, subTaskStatus, taskPath, viewSettings] = await Promise.all([
     loadTask(user, task_id),

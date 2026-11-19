@@ -35,10 +35,6 @@ echo "👷 Running build script for environment: $VERCEL_ENV"
 ) &
 wait
 
-# Grant anon privileges so realtime channel can work using only Copilot token
-echo "🏃 [3/3] Running grant-supabase-privileges"
-yarn db:grant-supabase-privileges
-
 echo "🌱 [4/4] Seeding paths for all tasks (remove after M13 hits production)"
 yarn prisma db execute --file src/cmd/queries/seed-path-for-tasks.sql
 

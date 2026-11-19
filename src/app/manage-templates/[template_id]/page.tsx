@@ -19,6 +19,7 @@ import { DeletedRedirectPage } from '@/components/layouts/DeletedRedirectPage'
 import { OneTemplateDataFetcher } from '@/app/_fetchers/OneTemplateDataFetcher'
 import { AppMargin, SizeofAppMargin } from '@/hoc/AppMargin'
 import { getPreviewMode } from '@/utils/previewMode'
+import { SilentError } from '@/components/templates/SilentError'
 
 export default async function TaskDetailPage(props: {
   params: Promise<{ template_id: string }>
@@ -29,7 +30,11 @@ export default async function TaskDetailPage(props: {
   const { token } = searchParams
   const { template_id } = params
 
-  const { user, tokenPayload } = await authenticatePage(token)
+  const auth = await authenticatePage(token)
+  if (!auth) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+  const { user, tokenPayload } = auth
   const [workflowStates, template] = await Promise.all([loadWorkflowStates(user), loadTemplate({ user, id: template_id })])
 
   if (!template) {
