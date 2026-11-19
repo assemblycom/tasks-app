@@ -14,12 +14,13 @@ import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } fr
 import { useSelector } from 'react-redux'
 import { Tapwrite } from 'tapwrite'
 import { createUploadFn } from '@/utils/createUploadFn'
+import { getCommentActivityId, isPendingCommentId } from '@/utils/commentActivity'
 import { AttachmentTypes } from '@/types/interfaces'
 
 interface ReplyInputProps {
   token: string
   task_id: string
-  comment: any
+  comment: { details?: { id?: unknown } }
   createComment: (postCommentPayload: CreateComment) => void
   focusReplyInput: boolean
   setFocusReplyInput: Dispatch<SetStateAction<boolean>>
@@ -45,6 +46,7 @@ export const ReplyInput = ({
   const currentUserId = tokenPayload?.internalUserId ?? tokenPayload?.clientId
   const currentUserDetails = assignee.find((el) => el.id === currentUserId)
   const [pendingReplies, setPendingReplies] = useState<{ content: string; taskId: string }[]>([])
+  const commentId = getCommentActivityId(comment.details)
 
   const handleReplySubmission = useCallback(() => {
     let content = detail
@@ -57,19 +59,19 @@ export const ReplyInput = ({
       setDetail('')
       setPendingReplies((prev) => [...prev, { content, taskId: task_id }])
     }
-  }, [comment, detail, task_id])
+  }, [detail, task_id])
 
   useEffect(() => {
-    if (pendingReplies.length > 0 && !comment.details.id.includes('temp-comment')) {
-      const { content, taskId } = pendingReplies[0]
-      createComment({
-        content,
-        taskId,
-        parentId: comment.details.id,
-      })
-      setPendingReplies((prev) => prev.slice(1)) //handling the reply submission 1 by 1
-    }
-  }, [comment.details.id, pendingReplies])
+    if (pendingReplies.length === 0 || !commentId || isPendingCommentId(commentId)) return
+
+    const { content, taskId } = pendingReplies[0]
+    createComment({
+      content,
+      taskId,
+      parentId: commentId,
+    })
+    setPendingReplies((prev) => prev.slice(1)) //handling the reply submission 1 by 1
+  }, [commentId, pendingReplies])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
