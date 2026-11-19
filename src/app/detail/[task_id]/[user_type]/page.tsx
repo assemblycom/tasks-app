@@ -58,6 +58,10 @@ export default async function TaskDetailPage(props: {
   }
 
   const user = await authenticateWithToken(token)
+  if (!user.internalUserId && !user.clientId) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+
   const tokenPayload: Token = {
     internalUserId: user.internalUserId,
     clientId: user.clientId,
