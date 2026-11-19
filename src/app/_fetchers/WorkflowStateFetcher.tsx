@@ -1,23 +1,10 @@
-export const fetchCache = 'force-no-store'
-
-import { apiUrl } from '@/config'
-import { fetchWithErrorHandler } from '@/app/_fetchers/fetchWithErrorHandler'
+import { loadWorkflowStates } from '@/app/_fetchers/loaders'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
-import { WorkflowStateResponse } from '@/types/dto/workflowStates.dto'
-import { PropsWithToken } from '@/types/interfaces'
+import User from '@api/core/models/User.model'
 import { PropsWithChildren } from 'react'
 
-const getAllWorkflowStates = async (token: string): Promise<WorkflowStateResponse[]> => {
-  const data = await fetchWithErrorHandler<{ workflowStates: WorkflowStateResponse[] }>(
-    `${apiUrl}/api/workflow-states?token=${token}`,
-    { next: { tags: ['getAllWorkflowStates'] } },
-  )
-
-  return data.workflowStates
-}
-
-export const WorkflowStateFetcher = async ({ token, children }: PropsWithToken & PropsWithChildren) => {
-  const workflowStates = await getAllWorkflowStates(token)
+export const WorkflowStateFetcher = async ({ user, children }: PropsWithChildren & { user: User }) => {
+  const workflowStates = await loadWorkflowStates(user)
 
   return <ClientSideStateUpdate workflowStates={workflowStates}>{children}</ClientSideStateUpdate>
 }

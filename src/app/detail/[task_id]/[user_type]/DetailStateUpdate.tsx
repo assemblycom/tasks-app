@@ -1,4 +1,5 @@
-import { getAllTasks, getAllWorkflowStates } from '@/app/(home)/page'
+import { loadTasks, loadWorkflowStates } from '@/app/_fetchers/loaders'
+import User from '@api/core/models/User.model'
 import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { SeedActiveTask } from '@/hoc/state-seeders'
 import { Token } from '@/types/common'
@@ -8,6 +9,7 @@ import { CreateViewSettingsDTO } from '@/types/dto/viewSettings.dto'
 interface DetailStateUpdateProps {
   isRedirect?: boolean
   token: string
+  user: User
   tokenPayload: Token | null
   task: TaskResponse
   children: React.ReactNode
@@ -17,6 +19,7 @@ interface DetailStateUpdateProps {
 export const DetailStateUpdate = async ({
   isRedirect,
   token,
+  user,
   tokenPayload,
   task,
   viewSettings,
@@ -33,7 +36,7 @@ export const DetailStateUpdate = async ({
 
   // If flow has been redirected from notifications CTA button directly,
   // we must first get context for tasks and workflowStates
-  const [workflowStates, tasks] = await Promise.all([getAllWorkflowStates(token), getAllTasks(token)])
+  const [workflowStates, tasks] = await Promise.all([loadWorkflowStates(user), loadTasks({ user })])
   return (
     <ClientSideStateUpdate
       workflowStates={workflowStates}
