@@ -1,3 +1,4 @@
+import { AssemblySource } from '@/constants/assemblySource'
 import DBClient from '@/lib/db'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import User from '@api/core/models/User.model'
@@ -24,5 +25,10 @@ export class BaseService {
 
   unsetTransaction() {
     this.db = DBClient.getInstance()
+  }
+
+  // An automation acts as the IU who saved it, so the acting user is a proxy for someone who is not present.
+  protected get isAutomationActor(): boolean {
+    return this.user.assemblyMetadata?.source === AssemblySource.automation
   }
 }

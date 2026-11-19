@@ -1,3 +1,4 @@
+import { AssemblySource } from '@/constants/assemblySource'
 import { TokenSchema } from '@/types/common'
 import { CopilotAPI } from '@/utils/CopilotAPI'
 import APIError from '@api/core/exceptions/api'
@@ -50,7 +51,7 @@ const authenticate = async (req: NextRequest) => {
   // Capture assembly proxy metadata headers, falling back to browser headers
   const isPublicRoute = req.nextUrl.pathname.includes('/public/')
   user.assemblyMetadata = {
-    source: req.headers.get('x-assembly-source') ?? (isPublicRoute ? 'platform' : 'web'),
+    source: req.headers.get('x-assembly-source') ?? (isPublicRoute ? AssemblySource.platform : AssemblySource.web),
     clientIp: req.headers.get('x-assembly-client-ip') ?? req.headers.get('x-real-ip') ?? undefined,
     userAgent: req.headers.get('x-assembly-user-agent') ?? req.headers.get('user-agent') ?? undefined,
   }
