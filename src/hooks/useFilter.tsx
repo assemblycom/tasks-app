@@ -189,15 +189,14 @@ export const useFilter = (filterOptions: IFilterOptions, isPreviewMode: boolean)
     }
 
     const filteredTasks = [...filteredParentTasks, ...standaloneSubtasks]
-
-    startTransition(() => {
-      store.dispatch(setFilteredTasks(filteredTasks))
-    })
+    store.dispatch(setFilteredTasks(filteredTasks))
   }
 
   useEffect(() => {
-    applyFilter(tasks, filterOptions)
-  }, [tasks, accessibleTasks, filterOptions])
+    startTransition(() => {
+      applyFilter(tasks, filterOptions)
+    })
+  }, [tasks, accessibleTasks, filterOptions, showArchived, showUnarchived])
 
   useEffect(() => {
     if (assignee?.length) {
