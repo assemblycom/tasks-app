@@ -32,7 +32,11 @@ export default async function Main(props: {
     return <SilentError message="Please provide a Valid Token" />
   }
 
-  const { user, tokenPayload } = await authenticatePage(token)
+  const auth = await authenticatePage(token)
+  if (!auth) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+  const { user, tokenPayload } = auth
   const userRole = tokenPayload.internalUserId ? UserType.INTERNAL_USER : tokenPayload.clientId ? UserType.CLIENT_USER : null
   if (!userRole) {
     return <SilentError message="Please provide a Valid Token" />

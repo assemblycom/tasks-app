@@ -37,8 +37,13 @@ export const toTokenPayload = (user: User): Token => ({
 })
 
 export const authenticatePage = async (token: string) => {
-  const user = await authenticateWithToken(token)
-  return { user, tokenPayload: toTokenPayload(user) }
+  try {
+    const user = await authenticateWithToken(token)
+    return { user, tokenPayload: toTokenPayload(user) }
+  } catch (err) {
+    if (err instanceof APIError && err.status === httpStatus.UNAUTHORIZED) return null
+    throw err
+  }
 }
 
 // Detail page's redirect flow loads these in both DetailStateUpdate and WorkflowStateFetcher

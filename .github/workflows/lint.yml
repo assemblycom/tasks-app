@@ -34,3 +34,8 @@ jobs:
       # Broaden this once those are resolved.
       - name: Run tests
         run: yarn test src/jobs
+
+      - name: Run integration tests
+        run: yarn test:integration
+        env:
+          NEXT_PUBLIC_ASSEMBLY_API_DOMAIN: https://example.com

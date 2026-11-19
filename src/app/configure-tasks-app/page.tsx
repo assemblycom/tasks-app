@@ -13,6 +13,7 @@ import { ClientSideStateUpdate } from '@/hoc/ClientSideStateUpdate'
 import { createNewTemplate, deleteTemplate, editTemplate } from './actions'
 import { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/dto/templates.dto'
 import { RealTimeTemplates } from '@/hoc/RealtimeTemplates'
+import { SilentError } from '@/components/templates/SilentError'
 import { ConfigureTasksAppBridge } from '@/app/configure-tasks-app/ui/ConfigureTasksAppBridge'
 import { AutoArchiveSection } from '@/app/configure-tasks-app/ui/AutoArchiveSection'
 import { ClientViewSettingsSection } from '@/app/configure-tasks-app/ui/ClientViewSettingsSection'
@@ -28,7 +29,11 @@ interface ConfigureTasksAppPageProps {
 export default async function ConfigureTasksAppPage(props: ConfigureTasksAppPageProps) {
   const searchParams = await props.searchParams
   const { token } = searchParams
-  const { user, tokenPayload } = await authenticatePage(token)
+  const auth = await authenticatePage(token)
+  if (!auth) {
+    return <SilentError message="Please provide a Valid Token" />
+  }
+  const { user, tokenPayload } = auth
   const [workflowStates, assignee, templates, workspaceSetting] = await Promise.all([
     loadWorkflowStates(user),
     loadAssignees(user).then(addTypeToAssignee),
