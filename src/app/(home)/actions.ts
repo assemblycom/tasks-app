@@ -1,5 +1,7 @@
 'use server'
 
+import { AttachmentsService } from '@/app/api/attachments/attachments.service'
+import { authenticateWithToken } from '@/app/api/core/utils/authenticate'
 import { apiUrl } from '@/config'
 import { CreateAttachmentRequest } from '@/types/dto/attachments.dto'
 import { CreateTaskRequest, UpdateTaskRequest } from '@/types/dto/tasks.dto'
@@ -67,14 +69,13 @@ export const createMultipleAttachments = async (token: string, attachments: Crea
 }
 
 export async function getSignedUrlUpload(token: string, fileName: string, filePath: string) {
-  const res = await fetch(`${apiUrl}/api/attachments/upload?token=${token}&fileName=${fileName}&filePath=${filePath}`)
-
-  const data = await res.json()
-  return data.signedUrl
+  const user = await authenticateWithToken(token)
+  const attachmentsService = new AttachmentsService(user)
+  return attachmentsService.signUrlUpload(fileName, filePath)
 }
 
 export const getSignedUrlFile = async (token: string, filePath: string) => {
-  const res = await fetch(`${apiUrl}/api/attachments/sign-url?token=${token}&filePath=${filePath}`)
-  const data = await res.json()
-  return data.signedUrl
+  const user = await authenticateWithToken(token)
+  const attachmentsService = new AttachmentsService(user)
+  return attachmentsService.getSignedUrl(filePath)
 }
