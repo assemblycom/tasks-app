@@ -196,6 +196,7 @@ export default function TemplateDetails({
 
       // Firefox hides the caret after drag-and-drop; a blur/focus cycle forces it to repaint.
       requestAnimationFrame(() => {
+        if (!proseMirrorEl?.isConnected) return
         ;(proseMirrorEl as HTMLElement)?.blur()
         ;(proseMirrorEl as HTMLElement)?.focus()
       })
@@ -219,7 +220,7 @@ export default function TemplateDetails({
   const handleSidebarFieldInsert = useCallback((fieldKey: string) => {
     // 1. Title was last focused — TipTap's .focus() restores its stored cursor position
     const titleEditor = titleEditorRef.current
-    if (lastFocusedRef.current === 'title' && titleEditor) {
+    if (lastFocusedRef.current === 'title' && titleEditor && !titleEditor.isDestroyed) {
       titleEditor
         .chain()
         .focus()
