@@ -41,6 +41,7 @@ import { getPreviewMode } from '@/utils/previewMode'
 import { checkIfTaskViewer } from '@/utils/taskViewer'
 import { truncateText } from '@/utils/truncateText'
 import { Box, Stack } from '@mui/material'
+import * as Sentry from '@sentry/nextjs'
 import { Suspense } from 'react'
 import { z } from 'zod'
 
@@ -58,6 +59,13 @@ export default async function TaskDetailPage(props: {
   }
 
   const user = await authenticateWithToken(token)
+  if (!user.internalUserId && !user.clientId && !user.companyId) {
+    Sentry.captureMessage('Token payload has no user identity', {
+      extra: { workspaceId: user.workspaceId, taskId: task_id, userType: user_type, searchParams },
+    })
+    return <SilentError message="Please provide a Valid Token" />
+  }
+
   const tokenPayload: Token = {
     internalUserId: user.internalUserId,
     clientId: user.clientId,
